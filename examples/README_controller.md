@@ -2,7 +2,7 @@
 
 Implements a homie5 controller that will discover all homie5 devices on a mqtt broker and print out the devices and their property updates
 
-### run like this:
+### How to run this example
 
 This example needs a running mqtt broker.
 Set the following environment variable to make it work:
