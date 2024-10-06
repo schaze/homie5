@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum Homie5ProtocolError {
     #[error("Error Subscribing to topic")]
     SubscribeError,
