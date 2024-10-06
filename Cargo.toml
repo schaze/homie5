@@ -2,6 +2,14 @@
 name = "homie5"
 version = "0.1.0"
 edition = "2021"
+publish = true
+description = "Low level implemenation of the homie v5 protocol"
+repository = "https://github.com/schaze/homie5"
+license = "MIT"
+license-file = "LICENSE"
+authors = ["schaze <schazet@gmail.com>"]
+readme = "README.md"
+keywords = ["homie", "iot", "mqtt"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
