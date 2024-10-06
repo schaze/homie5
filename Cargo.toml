@@ -6,7 +6,6 @@ publish = true
 description = "Low level implemenation of the homie v5 protocol"
 repository = "https://github.com/schaze/homie5"
 license = "MIT"
-license-file = "LICENSE"
 authors = ["schaze <schazet@gmail.com>"]
 readme = "README.md"
 keywords = ["homie", "iot", "mqtt"]
