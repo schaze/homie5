@@ -297,20 +297,6 @@ impl HomieValue {
         }
     }
 
-    //    fn validate_float(value: f64, fr: &FloatRange) -> Result<f64, Homie5ValueConversionError> {
-    //        let base = fr.min.or(fr.max).unwrap_or(value);
-    //        let rounded = match fr.step {
-    //            Some(s) if s > 0.0 => (value - base).div_euclid(s).round().mul_add(s, base),
-    //            _ => value,
-    //        };
-    //
-    //        if fr.min.map_or(true, |m| rounded >= m) && fr.max.map_or(true, |m| rounded <= m) {
-    //            Ok(rounded)
-    //        } else {
-    //            Err(Homie5ValueConversionError)
-    //        }
-    //    }
-
     fn validate_int(value: i64, ir: &IntegerRange) -> Result<i64, Homie5ValueConversionError> {
         // Use the minimum or maximum as the base, or use the current value
         let base = ir.min.or(ir.max).unwrap_or(value);
@@ -328,18 +314,4 @@ impl HomieValue {
             Err(Homie5ValueConversionError)
         }
     }
-
-    //fn validate_int(value: i64, ir: &IntegerRange) -> Result<i64, Homie5ValueConversionError> {
-    //    let base = ir.min.or(ir.max).unwrap_or(value);
-    //    let rounded = match ir.step {
-    //        Some(s) if s > 0 => ((value - base) as f64 / s as f64).round() as i64 * s + base,
-    //        _ => value,
-    //    };
-
-    //    if ir.min.map_or(true, |m| rounded >= m) && ir.max.map_or(true, |m| rounded <= m) {
-    //        Ok(rounded)
-    //    } else {
-    //        Err(Homie5ValueConversionError)
-    //    }
-    //}
 }

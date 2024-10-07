@@ -516,8 +516,8 @@ fn test_validation_integer_ok() {
         .format(
             // Test cases for IntegerRange
             HomiePropertyFormat::IntegerRange(IntegerRange {
-                min: Some(0),
-                max: Some(20),
+                min: None,
+                max: Some(10),
                 step: Some(2),
             }),
         )
