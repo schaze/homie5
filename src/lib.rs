@@ -5,13 +5,13 @@ mod device_proto;
 mod error;
 mod homie5_message;
 mod statemachine;
-mod values;
+mod value;
 
 pub use controller_proto::*;
 pub use device_proto::*;
 pub use error::Homie5ProtocolError;
 pub use homie5_message::*;
-pub use values::*;
+pub use value::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +65,7 @@ pub struct ValueMappingDefintion {
     outgoing: ValueMappingList,
 }
 
-#[derive(Serialize, Deserialize, Default, Clone, Hash, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Clone, Hash, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum HomieDataType {
     #[default]
@@ -196,6 +196,10 @@ pub trait ToTopic {
     fn to_topic_with_subpath(&self, subpath: &str) -> String;
 }
 
+//===========================================================
+//=== DEVICE
+//===========================================================
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub struct DeviceIdentifier {
     pub topic_root: String,
@@ -208,28 +212,31 @@ impl DeviceIdentifier {
             id: device_id,
         }
     }
+    pub fn device_id(&self) -> &str {
+        &self.id
+    }
 }
 
 impl PartialEq<PropertyIdentifier> for DeviceIdentifier {
     fn eq(&self, other: &PropertyIdentifier) -> bool {
-        other == self
+        other.node.device == *self
     }
 }
 
 impl PartialEq<PropertyIdentifier> for &DeviceIdentifier {
     fn eq(&self, other: &PropertyIdentifier) -> bool {
-        other == self
+        other.node.device == **self
     }
 }
 impl PartialEq<NodeIdentifier> for DeviceIdentifier {
     fn eq(&self, other: &NodeIdentifier) -> bool {
-        other == self
+        other.device == *self
     }
 }
 
 impl PartialEq<NodeIdentifier> for &DeviceIdentifier {
     fn eq(&self, other: &NodeIdentifier) -> bool {
-        other == self
+        other.device == **self
     }
 }
 impl ToTopic for DeviceIdentifier {
@@ -247,6 +254,16 @@ impl From<&PropertyIdentifier> for DeviceIdentifier {
     }
 }
 
+impl From<&NodeIdentifier> for DeviceIdentifier {
+    fn from(value: &NodeIdentifier) -> Self {
+        value.device.clone()
+    }
+}
+
+//===========================================================
+//=== NODE
+//===========================================================
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub struct NodeIdentifier {
     pub device: DeviceIdentifier,
@@ -262,6 +279,14 @@ impl NodeIdentifier {
     }
     pub fn from_device(device: DeviceIdentifier, node_id: String) -> Self {
         Self { device, id: node_id }
+    }
+
+    pub fn node_id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn device_id(&self) -> &str {
+        &self.device.id
     }
 }
 impl PartialEq<DeviceIdentifier> for NodeIdentifier {
@@ -279,6 +304,17 @@ impl PartialEq<&DeviceIdentifier> for NodeIdentifier {
 impl PartialEq<DeviceIdentifier> for &NodeIdentifier {
     fn eq(&self, other: &DeviceIdentifier) -> bool {
         &self.device == other
+    }
+}
+impl PartialEq<PropertyIdentifier> for NodeIdentifier {
+    fn eq(&self, other: &PropertyIdentifier) -> bool {
+        *self == other.node
+    }
+}
+
+impl PartialEq<PropertyIdentifier> for &NodeIdentifier {
+    fn eq(&self, other: &PropertyIdentifier) -> bool {
+        **self == other.node
     }
 }
 
@@ -303,6 +339,10 @@ impl From<&PropertyIdentifier> for NodeIdentifier {
     }
 }
 
+//===========================================================
+//=== PROPERTY
+//===========================================================
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub struct PropertyIdentifier {
     pub node: NodeIdentifier,
@@ -319,6 +359,18 @@ impl PropertyIdentifier {
 
     pub fn from_node(node: NodeIdentifier, prop_id: String) -> Self {
         Self { node, id: prop_id }
+    }
+
+    pub fn prop_id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn node_id(&self) -> &str {
+        &self.node.id
+    }
+
+    pub fn device_id(&self) -> &str {
+        &self.node.device.id
     }
 }
 

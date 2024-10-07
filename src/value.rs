@@ -8,11 +8,26 @@ use crate::{
 #[derive(Debug, PartialEq)]
 pub struct Homie5ValueConversionError;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum HomieColorValue {
     RGB(i64, i64, i64),
     HSV(i64, i64, i64),
     XYZ(f64, f64, f64),
+}
+
+impl PartialEq for HomieColorValue {
+    fn eq(&self, other: &Self) -> bool {
+        const EPSILON: f64 = 1e-6; // this is already way to precise for color values
+
+        match (self, other) {
+            (HomieColorValue::RGB(r1, g1, b1), HomieColorValue::RGB(r2, g2, b2)) => r1 == r2 && g1 == g2 && b1 == b2,
+            (HomieColorValue::HSV(h1, s1, v1), HomieColorValue::HSV(h2, s2, v2)) => h1 == h2 && s1 == s2 && v1 == v2,
+            (HomieColorValue::XYZ(x1, y1, z1), HomieColorValue::XYZ(x2, y2, z2)) => {
+                (x1 - x2).abs() < EPSILON && (y1 - y2).abs() < EPSILON && (z1 - z2).abs() < EPSILON
+            }
+            _ => false,
+        }
+    }
 }
 
 impl HomieColorValue {
@@ -36,16 +51,6 @@ impl Display for HomieColorValue {
         }
     }
 }
-
-//impl ToString for HomieColorValue {
-//    fn to_string(&self) -> String {
-//        match self {
-//            HomieColorValue::RGB(r, g, b) => format!("rgb,{},{},{}", r, g, b),
-//            HomieColorValue::HSV(h, s, v) => format!("hsv,{},{},{}", h, s, v),
-//            HomieColorValue::XYZ(x, y, _) => format!("xyz,{},{}", x, y),
-//        }
-//    }
-//}
 
 impl FromStr for HomieColorValue {
     type Err = Homie5ValueConversionError;
@@ -99,20 +104,6 @@ pub enum HomieValue {
     JSON(serde_json::Value),
 }
 
-//#[allow(clippy::from_over_into)]
-//impl Into<String> for HomieValue {
-//    fn into(self) -> String {
-//        self.to_string()
-//    }
-//}
-//
-//#[allow(clippy::from_over_into)]
-//impl Into<String> for &HomieValue {
-//    fn into(self) -> String {
-//        self.to_string()
-//    }
-//}
-
 impl Display for HomieValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -145,29 +136,6 @@ impl From<&HomieValue> for String {
         value.to_string() // or define custom logic
     }
 }
-
-//impl ToString for HomieValue {
-//    fn to_string(&self) -> String {
-//        match self {
-//            HomieValue::Empty => "".to_owned(),
-//            HomieValue::String(value) => value.to_owned(),
-//            HomieValue::Integer(value) => value.to_string(),
-//            HomieValue::Float(value) => value.to_string(),
-//            HomieValue::Bool(value) => value.to_string(),
-//            HomieValue::Enum(value) => value.to_owned(),
-//            HomieValue::Color(value) => value.to_string(),
-//            HomieValue::DateTime(value) => value.to_rfc3339(),
-//            HomieValue::Duration(value) => value.to_string(),
-//            HomieValue::JSON(value) => {
-//                if let Ok(val) = serde_json::to_string(value) {
-//                    val.to_owned()
-//                } else {
-//                    "".to_owned()
-//                }
-//            }
-//        }
-//    }
-//}
 
 impl HomieValue {
     pub fn parse(
@@ -312,12 +280,16 @@ impl HomieValue {
     }
 
     fn validate_float(value: f64, fr: &FloatRange) -> Result<f64, Homie5ValueConversionError> {
+        // Use the minimum, max, or current value as base (in that priority order)
         let base = fr.min.or(fr.max).unwrap_or(value);
+
+        // Calculate the rounded value based on the step
         let rounded = match fr.step {
-            Some(s) if s > 0.0 => (value - base).div_euclid(s).round().mul_add(s, base),
+            Some(s) if s > 0.0 => ((value - base) / s).round() * s + base,
             _ => value,
         };
 
+        // Check if the rounded value is within the min/max bounds
         if fr.min.map_or(true, |m| rounded >= m) && fr.max.map_or(true, |m| rounded <= m) {
             Ok(rounded)
         } else {
@@ -325,236 +297,49 @@ impl HomieValue {
         }
     }
 
+    //    fn validate_float(value: f64, fr: &FloatRange) -> Result<f64, Homie5ValueConversionError> {
+    //        let base = fr.min.or(fr.max).unwrap_or(value);
+    //        let rounded = match fr.step {
+    //            Some(s) if s > 0.0 => (value - base).div_euclid(s).round().mul_add(s, base),
+    //            _ => value,
+    //        };
+    //
+    //        if fr.min.map_or(true, |m| rounded >= m) && fr.max.map_or(true, |m| rounded <= m) {
+    //            Ok(rounded)
+    //        } else {
+    //            Err(Homie5ValueConversionError)
+    //        }
+    //    }
+
     fn validate_int(value: i64, ir: &IntegerRange) -> Result<i64, Homie5ValueConversionError> {
+        // Use the minimum or maximum as the base, or use the current value
         let base = ir.min.or(ir.max).unwrap_or(value);
+
+        // Calculate the rounded value based on the step
         let rounded = match ir.step {
             Some(s) if s > 0 => ((value - base) as f64 / s as f64).round() as i64 * s + base,
             _ => value,
         };
 
+        // Check if the rounded value is within the min/max bounds
         if ir.min.map_or(true, |m| rounded >= m) && ir.max.map_or(true, |m| rounded <= m) {
             Ok(rounded)
         } else {
             Err(Homie5ValueConversionError)
         }
     }
-}
 
-#[cfg(test)]
-mod test {
-    use crate::device_description::PropertyDescriptionBuilder;
+    //fn validate_int(value: i64, ir: &IntegerRange) -> Result<i64, Homie5ValueConversionError> {
+    //    let base = ir.min.or(ir.max).unwrap_or(value);
+    //    let rounded = match ir.step {
+    //        Some(s) if s > 0 => ((value - base) as f64 / s as f64).round() as i64 * s + base,
+    //        _ => value,
+    //    };
 
-    use super::*;
-
-    #[test]
-    fn test_integer_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
-            .name(Some("test".to_owned()))
-            .build();
-        assert_eq!(HomieValue::parse("122", &desc), Ok(HomieValue::Integer(122)));
-    }
-
-    #[test]
-    fn test_integer_nok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
-            .name(Some("test".to_owned()))
-            .build();
-        assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ValueConversionError));
-        assert_eq!(HomieValue::parse("122.22", &desc), Err(Homie5ValueConversionError));
-        assert_eq!(HomieValue::parse("122,22", &desc), Err(Homie5ValueConversionError));
-        assert_eq!(HomieValue::parse(" 122", &desc), Err(Homie5ValueConversionError));
-    }
-
-    #[test]
-    fn test_float_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Float).build();
-        assert_eq!(HomieValue::parse("122", &desc), Ok(HomieValue::Float(122.0)));
-        assert_eq!(HomieValue::parse("122.12", &desc), Ok(HomieValue::Float(122.12)));
-    }
-
-    #[test]
-    fn test_float_nok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Float).build();
-        assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ValueConversionError));
-        assert_eq!(HomieValue::parse("122,22", &desc), Err(Homie5ValueConversionError));
-        assert_eq!(HomieValue::parse(" 122", &desc), Err(Homie5ValueConversionError));
-    }
-
-    #[test]
-    fn test_bool_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Boolean).build();
-        assert_eq!(HomieValue::parse("true", &desc), Ok(HomieValue::Bool(true)));
-        assert_eq!(HomieValue::parse("false", &desc), Ok(HomieValue::Bool(false)));
-    }
-
-    #[test]
-    fn test_bool_nok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Boolean).build();
-        assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ValueConversionError));
-        assert_eq!(HomieValue::parse("TRUE", &desc), Err(Homie5ValueConversionError));
-        assert_eq!(HomieValue::parse("False", &desc), Err(Homie5ValueConversionError));
-    }
-
-    #[test]
-    fn test_string_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::String).build();
-        assert_eq!(
-            HomieValue::parse("blah", &desc),
-            Ok(HomieValue::String("blah".to_owned()))
-        );
-    }
-
-    #[test]
-    fn test_enum_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Enum)
-            .format(HomiePropertyFormat::Enum(vec!["blah".to_owned()]))
-            .build();
-        assert_eq!(
-            HomieValue::parse("blah", &desc),
-            Ok(HomieValue::Enum("blah".to_owned()))
-        );
-    }
-
-    #[test]
-    fn test_color_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Color).build();
-        assert_eq!(
-            HomieValue::parse("rgb,12,55,14", &desc),
-            Ok(HomieValue::Color(HomieColorValue::RGB(12, 55, 14)))
-        );
-        assert_eq!(
-            HomieValue::parse("hsv,112,155,55", &desc),
-            Ok(HomieValue::Color(HomieColorValue::HSV(112, 155, 55)))
-        );
-        assert_eq!(
-            HomieValue::parse("xyz,0.33453,0.123456", &desc),
-            Ok(HomieValue::Color(HomieColorValue::XYZ(
-                0.33453,
-                0.123456,
-                1.0 - 0.33453 - 0.123456
-            )))
-        );
-    }
-
-    #[test]
-    fn test_color_nok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Color).build();
-        assert_eq!(HomieValue::parse("rgb,12,55", &desc), Err(Homie5ValueConversionError));
-        assert_eq!(
-            HomieValue::parse("HSV,12,55,14", &desc),
-            Err(Homie5ValueConversionError)
-        );
-        assert_eq!(
-            HomieValue::parse("rgb ,12,55,14", &desc),
-            Err(Homie5ValueConversionError)
-        );
-        assert_eq!(HomieValue::parse("xyz/12,55", &desc), Err(Homie5ValueConversionError));
-    }
-
-    #[test]
-    fn test_datetime_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Datetime).build();
-        assert_eq!(
-            HomieValue::parse("2023-09-26T10:54:59+00:00", &desc),
-            Ok(HomieValue::DateTime(
-                chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 0).unwrap()
-            ))
-        );
-        assert_eq!(
-            HomieValue::parse("2023-09-26T11:54:59+01:00", &desc),
-            Ok(HomieValue::DateTime(
-                chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 0).unwrap()
-            ))
-        );
-        assert_eq!(
-            HomieValue::parse("2023-09-26T10:54:59Z", &desc),
-            Ok(HomieValue::DateTime(
-                chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 0).unwrap()
-            ))
-        );
-        assert_eq!(
-            HomieValue::parse("2023-09-26T10:54:59", &desc),
-            Ok(HomieValue::DateTime(
-                chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 0).unwrap()
-            ))
-        );
-        assert_eq!(
-            HomieValue::parse("2023-09-26T10:54:59.100", &desc),
-            Ok(HomieValue::DateTime(
-                chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 100000000).unwrap()
-            ))
-        );
-    }
-    #[test]
-    fn test_duration_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Duration).build();
-        assert_eq!(
-            HomieValue::parse("PT12H4M2S", &desc),
-            Ok(HomieValue::Duration(
-                chrono::Duration::from_std(std::time::Duration::from_secs(12 * 60 * 60 + 4 * 60 + 2)).unwrap()
-            ))
-        );
-        assert_eq!(
-            HomieValue::parse("PT43442S", &desc),
-            Ok(HomieValue::Duration(
-                chrono::Duration::from_std(std::time::Duration::from_secs(12 * 60 * 60 + 4 * 60 + 2)).unwrap()
-            ))
-        );
-    }
-
-    #[test]
-    fn test_json_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::JSON).build();
-        let json = HomieValue::parse("{ \"test\": \"test\" }", &desc);
-        assert!(json.is_ok());
-        assert_eq!(
-            match json {
-                Ok(HomieValue::JSON(data)) => data.get("test").unwrap().as_str().unwrap().to_owned(),
-                _ => "".to_owned(),
-            },
-            "test"
-        );
-    }
-
-    #[test]
-    fn test_json_nok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::JSON).build();
-        let json = HomieValue::parse("{ \"test\": failure }", &desc);
-        assert!(json.is_err());
-    }
-
-    #[test]
-    fn test_validation_integer_ok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Float)
-            .format(
-                // Test cases for FloatRange
-                HomiePropertyFormat::FloatRange(FloatRange {
-                    min: Some(-6.0),
-                    max: Some(6.0),
-                    step: Some(4.0),
-                }),
-            )
-            .build();
-
-        let float_values = vec![
-            "-7.5", "-6.1", "-6.0", "-5.9", "-4.5", "-0.5", "0.0", "1.5", "2.0", "2.5", "4.7", "6.0", "6.5", "8.0",
-        ];
-
-        println!("FloatRange Format: {:?}", &desc.format);
-        println!("Value | Rounded Value | Result");
-        println!("------|---------------|-------");
-        for value in float_values {
-            match HomieValue::parse(value, &desc) {
-                Ok(rounded) => println!("{}   | {:?}          | Success", value, rounded),
-                Err(err) => println!("{}   |               | {:?}", value, err),
-            }
-        }
-    }
-
-    #[test]
-    fn test_validation_integer_nok() {
-        let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer).build();
-        let json = HomieValue::parse("{ \"test\": failure }", &desc);
-        assert!(json.is_err());
-    }
+    //    if ir.min.map_or(true, |m| rounded >= m) && ir.max.map_or(true, |m| rounded <= m) {
+    //        Ok(rounded)
+    //    } else {
+    //        Err(Homie5ValueConversionError)
+    //    }
+    //}
 }

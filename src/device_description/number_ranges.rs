@@ -18,14 +18,19 @@ impl FloatRange {
     }
 
     pub fn validate_float_range(min: Option<f64>, max: Option<f64>, step: Option<f64>) -> bool {
+        if let Some(step) = step {
+            if step <= 0.0 {
+                return false;
+            }
+        }
         match (min, max, step) {
             (Some(min), Some(max), None) => {
-                if min >= max {
+                if min > max {
                     return false;
                 }
             }
             (Some(min), Some(max), Some(step)) => {
-                if min >= max {
+                if min > max {
                     return false;
                 }
                 if step > max - min {
@@ -35,10 +40,6 @@ impl FloatRange {
             _ => {}
         }
         true
-    }
-
-    pub fn validate(&self) -> bool {
-        Self::validate_float_range(self.min, self.max, self.step)
     }
 
     pub fn parse(raw: &str) -> Result<Self, HomiePropertyFormatError> {
@@ -138,15 +139,20 @@ impl IntegerRange {
         self.min.is_none() && self.max.is_none() && self.step.is_none()
     }
 
-    pub fn validate_float_range(min: Option<i64>, max: Option<i64>, step: Option<i64>) -> bool {
+    pub fn validate_integer_range(min: Option<i64>, max: Option<i64>, step: Option<i64>) -> bool {
+        if let Some(step) = step {
+            if step <= 0 {
+                return false;
+            }
+        }
         match (min, max, step) {
             (Some(min), Some(max), None) => {
-                if min >= max {
+                if min > max {
                     return false;
                 }
             }
             (Some(min), Some(max), Some(step)) => {
-                if min >= max {
+                if min > max {
                     return false;
                 }
                 if step > max - min {
@@ -156,10 +162,6 @@ impl IntegerRange {
             _ => {}
         }
         true
-    }
-
-    pub fn validate(&self) -> bool {
-        Self::validate_float_range(self.min, self.max, self.step)
     }
 
     pub fn parse(raw: &str) -> Result<Self, HomiePropertyFormatError> {
@@ -192,7 +194,7 @@ impl IntegerRange {
                 return Err(HomiePropertyFormatError::RangeFormatError);
             }
         }
-        if !Self::validate_float_range(res[0], res[1], res[2]) {
+        if !Self::validate_integer_range(res[0], res[1], res[2]) {
             return Err(HomiePropertyFormatError::RangeFormatError);
         }
         Ok(Self {
