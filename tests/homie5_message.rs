@@ -1,4 +1,3 @@
-
 use bytes::Bytes;
 
 use homie5::{DEFAULT_ROOT_TOPIC, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION};
@@ -71,7 +70,7 @@ fn test_valid_state_event() {
     let p = rumqttc::Publish {
         dup: false,
         qos: rumqttc::QoS::ExactlyOnce,
-        payload: Bytes::from(HomieDeviceStatus::Ready.to_str()),
+        payload: Bytes::from(HomieDeviceStatus::Ready.as_str()),
         pkid: 0,
         topic: format!(
             "{}/{}/{}/{}",

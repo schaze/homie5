@@ -25,19 +25,6 @@ fn test_homie_data_type_deserialize() {
 }
 
 #[test]
-fn test_homie_data_type_to_str() {
-    assert_eq!(HomieDataType::Integer.to_str(), "integer");
-    assert_eq!(HomieDataType::Float.to_str(), "float");
-    assert_eq!(HomieDataType::Boolean.to_str(), "boolean");
-    assert_eq!(HomieDataType::String.to_str(), "string");
-    assert_eq!(HomieDataType::Enum.to_str(), "enum");
-    assert_eq!(HomieDataType::Color.to_str(), "color");
-    assert_eq!(HomieDataType::Datetime.to_str(), "datetime");
-    assert_eq!(HomieDataType::Duration.to_str(), "duration");
-    assert_eq!(HomieDataType::JSON.to_str(), "json");
-}
-
-#[test]
 fn test_homie_data_type_display() {
     assert_eq!(format!("{}", HomieDataType::Integer), "integer");
     assert_eq!(format!("{}", HomieDataType::Float), "float");

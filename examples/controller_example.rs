@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
                 if let std::collections::hash_map::Entry::Occupied(mut entry) = devices.entry(device.id.clone()) {
                     // If the device exists, update its state and log the update
                     log::debug!("[{}]: Received state update: {:#?}", device.to_topic(), state);
-                    entry.get_mut().state = state.to_owned(); // Update the state of the existing device
+                    state.clone_into(&mut entry.get_mut().state);
                 } else {
                     log::debug!("New Device discovered: {} - starting discovery", device.to_topic());
 

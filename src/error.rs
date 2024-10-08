@@ -24,4 +24,8 @@ pub enum Homie5ProtocolError {
     NonEmptyRootForRootDevice,
     #[error("The requested property does not exist in the device description.")]
     PropertyNotFound,
+    #[error("Invalid homie datatype.")]
+    InvalidHomieDataType,
+    #[error("Invalid device state: [{0}]! Only: init, ready, disconnected, sleeping and lost are allowed.")]
+    InvalidDeviceState(String),
 }

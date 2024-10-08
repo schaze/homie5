@@ -121,7 +121,7 @@ impl Homie5DeviceProtocol {
         };
         let last_will = LastWill {
             topic: format!("{}/5/{}/$state", &topic_root, &device_id),
-            message: HomieDeviceStatus::Lost.to_str().bytes().collect(),
+            message: HomieDeviceStatus::Lost.as_str().bytes().collect(),
             qos: crate::client::QoS::AtLeastOnce,
             retain: true,
         };
@@ -173,7 +173,7 @@ impl Homie5DeviceProtocol {
                 self.topic_root, HOMIE_VERSION, device_id, DEVICE_ATTRIBUTE_STATE
             ),
             retain: true,
-            payload: state.to_str().into(),
+            payload: state.as_str().into(),
             qos: QoS::ExactlyOnce,
         }
     }

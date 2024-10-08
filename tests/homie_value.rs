@@ -64,7 +64,7 @@ fn test_homie_value_display() {
     assert_eq!(HomieValue::Empty.to_string(), "");
     assert_eq!(HomieValue::String("test".to_string()).to_string(), "test");
     assert_eq!(HomieValue::Integer(42).to_string(), "42");
-    assert_eq!(HomieValue::Float(3.14).to_string(), "3.14");
+    assert_eq!(HomieValue::Float(3.12).to_string(), "3.12");
     assert_eq!(HomieValue::Bool(true).to_string(), "true");
     assert_eq!(
         HomieValue::Color(HomieColorValue::RGB(255, 100, 50)).to_string(),
