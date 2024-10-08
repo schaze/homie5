@@ -1,3 +1,23 @@
+//! This is a very low level implemenation of the homie5 protocol in rust.
+//! It aims to be as flexible and unopinionated as possible. There is no direct dependency to a mqtt library.
+//! homie5 provides a basic support for a protocol implementation for homie v5 with a clearly defined interface
+//! point to a mqtt library. The library provides fully typed support for all homie5 datatypes.
+//!
+//! Due to this, the usage of the library is a bit more involved as with a completly ready to use homie library.
+//! Benefit is however that you can use the library basically everywhere from a simple esp32, raspberrypi to a x86 machine.
+//!
+//! You can find working examples for both device and controller use case in the examples/ folder:
+//!
+//!    - controller_example.rs:
+//!      Implements a homie5 controller that will discover all homie5 devices on a
+//!      mqtt broker and print out the devices and their property updates (more information).
+//!    - device_example.rs:
+//!      Implements a simple LightDevice with state and brightness control properties (more information).
+//!
+//! Both examples use rumqttc as a mqtt client implementation and provide a best practice in homie5
+//! usage and in how to integrate the 2 libraries.
+//!
+
 pub mod client;
 mod controller_proto;
 pub mod device_description;

@@ -23,6 +23,7 @@ use crate::{
 pub struct Homie5ControllerProtocol {}
 
 impl Homie5ControllerProtocol {
+    /// Create a new Homie5ControllerProtocol object
     pub fn new() -> Self {
         Default::default()
     }

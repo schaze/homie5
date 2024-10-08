@@ -104,6 +104,7 @@ pub fn homie_device_disconnect_steps() -> impl Iterator<Item = DeviceDisconnectS
     HomieStateMachine::new(Default::default())
 }
 
+/// Provides generators for all mqtt subscribe and publish packages needed for a homie5 device
 #[derive(Clone, Debug)]
 pub struct Homie5DeviceProtocol {
     id: String,
