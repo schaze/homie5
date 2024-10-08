@@ -139,7 +139,9 @@ async fn subscribe(client: &AsyncClient, subs: impl Iterator<Item = Subscription
 <details>
     <summary>Additional examples (advanced rumqttc and esp32)</summary>
 
-This is a more advanced approach. We define a HomieMQTTClient trait that will accecpt the homi5e mqtt types directly and convert the actions to rumqttc AsyncClient actions
+##### Trait based approach
+
+This is a more advanced approach. We define a HomieMQTTClient trait that will accecpt the homi5 mqtt types directly and convert the actions to rumqttc AsyncClient actions
 
 ```rust
 
@@ -212,9 +214,7 @@ impl HomieMQTTClient for AsyncClient {
 
 ```
 
-<!-- TOC --><a name="esp32mqttclient-binding"></a>
-
-### ESP32MqttClient binding
+##### ESP32MqttClient binding
 
 ```rust
 use embedded_svc::mqtt::client::QoS;
@@ -576,11 +576,3 @@ Connect to mqtt, run the event loop and then proceed with the following steps:
 # License
 
 This project was released under the MIT License ([LICENSE](./LICENSE))
-
-```
-
-```
-
-```
-
-```
