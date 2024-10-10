@@ -5,7 +5,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{HomieDataType, NodeIdentifier, PropertyIdentifier};
+use crate::{HomieDataType, NodeRef, PropertyRef};
 
 mod builder;
 mod number_ranges;
@@ -162,7 +162,7 @@ pub struct HomieNodeDescription {
 impl HomieNodeDescription {
     pub fn with_property<T>(
         &self,
-        property: &PropertyIdentifier,
+        property: &PropertyRef,
         f: impl FnOnce(&HomiePropertyDescription) -> T,
     ) -> Option<T> {
         self.with_property_by_id(&property.id, f)
@@ -284,7 +284,7 @@ impl HomieDeviceDescription {
         None
     }
 
-    pub fn with_node<T>(&self, node: &NodeIdentifier, f: impl FnOnce(&HomieNodeDescription) -> T) -> Option<T> {
+    pub fn with_node<T>(&self, node: &NodeRef, f: impl FnOnce(&HomieNodeDescription) -> T) -> Option<T> {
         self.with_node_by_id(&node.id, f)
     }
 
@@ -304,7 +304,7 @@ impl HomieDeviceDescription {
 
     pub fn with_property<T>(
         &self,
-        property: &PropertyIdentifier,
+        property: &PropertyRef,
         f: impl FnOnce(&HomiePropertyDescription) -> T,
     ) -> Option<T> {
         if let Some(prop) = self

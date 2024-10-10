@@ -3,8 +3,9 @@ use std::iter;
 use crate::{
     client::{Publish, QoS, Subscription, Unsubscribe},
     device_description::{HomieDeviceDescription, HomiePropertyIterator},
-    DeviceIdentifier, PropertyIdentifier, ToTopic, DEFAULT_ROOT_TOPIC, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
-    DEVICE_ATTRIBUTE_STATE, HOMIE_TOPIC_BROADCAST, HOMIE_VERSION, PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
+    DeviceRef, HomieID, HomieValue, PropertyRef, ToTopic, DEFAULT_ROOT_TOPIC, DEVICE_ATTRIBUTES,
+    DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_STATE, HOMIE_TOPIC_BROADCAST, HOMIE_VERSION, PROPERTY_ATTRIBUTE_TARGET,
+    PROPERTY_SET_TOPIC,
 };
 
 /// Provides generators for all mqtt subscribe and publish packages needed for a homie5 controller
@@ -36,7 +37,7 @@ impl Homie5ControllerProtocol {
         })
     }
 
-    pub fn subscribe_device<'a>(&'a self, device: &'a DeviceIdentifier) -> impl Iterator<Item = Subscription> + 'a {
+    pub fn subscribe_device<'a>(&'a self, device: &'a DeviceRef) -> impl Iterator<Item = Subscription> + 'a {
         DEVICE_ATTRIBUTES
             .iter()
             .skip(1) // Skip the $state attribute (which must be first in the array)
@@ -55,7 +56,7 @@ impl Homie5ControllerProtocol {
             })
     }
 
-    pub fn unsubscribe_device<'a>(&'a self, device: &'a DeviceIdentifier) -> impl Iterator<Item = Unsubscribe> + 'a {
+    pub fn unsubscribe_device<'a>(&'a self, device: &'a DeviceRef) -> impl Iterator<Item = Unsubscribe> + 'a {
         DEVICE_ATTRIBUTES.iter().skip(1).map(move |attribute| {
             if *attribute == DEVICE_ATTRIBUTE_ALERT {
                 Unsubscribe {
@@ -71,7 +72,7 @@ impl Homie5ControllerProtocol {
 
     pub fn subscribe_props<'a>(
         &'a self,
-        device: &'a DeviceIdentifier,
+        device: &'a DeviceRef,
         description: &'a HomieDeviceDescription,
     ) -> impl Iterator<Item = Subscription> + 'a {
         let prop_iter = HomiePropertyIterator::new(description);
@@ -98,7 +99,7 @@ impl Homie5ControllerProtocol {
 
     pub fn unsubscribe_props<'a>(
         &'a self,
-        device: &'a DeviceIdentifier,
+        device: &'a DeviceRef,
         description: &'a HomieDeviceDescription,
     ) -> impl Iterator<Item = Unsubscribe> + 'a {
         let prop_iter = HomiePropertyIterator::new(description);
@@ -110,10 +111,10 @@ impl Homie5ControllerProtocol {
     pub fn set_command_ids(
         &self,
         topic_root: Option<&str>,
-        device_id: &str,
+        device_id: &HomieID,
         node_id: &str,
         prop_id: &str,
-        value: impl Into<String>,
+        value: &HomieValue,
     ) -> Publish {
         let topic_root = if let Some(topic_root) = topic_root {
             topic_root
@@ -127,11 +128,12 @@ impl Homie5ControllerProtocol {
             ),
             qos: QoS::ExactlyOnce,
             retain: false,
-            payload: value.into().into(),
+            payload: value.to_string().into(),
         }
     }
 
-    pub fn set_command(&self, prop: &PropertyIdentifier, value: impl Into<String>) -> Publish {
+    //pub fn set_command(&self, prop: &PropertyIdentifier, value: impl Into<String>) -> Publish {
+    pub fn set_command(&self, prop: &PropertyRef, value: &HomieValue) -> Publish {
         self.set_command_ids(
             Some(&prop.node.device.topic_root),
             &prop.node.device.id,

@@ -24,6 +24,7 @@ pub mod device_description;
 mod device_proto;
 mod error;
 mod homie5_message;
+mod homie_id;
 mod statemachine;
 mod value;
 
@@ -31,6 +32,7 @@ pub use controller_proto::*;
 pub use device_proto::*;
 pub use error::Homie5ProtocolError;
 pub use homie5_message::*;
+pub use homie_id::*;
 pub use value::*;
 
 use serde::{Deserialize, Serialize};
@@ -249,15 +251,15 @@ pub trait ToTopic {
 
 /// Identifies a device via topic_root and the device id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
-pub struct DeviceIdentifier {
+pub struct DeviceRef {
     /// the mqtt topic_root (e.g. homie) under which the device is published
     pub topic_root: String,
     /// the homie device ID
-    pub id: String,
+    pub id: HomieID,
 }
-impl DeviceIdentifier {
-    /// Create a new DeviceIdentifier from a given topic_root and a device id
-    pub fn new(topic_root: String, device_id: String) -> Self {
+impl DeviceRef {
+    /// Create a new DeviceRef from a given topic_root and a device id
+    pub fn new(topic_root: String, device_id: HomieID) -> Self {
         Self {
             topic_root,
             id: device_id,
@@ -265,33 +267,33 @@ impl DeviceIdentifier {
     }
     /// return a slice to the device id
     pub fn device_id(&self) -> &str {
-        &self.id
+        self.id.as_ref()
     }
 }
 
-impl PartialEq<PropertyIdentifier> for DeviceIdentifier {
-    fn eq(&self, other: &PropertyIdentifier) -> bool {
+impl PartialEq<PropertyRef> for DeviceRef {
+    fn eq(&self, other: &PropertyRef) -> bool {
         other.node.device == *self
     }
 }
 
-impl PartialEq<PropertyIdentifier> for &DeviceIdentifier {
-    fn eq(&self, other: &PropertyIdentifier) -> bool {
+impl PartialEq<PropertyRef> for &DeviceRef {
+    fn eq(&self, other: &PropertyRef) -> bool {
         other.node.device == **self
     }
 }
-impl PartialEq<NodeIdentifier> for DeviceIdentifier {
-    fn eq(&self, other: &NodeIdentifier) -> bool {
+impl PartialEq<NodeRef> for DeviceRef {
+    fn eq(&self, other: &NodeRef) -> bool {
         other.device == *self
     }
 }
 
-impl PartialEq<NodeIdentifier> for &DeviceIdentifier {
-    fn eq(&self, other: &NodeIdentifier) -> bool {
+impl PartialEq<NodeRef> for &DeviceRef {
+    fn eq(&self, other: &NodeRef) -> bool {
         other.device == **self
     }
 }
-impl ToTopic for DeviceIdentifier {
+impl ToTopic for DeviceRef {
     fn to_topic(&self) -> String {
         format!("{}/{HOMIE_VERSION}/{}", self.topic_root, self.id)
     }
@@ -300,16 +302,16 @@ impl ToTopic for DeviceIdentifier {
     }
 }
 
-impl From<&PropertyIdentifier> for DeviceIdentifier {
-    /// Create a DeviceIdentifier from a PropertyIdentifier
-    fn from(value: &PropertyIdentifier) -> Self {
+impl From<&PropertyRef> for DeviceRef {
+    /// Create a DeviceRef from a PropertyRef
+    fn from(value: &PropertyRef) -> Self {
         value.node.device.clone()
     }
 }
 
-impl From<&NodeIdentifier> for DeviceIdentifier {
-    /// Create a DeviceIdentifier from a NodeIdentifier
-    fn from(value: &NodeIdentifier) -> Self {
+impl From<&NodeRef> for DeviceRef {
+    /// Create a DeviceRef from a NodeRef
+    fn from(value: &NodeRef) -> Self {
         value.device.clone()
     }
 }
@@ -318,26 +320,26 @@ impl From<&NodeIdentifier> for DeviceIdentifier {
 //=== NODE
 //===========================================================
 
-/// Identifies a node of a device via its DeviceIdentifier and its node id
+/// Identifies a node of a device via its DeviceRef and its node id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
-pub struct NodeIdentifier {
+pub struct NodeRef {
     /// Identifier of the device the node belongs to
-    pub device: DeviceIdentifier,
+    pub device: DeviceRef,
     /// then node's id
     pub id: String,
 }
 
-impl NodeIdentifier {
-    /// Create a new NodeIdentifier from a given topic_root, device id, and node id
-    pub fn new(topic_root: String, device_id: String, node_id: String) -> Self {
+impl NodeRef {
+    /// Create a new NodeRef from a given topic_root, device id, and node id
+    pub fn new(topic_root: String, device_id: HomieID, node_id: String) -> Self {
         Self {
-            device: DeviceIdentifier::new(topic_root, device_id),
+            device: DeviceRef::new(topic_root, device_id),
             id: node_id,
         }
     }
 
-    /// Create a new NodeIdentifier from an existing DeviceIdentifier and a node id
-    pub fn from_device(device: DeviceIdentifier, node_id: String) -> Self {
+    /// Create a new NodeRef from an existing DeviceRef and a node id
+    pub fn from_device(device: DeviceRef, node_id: String) -> Self {
         Self { device, id: node_id }
     }
 
@@ -348,40 +350,40 @@ impl NodeIdentifier {
 
     /// Return a slice of the device id the node belongs to
     pub fn device_id(&self) -> &str {
-        &self.device.id
+        self.device.id.as_ref()
     }
 }
 
-impl PartialEq<DeviceIdentifier> for NodeIdentifier {
-    fn eq(&self, other: &DeviceIdentifier) -> bool {
+impl PartialEq<DeviceRef> for NodeRef {
+    fn eq(&self, other: &DeviceRef) -> bool {
         &self.device == other
     }
 }
 
-impl PartialEq<&DeviceIdentifier> for NodeIdentifier {
-    fn eq(&self, other: &&DeviceIdentifier) -> bool {
+impl PartialEq<&DeviceRef> for NodeRef {
+    fn eq(&self, other: &&DeviceRef) -> bool {
         &&self.device == other
     }
 }
 
-impl PartialEq<DeviceIdentifier> for &NodeIdentifier {
-    fn eq(&self, other: &DeviceIdentifier) -> bool {
+impl PartialEq<DeviceRef> for &NodeRef {
+    fn eq(&self, other: &DeviceRef) -> bool {
         &self.device == other
     }
 }
-impl PartialEq<PropertyIdentifier> for NodeIdentifier {
-    fn eq(&self, other: &PropertyIdentifier) -> bool {
+impl PartialEq<PropertyRef> for NodeRef {
+    fn eq(&self, other: &PropertyRef) -> bool {
         *self == other.node
     }
 }
 
-impl PartialEq<PropertyIdentifier> for &NodeIdentifier {
-    fn eq(&self, other: &PropertyIdentifier) -> bool {
+impl PartialEq<PropertyRef> for &NodeRef {
+    fn eq(&self, other: &PropertyRef) -> bool {
         **self == other.node
     }
 }
 
-impl ToTopic for NodeIdentifier {
+impl ToTopic for NodeRef {
     fn to_topic(&self) -> String {
         format!(
             "{}/{HOMIE_VERSION}/{}/{}",
@@ -396,8 +398,8 @@ impl ToTopic for NodeIdentifier {
     }
 }
 
-impl From<&PropertyIdentifier> for NodeIdentifier {
-    fn from(value: &PropertyIdentifier) -> Self {
+impl From<&PropertyRef> for NodeRef {
+    fn from(value: &PropertyRef) -> Self {
         value.node.clone()
     }
 }
@@ -406,26 +408,26 @@ impl From<&PropertyIdentifier> for NodeIdentifier {
 //=== PROPERTY
 //===========================================================
 
-/// Identifies a property of a node via its NodeIdentifier and the property id
+/// Identifies a property of a node via its NodeRef and the property id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
-pub struct PropertyIdentifier {
+pub struct PropertyRef {
     /// Identifier of the node the property belongs to
-    pub node: NodeIdentifier,
+    pub node: NodeRef,
     /// The property's id within the node
     pub id: String,
 }
 
-impl PropertyIdentifier {
-    /// Create a new PropertyIdentifier from a given topic_root, device id, node id, and property id
-    pub fn new(topic_root: String, device_id: String, node_id: String, prop_id: String) -> Self {
+impl PropertyRef {
+    /// Create a new PropertyRef from a given topic_root, device id, node id, and property id
+    pub fn new(topic_root: String, device_id: HomieID, node_id: String, prop_id: String) -> Self {
         Self {
-            node: NodeIdentifier::new(topic_root, device_id, node_id),
+            node: NodeRef::new(topic_root, device_id, node_id),
             id: prop_id,
         }
     }
 
-    /// Create a new PropertyIdentifier from an existing NodeIdentifier and a property id
-    pub fn from_node(node: NodeIdentifier, prop_id: String) -> Self {
+    /// Create a new PropertyRef from an existing NodeRef and a property id
+    pub fn from_node(node: NodeRef, prop_id: String) -> Self {
         Self { node, id: prop_id }
     }
 
@@ -441,51 +443,51 @@ impl PropertyIdentifier {
 
     /// Return a slice of the device id the property belongs to
     pub fn device_id(&self) -> &str {
-        &self.node.device.id
+        self.node.device.id.as_ref()
     }
 }
 
-impl PartialEq<DeviceIdentifier> for PropertyIdentifier {
-    fn eq(&self, other: &DeviceIdentifier) -> bool {
+impl PartialEq<DeviceRef> for PropertyRef {
+    fn eq(&self, other: &DeviceRef) -> bool {
         &self.node.device == other
     }
 }
-impl PartialEq<DeviceIdentifier> for &PropertyIdentifier {
-    fn eq(&self, other: &DeviceIdentifier) -> bool {
+impl PartialEq<DeviceRef> for &PropertyRef {
+    fn eq(&self, other: &DeviceRef) -> bool {
         &self.node.device == other
     }
 }
-impl PartialEq<&DeviceIdentifier> for PropertyIdentifier {
-    fn eq(&self, other: &&DeviceIdentifier) -> bool {
+impl PartialEq<&DeviceRef> for PropertyRef {
+    fn eq(&self, other: &&DeviceRef) -> bool {
         &&self.node.device == other
     }
 }
 
-impl PartialEq<NodeIdentifier> for PropertyIdentifier {
-    fn eq(&self, other: &NodeIdentifier) -> bool {
+impl PartialEq<NodeRef> for PropertyRef {
+    fn eq(&self, other: &NodeRef) -> bool {
         &self.node == other
     }
 }
 
-impl PartialEq<&NodeIdentifier> for PropertyIdentifier {
-    fn eq(&self, other: &&NodeIdentifier) -> bool {
+impl PartialEq<&NodeRef> for PropertyRef {
+    fn eq(&self, other: &&NodeRef) -> bool {
         &&self.node == other
     }
 }
 
-impl PartialEq<NodeIdentifier> for &PropertyIdentifier {
-    fn eq(&self, other: &NodeIdentifier) -> bool {
+impl PartialEq<NodeRef> for &PropertyRef {
+    fn eq(&self, other: &NodeRef) -> bool {
         &self.node == other
     }
 }
 
-impl PropertyIdentifier {
-    pub fn match_with_node(&self, node: &NodeIdentifier, prop_id: &str) -> bool {
+impl PropertyRef {
+    pub fn match_with_node(&self, node: &NodeRef, prop_id: &str) -> bool {
         self == node && self.id == prop_id
     }
 }
 
-impl ToTopic for PropertyIdentifier {
+impl ToTopic for PropertyRef {
     fn to_topic(&self) -> String {
         format!(
             "{}/{HOMIE_VERSION}/{}/{}/{}",

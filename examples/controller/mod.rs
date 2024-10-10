@@ -1,8 +1,8 @@
 pub mod property_store;
 use anyhow::anyhow;
 use homie5::{
-    device_description::HomieDeviceDescription, DeviceIdentifier, Homie5ProtocolError, HomieDeviceStatus, HomieValue,
-    PropertyIdentifier, ToTopic,
+    device_description::HomieDeviceDescription, DeviceRef, Homie5ProtocolError, HomieDeviceStatus, HomieValue,
+    PropertyRef, ToTopic,
 };
 pub use property_store::*;
 
@@ -10,14 +10,14 @@ pub use property_store::*;
 /// Note, that we do not store property values so far
 #[allow(dead_code)]
 pub struct Device {
-    pub ident: DeviceIdentifier,
+    pub ident: DeviceRef,
     pub state: HomieDeviceStatus,
     pub description: Option<HomieDeviceDescription>,
     pub properties: PropertyValueStore,
 }
 
 impl Device {
-    pub fn store_value(&mut self, property: PropertyIdentifier, value: String) -> anyhow::Result<()> {
+    pub fn store_value(&mut self, property: PropertyRef, value: String) -> anyhow::Result<()> {
         let Some(desc) = self.description.as_ref() else {
             return Ok(());
         };
@@ -31,7 +31,7 @@ impl Device {
         Ok(())
     }
 
-    pub fn store_target(&mut self, property: PropertyIdentifier, value: String) -> anyhow::Result<()> {
+    pub fn store_target(&mut self, property: PropertyRef, value: String) -> anyhow::Result<()> {
         let Some(desc) = self.description.as_ref() else {
             return Ok(());
         };
@@ -44,7 +44,7 @@ impl Device {
         self.properties.store_property_value(property, None, Some(value));
         Ok(())
     }
-    fn is_retained(&self, property: &PropertyIdentifier, desc: &HomieDeviceDescription) -> bool {
+    fn is_retained(&self, property: &PropertyRef, desc: &HomieDeviceDescription) -> bool {
         // get the retained setting for the property
         let Ok(retained) = desc.with_property(property, |prop| prop.retained).ok_or_else(|| {
             log::debug!("Cannot set value for: {}", property.to_topic());
@@ -56,7 +56,7 @@ impl Device {
         retained
     }
 
-    fn parse_value(&mut self, property: &PropertyIdentifier, value: String) -> anyhow::Result<HomieValue> {
+    fn parse_value(&mut self, property: &PropertyRef, value: String) -> anyhow::Result<HomieValue> {
         let Some(desc) = self.description.as_ref() else {
             return Err(anyhow!("Cannot parse value for device without description!"));
         };

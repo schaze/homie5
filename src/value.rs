@@ -247,7 +247,7 @@ impl HomieValue {
     ///
     /// - `raw`: The raw string value to be parsed.
     /// - `property_desc`: A reference to the property description that defines the expected data type
-    /// and format of the property.
+    ///    and format of the property.
     ///
     /// # Returns
     ///

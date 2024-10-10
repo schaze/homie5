@@ -7,26 +7,26 @@ use homie5::{
         DeviceDescriptionBuilder, HomieDeviceDescription, HomiePropertyFormat, IntegerRange, NodeDescriptionBuilder,
         PropertyDescriptionBuilder,
     },
-    Homie5DeviceProtocol, HomieDataType, HomieDeviceStatus, HomieValue, NodeIdentifier, PropertyIdentifier,
+    Homie5DeviceProtocol, HomieDataType, HomieDeviceStatus, HomieID, HomieValue, NodeRef, PropertyRef,
     HOMIE_UNIT_PERCENT,
 };
 
 use super::HomieDevice;
 
 pub(crate) struct LightDevice {
-    id: String,
+    id: HomieID,
     state: HomieDeviceStatus,
     desc: HomieDeviceDescription,
     light_state: bool,
     brightness: i64,
-    prop_light_state: PropertyIdentifier,
-    prop_light_brightness: PropertyIdentifier,
+    prop_light_state: PropertyRef,
+    prop_light_brightness: PropertyRef,
     mqtt_client: AsyncClient,
     protocol: Homie5DeviceProtocol,
 }
 
 impl LightDevice {
-    pub fn new(id: String, mqtt_client: AsyncClient, protocol: Homie5DeviceProtocol) -> Self {
+    pub fn new(id: HomieID, mqtt_client: AsyncClient, protocol: Homie5DeviceProtocol) -> Self {
         let (desc, _, prop_light_state, prop_light_brightness) =
             Self::make_device_description(protocol.topic_root(), &id);
 
@@ -44,16 +44,11 @@ impl LightDevice {
     }
     fn make_device_description(
         topic_root: &str,
-        device_id: &str,
-    ) -> (
-        HomieDeviceDescription,
-        NodeIdentifier,
-        PropertyIdentifier,
-        PropertyIdentifier,
-    ) {
-        let light_node = NodeIdentifier::new(topic_root.to_string(), device_id.to_string(), "light".to_owned());
-        let prop_light_state = PropertyIdentifier::from_node(light_node.clone(), "state".to_owned());
-        let prop_light_brightness = PropertyIdentifier::from_node(light_node.clone(), "brightness".to_owned());
+        device_id: &HomieID,
+    ) -> (HomieDeviceDescription, NodeRef, PropertyRef, PropertyRef) {
+        let light_node = NodeRef::new(topic_root.to_string(), device_id.clone(), "light".to_owned());
+        let prop_light_state = PropertyRef::from_node(light_node.clone(), "state".to_owned());
+        let prop_light_brightness = PropertyRef::from_node(light_node.clone(), "brightness".to_owned());
 
         // Build the device description
         let desc = DeviceDescriptionBuilder::new()
@@ -119,7 +114,7 @@ impl LightDevice {
 impl HomieDevice<AsyncClient> for LightDevice {
     type ResultError = anyhow::Error;
 
-    fn homie_id(&self) -> &str {
+    fn homie_id(&self) -> &HomieID {
         &self.id
     }
 
@@ -151,11 +146,7 @@ impl HomieDevice<AsyncClient> for LightDevice {
         Ok(())
     }
 
-    async fn handle_set_command(
-        &mut self,
-        property: &PropertyIdentifier,
-        set_value: &str,
-    ) -> Result<(), Self::ResultError> {
+    async fn handle_set_command(&mut self, property: &PropertyRef, set_value: &str) -> Result<(), Self::ResultError> {
         if property == &self.prop_light_state {
             let value = self.publish_target(property, set_value).await?;
 

@@ -3,7 +3,7 @@ use crate::{
     device_description::{HomieDeviceDescription, HomiePropertyIterator},
     error::Homie5ProtocolError,
     statemachine::{HomieStateMachine, Transition},
-    HomieDeviceStatus, PropertyIdentifier, DEFAULT_ROOT_TOPIC, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
+    HomieDeviceStatus, PropertyRef, DEFAULT_ROOT_TOPIC, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
     DEVICE_ATTRIBUTE_DESCRIPTION, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION,
     PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
 };
@@ -230,7 +230,7 @@ impl Homie5DeviceProtocol {
         self.publish_value_for_id(&self.id, node_id, prop_id, value, retain)
     }
 
-    pub fn publish_value_prop(&self, prop: &PropertyIdentifier, value: impl Into<String>, retain: bool) -> Publish {
+    pub fn publish_value_prop(&self, prop: &PropertyRef, value: impl Into<String>, retain: bool) -> Publish {
         self.publish_value_for_id(&self.id, &prop.node.id, &prop.id, value, retain)
     }
     pub fn publish_value_for_id(
@@ -256,7 +256,7 @@ impl Homie5DeviceProtocol {
         self.publish_target_for_id(&self.id, node_id, prop_id, value, retained)
     }
 
-    pub fn publish_target_prop(&self, prop: &PropertyIdentifier, value: impl Into<String>, retained: bool) -> Publish {
+    pub fn publish_target_prop(&self, prop: &PropertyRef, value: impl Into<String>, retained: bool) -> Publish {
         self.publish_target_for_id(&self.id, &prop.node.id, &prop.id, value, retained)
     }
     pub fn publish_target_for_id(

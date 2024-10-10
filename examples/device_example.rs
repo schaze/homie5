@@ -7,7 +7,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use homie5::{parse_mqtt_message, Homie5DeviceProtocol, Homie5Message};
+use homie5::{parse_mqtt_message, Homie5DeviceProtocol, Homie5Message, HomieID};
 
 mod common;
 mod devices;
@@ -37,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
     // get settings from the environment variables
     let settings = common::get_settings();
 
-    let device_id = "test-dev-1".to_owned();
+    let device_id = HomieID::try_from("test-dev-1")?;
 
     // create all client objects
     let (protocol, mqtt_client, eventloop) = create_client(&settings, &device_id);
@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
                 };
                 // if the set message is for our device (which it always should be as we did not
                 // subscribe to any other devices /set topics)
-                if property.node.device.id == device.homie_id() {
+                if property.node.device.id == *device.homie_id() {
                     device.handle_set_command(property, set_value).await?;
                 }
             }
@@ -93,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn create_client(_settings: &Settings, device_id: &str) -> (Homie5DeviceProtocol, AsyncClient, EventLoop) {
+fn create_client(_settings: &Settings, device_id: &HomieID) -> (Homie5DeviceProtocol, AsyncClient, EventLoop) {
     // start building the mqtt options
     let mut mqttoptions = rumqttc::MqttOptions::new(
         _settings.client_id.clone() + "_dev",

@@ -1,7 +1,7 @@
 use homie5::device_description::HomieDeviceDescription;
 use homie5::{
     homie_device_disconnect_steps, homie_device_publish_steps, Homie5DeviceProtocol, Homie5ProtocolError,
-    HomieDeviceStatus, HomieValue, PropertyIdentifier, ToTopic,
+    HomieDeviceStatus, HomieID, HomieValue, PropertyRef, ToTopic,
 };
 
 use crate::common::HomieMQTTClient;
@@ -31,7 +31,7 @@ where
 {
     type ResultError;
 
-    fn homie_id(&self) -> &str;
+    fn homie_id(&self) -> &HomieID;
     fn description(&self) -> &HomieDeviceDescription;
     fn client(&self) -> &C;
     fn protcol(&self) -> &Homie5DeviceProtocol;
@@ -39,11 +39,7 @@ where
     fn set_state(&mut self, state: HomieDeviceStatus);
 
     async fn publish_property_values(&mut self) -> Result<(), Self::ResultError>;
-    async fn handle_set_command(
-        &mut self,
-        property: &PropertyIdentifier,
-        set_value: &str,
-    ) -> Result<(), Self::ResultError>;
+    async fn handle_set_command(&mut self, property: &PropertyRef, set_value: &str) -> Result<(), Self::ResultError>;
 
     async fn publish_description(&self) -> Result<(), Self::ResultError> {
         let p = self.protcol().publish_description(self.description())?;
@@ -73,7 +69,7 @@ where
 
     async fn publish_value(
         &self,
-        property: &PropertyIdentifier,
+        property: &PropertyRef,
         value: impl Into<String>,
     ) -> Result<HomieValue, Self::ResultError> {
         let (value, retained) = self.prepare_publish(property, &value.into())?;
@@ -86,7 +82,7 @@ where
 
     async fn publish_target(
         &self,
-        property: &PropertyIdentifier,
+        property: &PropertyRef,
         value: impl Into<String>,
     ) -> Result<HomieValue, Self::ResultError> {
         let (value, retained) = self.prepare_publish(property, &value.into())?;
@@ -96,11 +92,7 @@ where
             .await?;
         Ok(value)
     }
-    fn prepare_publish(
-        &self,
-        property: &PropertyIdentifier,
-        value: &str,
-    ) -> Result<(HomieValue, bool), Self::ResultError> {
+    fn prepare_publish(&self, property: &PropertyRef, value: &str) -> Result<(HomieValue, bool), Self::ResultError> {
         // parse the value to make sure that it conforms to the properties format requirements
         let value = self
             .description()

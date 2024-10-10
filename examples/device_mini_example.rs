@@ -89,10 +89,10 @@ async fn main() -> anyhow::Result<()> {
     // get settings from the environment variables
     let settings = get_settings();
 
-    let device_id = "test-dev-1".to_owned();
+    let device_id = "test-dev-1".try_into()?;
     let (device_desc, _, prop_light_state, prop_light_brightness) =
         make_device_description(&settings.topic_root, &device_id);
-    let mut state = HomieDeviceStatus::Init;
+    let mut state;
     let mut prop_light_state_value = false;
     let mut prop_light_brightness_value = 0;
     // create all client objects
@@ -231,7 +231,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn create_client(_settings: &Settings, device_id: &str) -> (Homie5DeviceProtocol, AsyncClient, EventLoop) {
+fn create_client(_settings: &Settings, device_id: &HomieID) -> (Homie5DeviceProtocol, AsyncClient, EventLoop) {
     // start building the mqtt options
     let mut mqttoptions = rumqttc::MqttOptions::new(
         _settings.client_id.clone() + "_dev",
@@ -256,16 +256,11 @@ fn create_client(_settings: &Settings, device_id: &str) -> (Homie5DeviceProtocol
 
 fn make_device_description(
     topic_root: &str,
-    device_id: &str,
-) -> (
-    HomieDeviceDescription,
-    NodeIdentifier,
-    PropertyIdentifier,
-    PropertyIdentifier,
-) {
-    let light_node = NodeIdentifier::new(topic_root.to_string(), device_id.to_string(), "light".to_owned());
-    let prop_light_state = PropertyIdentifier::from_node(light_node.clone(), "state".to_owned());
-    let prop_light_brightness = PropertyIdentifier::from_node(light_node.clone(), "brightness".to_owned());
+    device_id: &HomieID,
+) -> (HomieDeviceDescription, NodeRef, PropertyRef, PropertyRef) {
+    let light_node = NodeRef::new(topic_root.to_string(), device_id.clone(), "light".to_owned());
+    let prop_light_state = PropertyRef::from_node(light_node.clone(), "state".to_owned());
+    let prop_light_brightness = PropertyRef::from_node(light_node.clone(), "brightness".to_owned());
 
     // Build the device description
     let desc = DeviceDescriptionBuilder::new()

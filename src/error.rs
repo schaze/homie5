@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::InvalidHomieIDError;
+
 /// Represents various errors that can occur while handling the Homie v5 protocol.
 ///
 /// This error enum is used to encapsulate all possible errors encountered during
@@ -59,6 +61,9 @@ pub enum Homie5ProtocolError {
     #[error("Invalid homie datatype.")]
     InvalidHomieDataType,
 
+    /// The datatype of a property is invalid according to the Homie specification.
+    #[error("Invalid homie id: {0}")]
+    InvalidHomieID(#[from] InvalidHomieIDError),
     /// The device state is invalid. Valid states are: "init", "ready", "disconnected", "sleeping", and "lost".
     ///
     /// The provided invalid state is included in the error message.

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use homie5::{HomieValue, NodeIdentifier, PropertyIdentifier};
+use homie5::{HomieValue, NodeRef, PropertyRef};
 
 #[derive(Debug, Clone, Default)]
 pub struct PropertyState {
@@ -10,12 +10,12 @@ pub struct PropertyState {
 
 #[derive(Debug, Clone, Default)]
 pub struct PropertyStore {
-    properties: HashMap<PropertyIdentifier, PropertyState>, // Properties for this node
+    properties: HashMap<PropertyRef, PropertyState>, // Properties for this node
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct PropertyValueStore {
-    nodes: HashMap<NodeIdentifier, PropertyStore>, // Nodes in the device
+    nodes: HashMap<NodeRef, PropertyStore>, // Nodes in the device
 }
 
 #[allow(dead_code)]
@@ -27,7 +27,7 @@ impl PropertyValueStore {
     // Store both property value and target, or update if already exists
     pub fn store_property_value(
         &mut self,
-        property: PropertyIdentifier,
+        property: PropertyRef,
         value: Option<HomieValue>,
         target: Option<HomieValue>,
     ) {
@@ -43,25 +43,25 @@ impl PropertyValueStore {
     }
 
     // Get the current state of the property (returns value and target)
-    pub fn get_property_state(&self, property: &PropertyIdentifier) -> Option<&PropertyState> {
+    pub fn get_property_state(&self, property: &PropertyRef) -> Option<&PropertyState> {
         self.nodes
             .get(&property.node)
             .and_then(|node_store| node_store.properties.get(property))
     }
 
     // Get the current value of a property
-    pub fn get_property_value(&self, property: &PropertyIdentifier) -> Option<&HomieValue> {
+    pub fn get_property_value(&self, property: &PropertyRef) -> Option<&HomieValue> {
         self.get_property_state(property).and_then(|state| state.value.as_ref())
     }
 
     // Get the target value of a property
-    pub fn get_property_target(&self, property: &PropertyIdentifier) -> Option<&HomieValue> {
+    pub fn get_property_target(&self, property: &PropertyRef) -> Option<&HomieValue> {
         self.get_property_state(property)
             .and_then(|state| state.target.as_ref())
     }
 
     // Check if a property exists in the store
-    pub fn property_exists(&self, property: &PropertyIdentifier) -> bool {
+    pub fn property_exists(&self, property: &PropertyRef) -> bool {
         self.nodes
             .get(&property.node)
             .and_then(|node_store| node_store.properties.get(property))
@@ -69,7 +69,7 @@ impl PropertyValueStore {
     }
 
     // Remove a property from the store
-    pub fn remove_property(&mut self, property: &PropertyIdentifier) {
+    pub fn remove_property(&mut self, property: &PropertyRef) {
         if let Some(node_store) = self.nodes.get_mut(&property.node) {
             node_store.properties.remove(property);
             if node_store.properties.is_empty() {

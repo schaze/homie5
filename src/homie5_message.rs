@@ -1,6 +1,6 @@
 use crate::{
-    device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceIdentifier, HomieDeviceStatus,
-    PropertyIdentifier,
+    device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceRef, HomieDeviceStatus, HomieID,
+    PropertyRef,
 };
 use std::str::FromStr;
 /// Represents all possible MQTT message types according to the Homie 5 protocol.
@@ -13,7 +13,7 @@ pub enum Homie5Message {
     /// about the current state of the device (e.g., "init", "ready", "disconnected").
     DeviceState {
         /// The device identifier for which the state was received.
-        device: DeviceIdentifier,
+        device: DeviceRef,
         /// The received state, which can be "init", "ready", "disconnected", "sleeping", or "lost".
         state: HomieDeviceStatus,
     },
@@ -24,7 +24,7 @@ pub enum Homie5Message {
     /// version, and available nodes) under `homie/5/<device-id>/$description`.
     DeviceDescription {
         /// The device identifier for which the description was received.
-        device: DeviceIdentifier,
+        device: DeviceRef,
         /// The full device description, including metadata like nodes and properties.
         description: HomieDeviceDescription,
     },
@@ -35,7 +35,7 @@ pub enum Homie5Message {
     /// `homie/5/<device-id>/$log`. These logs can help monitor device activity or identify issues.
     DeviceLog {
         /// The device identifier from which the log was received.
-        device: DeviceIdentifier,
+        device: DeviceRef,
         /// The log message from the device.
         log_msg: String,
     },
@@ -46,7 +46,7 @@ pub enum Homie5Message {
     /// notifications about the device’s state (e.g., sensor failures, errors that need human intervention).
     DeviceAlert {
         /// The device identifier from which the alert was received.
-        device: DeviceIdentifier,
+        device: DeviceRef,
         /// A unique identifier for the alert.
         alert_id: String,
         /// The alert message providing details about the issue.
@@ -59,7 +59,7 @@ pub enum Homie5Message {
     /// sent under `homie/5/<device-id>/<node-id>/<property-id>`.
     PropertyValue {
         /// The property identifier indicating which device/node/property the value belongs to.
-        property: PropertyIdentifier,
+        property: PropertyRef,
         /// The actual value of the property (e.g., "21.5" for a temperature sensor).
         value: String,
     },
@@ -70,7 +70,7 @@ pub enum Homie5Message {
     /// under `homie/5/<device-id>/<node-id>/<property-id>/$target`. It represents the desired value.
     PropertyTarget {
         /// The property identifier indicating which device/node/property the target is set for.
-        property: PropertyIdentifier,
+        property: PropertyRef,
         /// The intended target value for the property.
         target: String,
     },
@@ -81,7 +81,7 @@ pub enum Homie5Message {
     /// `homie/5/<device-id>/<node-id>/<property-id>/set`.
     PropertySet {
         /// The property identifier for which the value is being set.
-        property: PropertyIdentifier,
+        property: PropertyRef,
         /// The value to which the property is being set.
         set_value: String,
     },
@@ -106,7 +106,7 @@ pub enum Homie5Message {
     /// and property values must also be cleared. This effectively removes the device from the MQTT ecosystem.
     DeviceRemoval {
         /// The device identifier for the device that was removed.
-        device: DeviceIdentifier,
+        device: DeviceRef,
     },
 }
 
@@ -148,19 +148,21 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
     }
 
     let topic_root = tokens[0].to_owned();
-    let device_id = tokens[2].to_owned();
 
     // Attempt to parse the payload as a UTF-8 string
     let payload = String::from_utf8(payload.to_vec())?;
 
     // Handle broadcast messages (e.g. "homie/5/$broadcast")
-    if device_id == "$broadcast" {
+    if tokens[2] == "$broadcast" {
         return Ok(Homie5Message::Broadcast {
             topic_root,
             subtopic: tokens[3..].join("/"),
             data: payload,
         });
     }
+
+    // check the homie id provided
+    let device_id = HomieID::try_from(tokens[2])?;
 
     // Match the topic length to identify the message type
     // len: 0    1  2     3        4       5       6
@@ -177,7 +179,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                     if !payload.is_empty() {
                         if let Ok(state) = HomieDeviceStatus::from_str(&payload) {
                             Ok(Homie5Message::DeviceState {
-                                device: DeviceIdentifier {
+                                device: DeviceRef {
                                     topic_root,
                                     id: device_id,
                                 },
@@ -189,7 +191,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                     } else {
                         // Empty payload signifies device removal
                         Ok(Homie5Message::DeviceRemoval {
-                            device: DeviceIdentifier {
+                            device: DeviceRef {
                                 topic_root,
                                 id: device_id,
                             },
@@ -199,7 +201,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 // Handle the "$description" attribute, parsing as JSON
                 "$description" => match serde_json::from_str::<HomieDeviceDescription>(&payload) {
                     Ok(description) => Ok(Homie5Message::DeviceDescription {
-                        device: DeviceIdentifier {
+                        device: DeviceRef {
                             topic_root,
                             id: device_id,
                         },
@@ -212,7 +214,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 },
                 // Handle the "$log" attribute
                 "$log" => Ok(Homie5Message::DeviceLog {
-                    device: DeviceIdentifier {
+                    device: DeviceRef {
                         topic_root,
                         id: device_id,
                     },
@@ -227,7 +229,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 "$alert" => {
                     let alert_id = tokens[4].to_owned();
                     Ok(Homie5Message::DeviceAlert {
-                        device: DeviceIdentifier {
+                        device: DeviceRef {
                             topic_root,
                             id: device_id,
                         },
@@ -240,7 +242,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                     let node_id = tokens[3].to_owned();
                     let prop_id = tokens[4].to_owned();
                     Ok(Homie5Message::PropertyValue {
-                        property: PropertyIdentifier::new(topic_root, device_id, node_id, prop_id),
+                        property: PropertyRef::new(topic_root, device_id, node_id, prop_id),
                         value: payload,
                     })
                 }
@@ -254,12 +256,12 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
             match attr {
                 // Handle the "set" action
                 "set" => Ok(Homie5Message::PropertySet {
-                    property: PropertyIdentifier::new(topic_root, device_id, node_id.to_owned(), prop_id.to_owned()),
+                    property: PropertyRef::new(topic_root, device_id, node_id.to_owned(), prop_id.to_owned()),
                     set_value: payload,
                 }),
                 // Handle the "$target" attribute
                 "$target" => Ok(Homie5Message::PropertyTarget {
-                    property: PropertyIdentifier::new(topic_root, device_id, node_id, prop_id),
+                    property: PropertyRef::new(topic_root, device_id, node_id, prop_id),
                     target: payload,
                 }),
                 _ => Err(Homie5ProtocolError::InvalidTopic),
