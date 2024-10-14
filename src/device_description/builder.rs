@@ -1,4 +1,4 @@
-use crate::{HomieDataType, HOMIE_VERSION_FULL};
+use crate::{HomieDataType, HomieID, HOMIE_VERSION_FULL};
 
 use super::{
     property_format::HomiePropertyFormat, HomieDeviceDescription, HomieNodeDescription, HomiePropertyDescription,
@@ -43,20 +43,19 @@ impl DeviceDescriptionBuilder {
         self.description
     }
 
-    pub fn add_child(mut self, child_id: impl Into<String>) -> Self {
-        self.description.children.push(child_id.into());
+    pub fn add_child(mut self, child_id: HomieID) -> Self {
+        self.description.children.push(child_id);
         self
     }
 
-    pub fn remove_child(mut self, child_id: impl Into<String>) -> Self {
-        let child_id = child_id.into();
-        if let Some(pos) = self.description.children.iter().position(|x| *x == child_id) {
+    pub fn remove_child(mut self, child_id: &HomieID) -> Self {
+        if let Some(pos) = self.description.children.iter().position(|x| x == child_id) {
             self.description.children.remove(pos);
         }
         self
     }
 
-    pub fn replace_children(mut self, children: Vec<String>) -> Self {
+    pub fn replace_children(mut self, children: Vec<HomieID>) -> Self {
         self.description.children = children;
         self
     }
@@ -66,12 +65,12 @@ impl DeviceDescriptionBuilder {
         self
     }
 
-    pub fn parent(mut self, parent: Option<String>) -> Self {
+    pub fn parent(mut self, parent: Option<HomieID>) -> Self {
         self.description.parent = parent;
         self
     }
 
-    pub fn root(mut self, parent: Option<String>) -> Self {
+    pub fn root(mut self, parent: Option<HomieID>) -> Self {
         self.description.root = parent;
         self
     }
@@ -81,8 +80,8 @@ impl DeviceDescriptionBuilder {
         self
     }
 
-    pub fn add_node(mut self, node_id: impl Into<String>, node_desc: HomieNodeDescription) -> Self {
-        self.description.nodes.insert(node_id.into(), node_desc);
+    pub fn add_node(mut self, node_id: HomieID, node_desc: HomieNodeDescription) -> Self {
+        self.description.nodes.insert(node_id, node_desc);
         self
     }
 
@@ -94,17 +93,17 @@ impl DeviceDescriptionBuilder {
         }
     }
 
-    pub fn remove_node(mut self, node_id: &str) -> Self {
+    pub fn remove_node(mut self, node_id: &HomieID) -> Self {
         self.description.nodes.remove(node_id);
         self
     }
 
     pub fn replace_or_insert_node(
         mut self,
-        node_id: impl Into<String>,
+        node_id: HomieID,
         f: impl FnOnce(Option<&HomieNodeDescription>) -> HomieNodeDescription,
     ) -> Self {
-        let entry = self.description.nodes.entry(node_id.into());
+        let entry = self.description.nodes.entry(node_id);
         match entry {
             hash_map::Entry::Occupied(mut oe) => {
                 let oe_mut = oe.get_mut();
@@ -162,8 +161,8 @@ impl NodeDescriptionBuilder {
         self
     }
 
-    pub fn add_property(mut self, prop_id: impl Into<String>, property_desc: HomiePropertyDescription) -> Self {
-        self.description.properties.insert(prop_id.into(), property_desc);
+    pub fn add_property(mut self, prop_id: HomieID, property_desc: HomiePropertyDescription) -> Self {
+        self.description.properties.insert(prop_id, property_desc);
         self
     }
 
@@ -177,27 +176,27 @@ impl NodeDescriptionBuilder {
 
     pub fn add_property_cond(
         mut self,
-        prop_id: impl Into<String>,
+        prop_id: HomieID,
         condition: bool,
         property_desc: impl FnOnce() -> HomiePropertyDescription,
     ) -> Self {
         if condition {
-            self.description.properties.insert(prop_id.into(), property_desc());
+            self.description.properties.insert(prop_id, property_desc());
         }
         self
     }
 
-    pub fn remove_property(mut self, prop_id: &str) -> Self {
+    pub fn remove_property(mut self, prop_id: &HomieID) -> Self {
         self.description.properties.remove(prop_id);
         self
     }
 
     pub fn replace_or_insert_property(
         mut self,
-        prop_id: impl Into<String>,
+        prop_id: HomieID,
         f: impl FnOnce(Option<&HomiePropertyDescription>) -> HomiePropertyDescription,
     ) -> Self {
-        let entry = self.description.properties.entry(prop_id.into());
+        let entry = self.description.properties.entry(prop_id);
         match entry {
             hash_map::Entry::Occupied(mut oe) => {
                 let oe_mut = oe.get_mut();

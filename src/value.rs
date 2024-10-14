@@ -282,9 +282,9 @@ impl HomieValue {
         raw: &str,
         property_desc: &HomiePropertyDescription,
     ) -> Result<HomieValue, Homie5ValueConversionError> {
-        if raw.is_empty() {
-            return Ok(HomieValue::Empty);
-        }
+        //if raw.is_empty() {
+        //    return Ok(HomieValue::Empty);
+        //}
         match &property_desc.datatype {
             HomieDataType::Integer => raw
                 .parse::<i64>()

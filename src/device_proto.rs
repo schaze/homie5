@@ -3,7 +3,7 @@ use crate::{
     device_description::{HomieDeviceDescription, HomiePropertyIterator},
     error::Homie5ProtocolError,
     statemachine::{HomieStateMachine, Transition},
-    HomieDeviceStatus, PropertyRef, DEFAULT_ROOT_TOPIC, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
+    HomieDeviceStatus, HomieID, PropertyRef, DEFAULT_ROOT_TOPIC, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
     DEVICE_ATTRIBUTE_DESCRIPTION, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION,
     PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
 };
@@ -107,14 +107,13 @@ pub fn homie_device_disconnect_steps() -> impl Iterator<Item = DeviceDisconnectS
 /// Provides generators for all mqtt subscribe and publish packages needed for a homie5 device
 #[derive(Clone, Debug)]
 pub struct Homie5DeviceProtocol {
-    id: String,
+    id: HomieID,
     topic_root: String,
     is_child: bool,
 }
 
 impl Homie5DeviceProtocol {
-    pub fn new(device_id: impl Into<String>, topic_root: Option<impl Into<String>>) -> (Self, LastWill) {
-        let device_id = device_id.into();
+    pub fn new(device_id: HomieID, topic_root: Option<impl Into<String>>) -> (Self, LastWill) {
         let topic_root = if let Some(tr) = topic_root {
             tr.into()
         } else {
@@ -136,7 +135,7 @@ impl Homie5DeviceProtocol {
         (homie5_proto, last_will)
     }
 
-    pub fn id(&self) -> &str {
+    pub fn id(&self) -> &HomieID {
         &self.id
     }
     pub fn topic_root(&self) -> &str {
@@ -147,17 +146,17 @@ impl Homie5DeviceProtocol {
         self.is_child
     }
 
-    pub fn clone_for_child(&self, device_id: impl Into<String>) -> Self {
+    pub fn clone_for_child(&self, device_id: HomieID) -> Self {
         Self {
-            id: device_id.into(),
+            id: device_id,
             topic_root: self.topic_root.clone(),
             is_child: true,
         }
     }
 
-    pub fn for_child(device_id: impl Into<String>, root: Homie5DeviceProtocol) -> Self {
+    pub fn for_child(device_id: HomieID, root: Homie5DeviceProtocol) -> Self {
         Self {
-            id: device_id.into(),
+            id: device_id,
             topic_root: root.topic_root.clone(),
             is_child: true,
         }
@@ -167,7 +166,7 @@ impl Homie5DeviceProtocol {
         self.publish_state_for_id(&self.id, state)
     }
 
-    pub fn publish_state_for_id(&self, device_id: &str, state: HomieDeviceStatus) -> Publish {
+    pub fn publish_state_for_id(&self, device_id: &HomieID, state: HomieDeviceStatus) -> Publish {
         Publish {
             topic: format!(
                 "{}/{}/{}/{}",
@@ -183,7 +182,7 @@ impl Homie5DeviceProtocol {
         self.publish_log_for_id(&self.id, log_msg)
     }
 
-    pub fn publish_log_for_id(&self, device_id: &str, log_msg: &str) -> Publish {
+    pub fn publish_log_for_id(&self, device_id: &HomieID, log_msg: &str) -> Publish {
         Publish {
             topic: format!(
                 "{}/{}/{}/{}",
@@ -199,7 +198,7 @@ impl Homie5DeviceProtocol {
         self.publish_alert_for_id(&self.id, alert_id, alert_msg)
     }
 
-    pub fn publish_alert_for_id(&self, device_id: &str, alert_id: &str, alert_msg: &str) -> Publish {
+    pub fn publish_alert_for_id(&self, device_id: &HomieID, alert_id: &str, alert_msg: &str) -> Publish {
         Publish {
             topic: format!(
                 "{}/{}/{}/{}/{}",
@@ -211,22 +210,34 @@ impl Homie5DeviceProtocol {
         }
     }
 
-    pub fn publish_homie_value(&self, node_id: &str, prop_id: &str, value: impl Into<String>, retain: bool) -> Publish {
+    pub fn publish_homie_value(
+        &self,
+        node_id: &HomieID,
+        prop_id: &HomieID,
+        value: impl Into<String>,
+        retain: bool,
+    ) -> Publish {
         self.publish_homie_value_for_id(&self.id, node_id, prop_id, value, retain)
     }
 
     pub fn publish_homie_value_for_id(
         &self,
-        device_id: &str,
-        node_id: &str,
-        prop_id: &str,
+        device_id: &HomieID,
+        node_id: &HomieID,
+        prop_id: &HomieID,
         value: impl Into<String>,
         retain: bool,
     ) -> Publish {
         self.publish_value_for_id(device_id, node_id, prop_id, value, retain)
     }
 
-    pub fn publish_value(&self, node_id: &str, prop_id: &str, value: impl Into<String>, retain: bool) -> Publish {
+    pub fn publish_value(
+        &self,
+        node_id: &HomieID,
+        prop_id: &HomieID,
+        value: impl Into<String>,
+        retain: bool,
+    ) -> Publish {
         self.publish_value_for_id(&self.id, node_id, prop_id, value, retain)
     }
 
@@ -235,9 +246,9 @@ impl Homie5DeviceProtocol {
     }
     pub fn publish_value_for_id(
         &self,
-        device_id: &str,
-        node_id: &str,
-        prop_id: &str,
+        device_id: &HomieID,
+        node_id: &HomieID,
+        prop_id: &HomieID,
         value: impl Into<String>,
         retain: bool,
     ) -> Publish {
@@ -252,7 +263,13 @@ impl Homie5DeviceProtocol {
         }
     }
 
-    pub fn publish_target(&self, node_id: &str, prop_id: &str, value: impl Into<String>, retained: bool) -> Publish {
+    pub fn publish_target(
+        &self,
+        node_id: &HomieID,
+        prop_id: &HomieID,
+        value: impl Into<String>,
+        retained: bool,
+    ) -> Publish {
         self.publish_target_for_id(&self.id, node_id, prop_id, value, retained)
     }
 
@@ -261,9 +278,9 @@ impl Homie5DeviceProtocol {
     }
     pub fn publish_target_for_id(
         &self,
-        device_id: &str,
-        node_id: &str,
-        prop_id: &str,
+        device_id: &HomieID,
+        node_id: &HomieID,
+        prop_id: &HomieID,
         value: impl Into<String>,
         retain: bool,
     ) -> Publish {
@@ -284,12 +301,12 @@ impl Homie5DeviceProtocol {
 
     pub fn publish_description_for_id(
         &self,
-        device_id: &str,
+        device_id: &HomieID,
         description: &HomieDeviceDescription,
     ) -> Result<Publish, Homie5ProtocolError> {
-        if !self.is_child && self.id == device_id && description.root.is_some() {
+        if !self.is_child && self.id == *device_id && description.root.is_some() {
             return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id != device_id && Some(&self.id) != description.root.as_ref() {
+        } else if !self.is_child && self.id != *device_id && Some(&self.id) != description.root.as_ref() {
             return Err(Homie5ProtocolError::RootMismatch);
         }
         match serde_json::to_string(description) {
@@ -322,12 +339,12 @@ impl Homie5DeviceProtocol {
 
     pub fn subscribe_props_for_id<'a>(
         &'a self,
-        device_id: &'a str,
+        device_id: &'a HomieID,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Subscription> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id == device_id && description.root.is_some() {
+        if !self.is_child && self.id == *device_id && description.root.is_some() {
             return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id != device_id && Some(&self.id) != description.root.as_ref() {
+        } else if !self.is_child && self.id != *device_id && Some(&self.id) != description.root.as_ref() {
             return Err(Homie5ProtocolError::RootMismatch);
         }
         let prop_iter = HomiePropertyIterator::new(description);
@@ -348,12 +365,12 @@ impl Homie5DeviceProtocol {
 
     pub fn unsubscribe_props_for_id<'a>(
         &'a self,
-        device_id: &'a str,
+        device_id: &'a HomieID,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Unsubscribe> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id == device_id && description.root.is_some() {
+        if !self.is_child && self.id == *device_id && description.root.is_some() {
             return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id != device_id && Some(&self.id) != description.root.as_ref() {
+        } else if !self.is_child && self.id != *device_id && Some(&self.id) != description.root.as_ref() {
             return Err(Homie5ProtocolError::RootMismatch);
         }
         let prop_iter = HomiePropertyIterator::new(description);
@@ -374,12 +391,12 @@ impl Homie5DeviceProtocol {
 
     pub fn remove_device_for_id<'a>(
         &'a self,
-        device_id: &'a str,
+        device_id: &'a HomieID,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Publish> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id == device_id && description.root.is_some() {
+        if !self.is_child && self.id == *device_id && description.root.is_some() {
             return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id != device_id && Some(&self.id) != description.root.as_ref() {
+        } else if !self.is_child && self.id != *device_id && Some(&self.id) != description.root.as_ref() {
             return Err(Homie5ProtocolError::RootMismatch);
         }
 

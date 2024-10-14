@@ -146,6 +146,10 @@ impl HomiePropertyFormat {
                 if tokens.len() != 2 {
                     return Err(HomiePropertyFormatError::BooleanFormatError);
                 }
+                if tokens[0].is_empty() || tokens[1].is_empty() || tokens[0] == tokens[1] {
+                    return Err(HomiePropertyFormatError::BooleanFormatError);
+                }
+
                 Ok(Self::Boolean {
                     false_val: tokens[0].to_owned(),
                     true_val: tokens[1].to_owned(),

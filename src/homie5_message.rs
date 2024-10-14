@@ -239,8 +239,8 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 }
                 // Handle property values (e.g. "device-id/node-id/prop-id")
                 _ => {
-                    let node_id = tokens[3].to_owned();
-                    let prop_id = tokens[4].to_owned();
+                    let node_id = HomieID::try_from(tokens[3])?;
+                    let prop_id = HomieID::try_from(tokens[4])?;
                     Ok(Homie5Message::PropertyValue {
                         property: PropertyRef::new(topic_root, device_id, node_id, prop_id),
                         value: payload,
@@ -250,8 +250,8 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
         }
         6 => {
             // Handle property attributes (e.g. "device-id/node-id/prop-id/$target")
-            let node_id = tokens[3].to_owned();
-            let prop_id = tokens[4].to_owned();
+            let node_id = HomieID::try_from(tokens[3])?;
+            let prop_id = HomieID::try_from(tokens[4])?;
             let attr = tokens[5];
             match attr {
                 // Handle the "set" action

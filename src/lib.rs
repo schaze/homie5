@@ -22,17 +22,23 @@ pub mod client;
 mod controller_proto;
 pub mod device_description;
 mod device_proto;
+mod device_ref;
 mod error;
 mod homie5_message;
 mod homie_id;
+mod node_ref;
+mod property_ref;
 mod statemachine;
 mod value;
 
 pub use controller_proto::*;
 pub use device_proto::*;
+pub use device_ref::*;
 pub use error::Homie5ProtocolError;
 pub use homie5_message::*;
 pub use homie_id::*;
+pub use node_ref::*;
+pub use property_ref::*;
 pub use value::*;
 
 use serde::{Deserialize, Serialize};
@@ -236,269 +242,14 @@ impl FromStr for HomieDeviceStatus {
     }
 }
 
-/// This trait provide the capability to provide a mqtt topic for an object defining where it is
+/// This trait provides the capability to provide a mqtt topic for an object defining where it is
 /// published on the broker
 pub trait ToTopic {
     /// return the mqtt topic under which the object is published
     fn to_topic(&self) -> String;
     /// return the mqtt topic under which the object is published with the addition of a subpath
-    fn to_topic_with_subpath(&self, subpath: &str) -> String;
-}
-
-//===========================================================
-//=== DEVICE
-//===========================================================
-
-/// Identifies a device via topic_root and the device id
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
-pub struct DeviceRef {
-    /// the mqtt topic_root (e.g. homie) under which the device is published
-    pub topic_root: String,
-    /// the homie device ID
-    pub id: HomieID,
-}
-impl DeviceRef {
-    /// Create a new DeviceRef from a given topic_root and a device id
-    pub fn new(topic_root: String, device_id: HomieID) -> Self {
-        Self {
-            topic_root,
-            id: device_id,
-        }
-    }
-    /// return a slice to the device id
-    pub fn device_id(&self) -> &str {
-        self.id.as_ref()
-    }
-}
-
-impl PartialEq<PropertyRef> for DeviceRef {
-    fn eq(&self, other: &PropertyRef) -> bool {
-        other.node.device == *self
-    }
-}
-
-impl PartialEq<PropertyRef> for &DeviceRef {
-    fn eq(&self, other: &PropertyRef) -> bool {
-        other.node.device == **self
-    }
-}
-impl PartialEq<NodeRef> for DeviceRef {
-    fn eq(&self, other: &NodeRef) -> bool {
-        other.device == *self
-    }
-}
-
-impl PartialEq<NodeRef> for &DeviceRef {
-    fn eq(&self, other: &NodeRef) -> bool {
-        other.device == **self
-    }
-}
-impl ToTopic for DeviceRef {
-    fn to_topic(&self) -> String {
-        format!("{}/{HOMIE_VERSION}/{}", self.topic_root, self.id)
-    }
     fn to_topic_with_subpath(&self, subpath: &str) -> String {
-        format!("{}/{HOMIE_VERSION}/{}/{}", self.topic_root, self.id, subpath)
-    }
-}
-
-impl From<&PropertyRef> for DeviceRef {
-    /// Create a DeviceRef from a PropertyRef
-    fn from(value: &PropertyRef) -> Self {
-        value.node.device.clone()
-    }
-}
-
-impl From<&NodeRef> for DeviceRef {
-    /// Create a DeviceRef from a NodeRef
-    fn from(value: &NodeRef) -> Self {
-        value.device.clone()
-    }
-}
-
-//===========================================================
-//=== NODE
-//===========================================================
-
-/// Identifies a node of a device via its DeviceRef and its node id
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
-pub struct NodeRef {
-    /// Identifier of the device the node belongs to
-    pub device: DeviceRef,
-    /// then node's id
-    pub id: String,
-}
-
-impl NodeRef {
-    /// Create a new NodeRef from a given topic_root, device id, and node id
-    pub fn new(topic_root: String, device_id: HomieID, node_id: String) -> Self {
-        Self {
-            device: DeviceRef::new(topic_root, device_id),
-            id: node_id,
-        }
-    }
-
-    /// Create a new NodeRef from an existing DeviceRef and a node id
-    pub fn from_device(device: DeviceRef, node_id: String) -> Self {
-        Self { device, id: node_id }
-    }
-
-    /// Return a slice of the node id
-    pub fn node_id(&self) -> &str {
-        &self.id
-    }
-
-    /// Return a slice of the device id the node belongs to
-    pub fn device_id(&self) -> &str {
-        self.device.id.as_ref()
-    }
-}
-
-impl PartialEq<DeviceRef> for NodeRef {
-    fn eq(&self, other: &DeviceRef) -> bool {
-        &self.device == other
-    }
-}
-
-impl PartialEq<&DeviceRef> for NodeRef {
-    fn eq(&self, other: &&DeviceRef) -> bool {
-        &&self.device == other
-    }
-}
-
-impl PartialEq<DeviceRef> for &NodeRef {
-    fn eq(&self, other: &DeviceRef) -> bool {
-        &self.device == other
-    }
-}
-impl PartialEq<PropertyRef> for NodeRef {
-    fn eq(&self, other: &PropertyRef) -> bool {
-        *self == other.node
-    }
-}
-
-impl PartialEq<PropertyRef> for &NodeRef {
-    fn eq(&self, other: &PropertyRef) -> bool {
-        **self == other.node
-    }
-}
-
-impl ToTopic for NodeRef {
-    fn to_topic(&self) -> String {
-        format!(
-            "{}/{HOMIE_VERSION}/{}/{}",
-            self.device.topic_root, self.device.id, self.id
-        )
-    }
-    fn to_topic_with_subpath(&self, subpath: &str) -> String {
-        format!(
-            "{}/{HOMIE_VERSION}/{}/{}/{}",
-            self.device.topic_root, self.device.id, self.id, subpath
-        )
-    }
-}
-
-impl From<&PropertyRef> for NodeRef {
-    fn from(value: &PropertyRef) -> Self {
-        value.node.clone()
-    }
-}
-
-//===========================================================
-//=== PROPERTY
-//===========================================================
-
-/// Identifies a property of a node via its NodeRef and the property id
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
-pub struct PropertyRef {
-    /// Identifier of the node the property belongs to
-    pub node: NodeRef,
-    /// The property's id within the node
-    pub id: String,
-}
-
-impl PropertyRef {
-    /// Create a new PropertyRef from a given topic_root, device id, node id, and property id
-    pub fn new(topic_root: String, device_id: HomieID, node_id: String, prop_id: String) -> Self {
-        Self {
-            node: NodeRef::new(topic_root, device_id, node_id),
-            id: prop_id,
-        }
-    }
-
-    /// Create a new PropertyRef from an existing NodeRef and a property id
-    pub fn from_node(node: NodeRef, prop_id: String) -> Self {
-        Self { node, id: prop_id }
-    }
-
-    /// Return a slice of the property id
-    pub fn prop_id(&self) -> &str {
-        &self.id
-    }
-
-    /// Return a slice of the node id the property belongs to
-    pub fn node_id(&self) -> &str {
-        &self.node.id
-    }
-
-    /// Return a slice of the device id the property belongs to
-    pub fn device_id(&self) -> &str {
-        self.node.device.id.as_ref()
-    }
-}
-
-impl PartialEq<DeviceRef> for PropertyRef {
-    fn eq(&self, other: &DeviceRef) -> bool {
-        &self.node.device == other
-    }
-}
-impl PartialEq<DeviceRef> for &PropertyRef {
-    fn eq(&self, other: &DeviceRef) -> bool {
-        &self.node.device == other
-    }
-}
-impl PartialEq<&DeviceRef> for PropertyRef {
-    fn eq(&self, other: &&DeviceRef) -> bool {
-        &&self.node.device == other
-    }
-}
-
-impl PartialEq<NodeRef> for PropertyRef {
-    fn eq(&self, other: &NodeRef) -> bool {
-        &self.node == other
-    }
-}
-
-impl PartialEq<&NodeRef> for PropertyRef {
-    fn eq(&self, other: &&NodeRef) -> bool {
-        &&self.node == other
-    }
-}
-
-impl PartialEq<NodeRef> for &PropertyRef {
-    fn eq(&self, other: &NodeRef) -> bool {
-        &self.node == other
-    }
-}
-
-impl PropertyRef {
-    pub fn match_with_node(&self, node: &NodeRef, prop_id: &str) -> bool {
-        self == node && self.id == prop_id
-    }
-}
-
-impl ToTopic for PropertyRef {
-    fn to_topic(&self) -> String {
-        format!(
-            "{}/{HOMIE_VERSION}/{}/{}/{}",
-            self.node.device.topic_root, self.node.device.id, self.node.id, self.id
-        )
-    }
-    fn to_topic_with_subpath(&self, subpath: &str) -> String {
-        format!(
-            "{}/{HOMIE_VERSION}/{}/{}/{}/{}",
-            self.node.device.topic_root, self.node.device.id, self.node.id, self.id, subpath
-        )
+        format!("{}/{}", self.to_topic(), subpath)
     }
 }
 

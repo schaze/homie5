@@ -7,6 +7,8 @@
 use std::convert::TryFrom;
 use std::fmt;
 
+use serde::{de, Deserialize, Deserializer, Serialize};
+
 /// Represents a validated Homie ID.
 ///
 /// A `HomieID` ensures that the ID string conforms to the Homie specification:
@@ -22,7 +24,7 @@ use std::fmt;
 /// let id = HomieID::new("sensor-01").unwrap();
 /// assert_eq!(id.as_ref(), "sensor-01");
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, Serialize)]
 pub struct HomieID(String);
 
 /// Error type returned when a string fails to validate as a Homie ID.
@@ -140,6 +142,16 @@ impl AsRef<str> for HomieID {
     /// Allows borrowing the inner string slice of the `HomieID`.
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for HomieID {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        HomieID::new(&s).map_err(de::Error::custom)
     }
 }
 

@@ -5,7 +5,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{HomieDataType, NodeRef, PropertyRef};
+use crate::{HomieDataType, HomieID, NodeRef, PropertyRef};
 
 mod builder;
 mod number_ranges;
@@ -157,7 +157,7 @@ pub struct HomieNodeDescription {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub r#type: Option<String>,
     #[serde(default, skip_serializing_if = "serde_skip_if_properties")]
-    pub properties: HashMap<String, HomiePropertyDescription>,
+    pub properties: HashMap<HomieID, HomiePropertyDescription>,
 }
 impl HomieNodeDescription {
     pub fn with_property<T>(
@@ -168,7 +168,11 @@ impl HomieNodeDescription {
         self.with_property_by_id(&property.id, f)
     }
 
-    pub fn with_property_by_id<T>(&self, prop_id: &str, f: impl FnOnce(&HomiePropertyDescription) -> T) -> Option<T> {
+    pub fn with_property_by_id<T>(
+        &self,
+        prop_id: &HomieID,
+        f: impl FnOnce(&HomiePropertyDescription) -> T,
+    ) -> Option<T> {
         if let Some(prop) = self.properties.get(prop_id) {
             return Some(f(prop));
         }
@@ -201,11 +205,11 @@ where
 }
 
 /// If the properties HashMap is empty, skip serializing the field
-fn serde_skip_if_properties(properties: &HashMap<String, HomiePropertyDescription>) -> bool {
+fn serde_skip_if_properties(properties: &HashMap<HomieID, HomiePropertyDescription>) -> bool {
     properties.is_empty()
 }
 
-pub type HomieNodes = HashMap<String, HomieNodeDescription>;
+pub type HomieNodes = HashMap<HomieID, HomieNodeDescription>;
 /// HomieDeviceDescription
 ///
 /// The JSON description document has the following format:
@@ -244,11 +248,11 @@ pub struct HomieDeviceDescription {
     pub version: i64,
     pub homie: String,
     #[serde(default = "serde_default_list", skip_serializing_if = "serde_skip_if_empty_list")]
-    pub children: Vec<String>,
+    pub children: Vec<HomieID>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub root: Option<String>,
+    pub root: Option<HomieID>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent: Option<String>,
+    pub parent: Option<HomieID>,
     #[serde(default = "serde_default_list", skip_serializing_if = "serde_skip_if_empty_list")]
     pub extensions: Vec<String>,
     #[serde(default, skip_serializing_if = "serde_skip_if_nodes")]
@@ -277,7 +281,7 @@ impl HomieDeviceDescription {
     //    result
     //}
 
-    pub fn with_node_by_id<T>(&self, node_id: &str, f: impl FnOnce(&HomieNodeDescription) -> T) -> Option<T> {
+    pub fn with_node_by_id<T>(&self, node_id: &HomieID, f: impl FnOnce(&HomieNodeDescription) -> T) -> Option<T> {
         if let Some(node) = self.nodes.get(node_id) {
             return Some(f(node));
         }
@@ -290,8 +294,8 @@ impl HomieDeviceDescription {
 
     pub fn with_property_by_id<T>(
         &self,
-        node_id: &str,
-        prop_id: &str,
+        node_id: &HomieID,
+        prop_id: &HomieID,
         f: impl FnOnce(&HomiePropertyDescription) -> T,
     ) -> Option<T> {
         if let Some(node) = self.nodes.get(node_id) {
@@ -328,16 +332,14 @@ impl HomieDeviceDescription {
         self.version = i64::from_ne_bytes(hash.to_ne_bytes());
     }
 
-    pub fn add_child(&mut self, child_id: &str) {
-        let child_id = String::from(child_id);
+    pub fn add_child(&mut self, child_id: HomieID) {
         if !self.children.contains(&child_id) {
             self.children.push(child_id);
         }
     }
 
-    pub fn remove_child(&mut self, child_id: &str) {
-        let child_id = String::from(child_id);
-        if let Some(index) = self.children.iter().position(|x| x == &child_id) {
+    pub fn remove_child(&mut self, child_id: &HomieID) {
+        if let Some(index) = self.children.iter().position(|x| x == child_id) {
             self.children.swap_remove(index);
         }
     }
@@ -367,23 +369,23 @@ impl Hash for HomieDeviceDescription {
 }
 
 /// If the nodes HashMap is empty, skip serializing the field
-fn serde_skip_if_nodes(nodes: &HashMap<String, HomieNodeDescription>) -> bool {
+fn serde_skip_if_nodes(nodes: &HashMap<HomieID, HomieNodeDescription>) -> bool {
     nodes.is_empty()
 }
 
-fn serde_default_list() -> Vec<String> {
+fn serde_default_list<T>() -> Vec<T> {
     vec![]
 }
 
-fn serde_skip_if_empty_list(children: &[String]) -> bool {
+fn serde_skip_if_empty_list<T>(children: &[T]) -> bool {
     children.is_empty()
 }
 
 pub struct HomiePropertyIterator<'a> {
     _device: &'a HomieDeviceDescription,
-    node_iter: std::collections::hash_map::Iter<'a, String, HomieNodeDescription>,
-    current_node: Option<(&'a String, &'a HomieNodeDescription)>,
-    property_iter: Option<std::collections::hash_map::Iter<'a, String, HomiePropertyDescription>>,
+    node_iter: std::collections::hash_map::Iter<'a, HomieID, HomieNodeDescription>,
+    current_node: Option<(&'a HomieID, &'a HomieNodeDescription)>,
+    property_iter: Option<std::collections::hash_map::Iter<'a, HomieID, HomiePropertyDescription>>,
 }
 
 impl<'a> HomiePropertyIterator<'a> {
@@ -408,9 +410,9 @@ impl<'a> HomiePropertyIterator<'a> {
 
 impl<'a> Iterator for HomiePropertyIterator<'a> {
     type Item = (
-        &'a String,
+        &'a HomieID,
         &'a HomieNodeDescription,
-        &'a String,
+        &'a HomieID,
         &'a HomiePropertyDescription,
     );
 

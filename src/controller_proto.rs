@@ -112,8 +112,8 @@ impl Homie5ControllerProtocol {
         &self,
         topic_root: Option<&str>,
         device_id: &HomieID,
-        node_id: &str,
-        prop_id: &str,
+        node_id: &HomieID,
+        prop_id: &HomieID,
         value: &HomieValue,
     ) -> Publish {
         let topic_root = if let Some(topic_root) = topic_root {

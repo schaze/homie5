@@ -1,7 +1,12 @@
-use std::env;
+use std::{env, fs};
 
-use homie5::{device_description::HomieDeviceDescription, DeviceIdentifier, HomieDeviceStatus, DEFAULT_ROOT_TOPIC};
+use homie5::{
+    device_description::{HomieDeviceDescription, HomiePropertyDescription},
+    *,
+};
+use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 pub struct Settings {
     pub hostname: String,
     pub port: u16,
@@ -11,6 +16,7 @@ pub struct Settings {
     pub topic_root: String,
 }
 
+#[allow(dead_code)]
 pub fn get_settings() -> Settings {
     let hostname = env::var("HOMIE_MQTT_HOST").unwrap_or_default();
 
@@ -47,7 +53,77 @@ pub fn get_settings() -> Settings {
 
 #[allow(dead_code)]
 pub struct Device {
-    pub ident: DeviceIdentifier,
+    pub ident: DeviceRef,
     pub state: HomieDeviceStatus,
     pub description: Option<HomieDeviceDescription>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct HomieTestDefinition<DEFINITION, INPUTDATA, OUTPUTDATA> {
+    pub description: String,
+    pub definition: DEFINITION,
+    pub input_data: INPUTDATA,
+    pub output_data: OUTPUTDATA,
+    pub valid: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum HomieTest {
+    PropertyDescription(HomieTestDefinition<serde_yaml::Value, Option<()>, Option<()>>),
+    PropertyValue(HomieTestDefinition<HomiePropertyDescription, String, Option<()>>),
+    PropertyValueInteger(HomieTestDefinition<HomiePropertyDescription, String, i64>),
+    HomieID(HomieTestDefinition<Option<()>, String, Option<()>>),
+}
+
+#[allow(dead_code)]
+impl HomieTest {
+    pub fn description(&self) -> &str {
+        match self {
+            HomieTest::PropertyDescription(homie_test_definition) => &homie_test_definition.description,
+            HomieTest::PropertyValue(homie_test_definition) => &homie_test_definition.description,
+            HomieTest::PropertyValueInteger(homie_test_definition) => &homie_test_definition.description,
+            HomieTest::HomieID(homie_test_definition) => &homie_test_definition.description,
+        }
+    }
+    pub fn valid(&self) -> bool {
+        match self {
+            HomieTest::PropertyDescription(homie_test_definition) => homie_test_definition.valid,
+            HomieTest::PropertyValue(homie_test_definition) => homie_test_definition.valid,
+            HomieTest::PropertyValueInteger(homie_test_definition) => homie_test_definition.valid,
+            HomieTest::HomieID(homie_test_definition) => homie_test_definition.valid,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct HomieTestSet {
+    pub description: String,
+    pub tests: Vec<HomieTest>,
+}
+
+pub fn load_test_set_from_file(filename: &str) -> anyhow::Result<HomieTestSet> {
+    // Read the file
+    let contents = fs::read_to_string(filename)?;
+
+    // Deserialize the contents into the Config struct
+    let test_set: HomieTestSet = serde_yaml::from_str(&contents)?;
+
+    Ok(test_set)
+}
+
+pub fn run_homietests(filename: &str, result_fn: impl Fn(&HomieTest) -> anyhow::Result<bool>) -> anyhow::Result<()> {
+    let tests = load_test_set_from_file(filename)?;
+    for test_definition in tests.tests {
+        let result = result_fn(&test_definition)?;
+        assert_eq!(
+            result,
+            test_definition.valid(),
+            "[{}] - Failed test: [{}]",
+            tests.description,
+            test_definition.description()
+        );
+    }
+
+    Ok(())
 }

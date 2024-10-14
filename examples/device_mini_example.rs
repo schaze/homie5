@@ -243,7 +243,7 @@ fn create_client(_settings: &Settings, device_id: &HomieID) -> (Homie5DeviceProt
     mqttoptions.set_clean_session(true);
 
     // create device protocol generater
-    let (protocol, last_will) = Homie5DeviceProtocol::new(device_id.to_string(), Some(_settings.topic_root.clone()));
+    let (protocol, last_will) = Homie5DeviceProtocol::new(device_id.clone(), Some(_settings.topic_root.clone()));
 
     // finalize mqtt options with last will from protocol generator
     mqttoptions.set_last_will(lw_to_rumqttc(last_will));
@@ -258,19 +258,23 @@ fn make_device_description(
     topic_root: &str,
     device_id: &HomieID,
 ) -> (HomieDeviceDescription, NodeRef, PropertyRef, PropertyRef) {
-    let light_node = NodeRef::new(topic_root.to_string(), device_id.clone(), "light".to_owned());
-    let prop_light_state = PropertyRef::from_node(light_node.clone(), "state".to_owned());
-    let prop_light_brightness = PropertyRef::from_node(light_node.clone(), "brightness".to_owned());
+    let light_node = NodeRef::new(
+        topic_root.to_string(),
+        device_id.clone(),
+        HomieID::new("light").unwrap(),
+    );
+    let prop_light_state = PropertyRef::from_node(light_node.clone(), HomieID::new("state").unwrap());
+    let prop_light_brightness = PropertyRef::from_node(light_node.clone(), HomieID::new("brightness").unwrap());
 
     // Build the device description
     let desc = DeviceDescriptionBuilder::new()
         .name(Some("homie5client test-device-1".to_owned()))
         .add_node(
-            &light_node.id,
+            light_node.id.clone(),
             NodeDescriptionBuilder::new()
                 .name(Some("Light node".to_owned()))
                 .add_property(
-                    &prop_light_state.id,
+                    prop_light_state.id.clone(),
                     PropertyDescriptionBuilder::new(HomieDataType::Boolean)
                         .name(Some("Light state".to_owned()))
                         .format(HomiePropertyFormat::Boolean {
@@ -282,7 +286,7 @@ fn make_device_description(
                         .build(),
                 )
                 .add_property(
-                    &prop_light_brightness.id,
+                    prop_light_brightness.id.clone(),
                     PropertyDescriptionBuilder::new(HomieDataType::Integer)
                         .name(Some("Brightness".to_owned()))
                         .format(HomiePropertyFormat::IntegerRange(IntegerRange {
@@ -298,7 +302,7 @@ fn make_device_description(
                 .build(),
         )
         .add_node(
-            "node-2",
+            HomieID::new("node-2").unwrap(),
             NodeDescriptionBuilder::new()
                 .name(Some("Second Node - no props".to_owned()))
                 .build(),

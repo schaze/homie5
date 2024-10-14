@@ -105,7 +105,7 @@ fn create_client(_settings: &Settings, device_id: &HomieID) -> (Homie5DeviceProt
     mqttoptions.set_clean_session(true);
 
     // create device protocol generater
-    let (protocol, last_will) = Homie5DeviceProtocol::new(device_id.to_string(), Some(_settings.topic_root.clone()));
+    let (protocol, last_will) = Homie5DeviceProtocol::new(device_id.clone(), Some(_settings.topic_root.clone()));
 
     // finalize mqtt options with last will from protocol generator
     mqttoptions.set_last_will(AsyncClient::homie_map_last_will(last_will));
