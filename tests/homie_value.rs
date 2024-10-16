@@ -9,7 +9,7 @@ mod common;
 
 #[test]
 fn test_homie_boolean_value_from_file() {
-    let result = run_homietests("../homie-testsuite/homie5/values/boolean.yml", |test_definition| {
+    let result = run_homietests("homie5/values/boolean.yml", |test_definition| {
         if let HomieTest::PropertyValue(test) = test_definition {
             Ok(HomieValue::parse(&test.input_data, &test.definition).is_ok())
         } else {
@@ -22,7 +22,7 @@ fn test_homie_boolean_value_from_file() {
 
 #[test]
 fn test_homie_integer_value_from_file() {
-    let result = run_homietests("../homie-testsuite/homie5/values/integer.yml", |test_definition| {
+    let result = run_homietests("homie5/values/integer.yml", |test_definition| {
         if let HomieTest::PropertyValueInteger(test) = test_definition {
             let homie_value = HomieValue::parse(&test.input_data, &test.definition).unwrap();
             let HomieValue::Integer(value) = homie_value else {

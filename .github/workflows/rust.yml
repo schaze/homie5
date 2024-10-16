@@ -2,21 +2,32 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
+  TEST_REPO_PATH: homie-testsuite # Environment variable for the test repo path
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v4
+        name: Checkout main repository
+
+      - name: Checkout test set repository
+        uses: actions/checkout@v4
+        with:
+          repository: https://github.com/homieiot/homie-testsuite.git
+          path: ${{ env.TEST_REPO_PATH }} # Use the environment variable for the path
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        env:
+          TEST_REPO_PATH: ${{ env.TEST_REPO_PATH }} # Use the test repo path
+        run: cargo test --verbose

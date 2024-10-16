@@ -1,10 +1,14 @@
-use std::{env, fs};
+use std::{env, fs, path::Path};
 
 use homie5::{
     device_description::{HomieDeviceDescription, HomiePropertyDescription},
     *,
 };
 use serde::{Deserialize, Serialize};
+
+fn get_test_repo_path() -> String {
+    env::var("TEST_REPO_PATH").unwrap_or_else(|_| "homie-testsuite".to_string())
+}
 
 #[allow(dead_code)]
 pub struct Settings {
@@ -103,8 +107,12 @@ pub struct HomieTestSet {
 }
 
 pub fn load_test_set_from_file(filename: &str) -> anyhow::Result<HomieTestSet> {
+    // get the test repo folder from the environment
+    let test_repo_path = get_test_repo_path();
+    let test_file_path = Path::new(&test_repo_path).join(filename);
+
     // Read the file
-    let contents = fs::read_to_string(filename)?;
+    let contents = fs::read_to_string(test_file_path)?;
 
     // Deserialize the contents into the Config struct
     let test_set: HomieTestSet = serde_yaml::from_str(&contents)?;
