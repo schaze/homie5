@@ -25,6 +25,7 @@ mod device_proto;
 mod device_ref;
 mod error;
 mod homie5_message;
+mod homie_domain;
 mod homie_id;
 mod node_ref;
 mod property_ref;
@@ -36,6 +37,7 @@ pub use device_proto::*;
 pub use device_ref::*;
 pub use error::Homie5ProtocolError;
 pub use homie5_message::*;
+pub use homie_domain::*;
 pub use homie_id::*;
 pub use node_ref::*;
 pub use property_ref::*;
@@ -48,7 +50,7 @@ use std::fmt::{Debug, Display};
 use std::str::FromStr;
 
 /// The default mqtt root topic: "homie"
-pub const DEFAULT_ROOT_TOPIC: &str = "homie";
+pub const DEFAULT_HOMIE_DOMAIN: &str = "homie";
 /// Homie major version used in the mqtt topic creation: "5"
 pub const HOMIE_VERSION: &str = "5";
 /// Homie protocol verison used in the device description: "5.0"

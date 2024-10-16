@@ -7,18 +7,15 @@ use crate::{HomieID, NodeRef, PropertyRef, ToTopic, HOMIE_VERSION};
 /// Identifies a device via topic_root and the device id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub struct DeviceRef {
-    /// the mqtt topic_root (e.g. homie) under which the device is published
-    pub topic_root: String,
+    /// the homie_domain (e.g. homie) under which the device is published
+    pub homie_domain: String,
     /// the homie device ID
     pub id: HomieID,
 }
 impl DeviceRef {
     /// Create a new DeviceRef from a given topic_root and a device id
-    pub fn new(topic_root: String, device_id: HomieID) -> Self {
-        Self {
-            topic_root,
-            id: device_id,
-        }
+    pub fn new(homie_domain: String, id: HomieID) -> Self {
+        Self { homie_domain, id }
     }
     /// return a slice to the device id
     pub fn device_id(&self) -> &HomieID {
@@ -50,7 +47,7 @@ impl PartialEq<NodeRef> for &DeviceRef {
 }
 impl ToTopic for DeviceRef {
     fn to_topic(&self) -> String {
-        format!("{}/{HOMIE_VERSION}/{}", self.topic_root, self.id)
+        format!("{}/{HOMIE_VERSION}/{}", self.homie_domain, self.id)
     }
 }
 

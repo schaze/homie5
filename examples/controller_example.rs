@@ -132,7 +132,7 @@ async fn main() -> anyhow::Result<()> {
                 device.store_target(property, target)?;
             }
             AppEvent::Homie(Homie5Message::Broadcast {
-                topic_root: _,
+                homie_domain: _,
                 subtopic: _,
                 data: _,
             }) => {

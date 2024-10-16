@@ -87,7 +87,7 @@ impl ToTopic for PropertyRef {
     fn to_topic(&self) -> String {
         format!(
             "{}/{HOMIE_VERSION}/{}/{}/{}",
-            self.node.device.topic_root, self.node.device.id, self.node.id, self.id
+            self.node.device.homie_domain, self.node.device.id, self.node.id, self.id
         )
     }
 }

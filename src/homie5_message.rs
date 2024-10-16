@@ -92,7 +92,7 @@ pub enum Homie5Message {
     /// `homie/5/$broadcast/<subtopic>` to all listeners. These messages are used for general-purpose communication.
     Broadcast {
         /// The root topic of the broadcast.
-        topic_root: String,
+        homie_domain: String,
         /// The subtopic of the broadcast.
         subtopic: String,
         /// The broadcasted data.
@@ -155,7 +155,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
     // Handle broadcast messages (e.g. "homie/5/$broadcast")
     if tokens[2] == "$broadcast" {
         return Ok(Homie5Message::Broadcast {
-            topic_root,
+            homie_domain: topic_root,
             subtopic: tokens[3..].join("/"),
             data: payload,
         });
@@ -180,7 +180,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                         if let Ok(state) = HomieDeviceStatus::from_str(&payload) {
                             Ok(Homie5Message::DeviceState {
                                 device: DeviceRef {
-                                    topic_root,
+                                    homie_domain: topic_root,
                                     id: device_id,
                                 },
                                 state,
@@ -192,7 +192,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                         // Empty payload signifies device removal
                         Ok(Homie5Message::DeviceRemoval {
                             device: DeviceRef {
-                                topic_root,
+                                homie_domain: topic_root,
                                 id: device_id,
                             },
                         })
@@ -202,7 +202,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 "$description" => match serde_json::from_str::<HomieDeviceDescription>(&payload) {
                     Ok(description) => Ok(Homie5Message::DeviceDescription {
                         device: DeviceRef {
-                            topic_root,
+                            homie_domain: topic_root,
                             id: device_id,
                         },
                         description,
@@ -215,7 +215,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 // Handle the "$log" attribute
                 "$log" => Ok(Homie5Message::DeviceLog {
                     device: DeviceRef {
-                        topic_root,
+                        homie_domain: topic_root,
                         id: device_id,
                     },
                     log_msg: payload,
@@ -230,7 +230,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                     let alert_id = tokens[4].to_owned();
                     Ok(Homie5Message::DeviceAlert {
                         device: DeviceRef {
-                            topic_root,
+                            homie_domain: topic_root,
                             id: device_id,
                         },
                         alert_id,

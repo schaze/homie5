@@ -4,7 +4,7 @@ use tokio::{runtime, sync::mpsc::Sender};
 
 use std::env;
 
-use homie5::DEFAULT_ROOT_TOPIC;
+use homie5::DEFAULT_HOMIE_DOMAIN;
 
 pub struct Settings {
     pub hostname: String,
@@ -36,7 +36,7 @@ pub fn get_settings() -> Settings {
     let topic_root = if let Ok(topic_root) = env::var("HOMIE_MQTT_TOPIC_ROOT") {
         topic_root
     } else {
-        String::from(DEFAULT_ROOT_TOPIC)
+        String::from(DEFAULT_HOMIE_DOMAIN)
     };
 
     Settings {

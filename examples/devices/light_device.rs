@@ -28,7 +28,7 @@ pub(crate) struct LightDevice {
 impl LightDevice {
     pub fn new(id: HomieID, mqtt_client: AsyncClient, protocol: Homie5DeviceProtocol) -> Self {
         let (desc, _, prop_light_state, prop_light_brightness) =
-            Self::make_device_description(protocol.topic_root(), &id);
+            Self::make_device_description(protocol.homie_domain(), &id);
 
         Self {
             id,

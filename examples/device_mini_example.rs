@@ -6,7 +6,7 @@ use homie5::{client::*, device_description::*};
 
 use std::env;
 
-use homie5::DEFAULT_ROOT_TOPIC;
+use homie5::DEFAULT_HOMIE_DOMAIN;
 
 pub struct Settings {
     pub hostname: String,
@@ -34,7 +34,7 @@ pub fn get_settings() -> Settings {
     let topic_root = if let Ok(topic_root) = env::var("HOMIE_MQTT_TOPIC_ROOT") {
         topic_root
     } else {
-        String::from(DEFAULT_ROOT_TOPIC)
+        String::from(DEFAULT_HOMIE_DOMAIN)
     };
     Settings {
         hostname,
@@ -159,11 +159,11 @@ async fn main() -> anyhow::Result<()> {
                             }
                         }
                         Homie5Message::Broadcast {
-                            topic_root,
+                            homie_domain,
                             subtopic,
                             data,
                         } => {
-                            log::debug!("Broadcast received: {} | {} | {}", topic_root, subtopic, data);
+                            log::debug!("Broadcast received: {} | {} | {}", homie_domain, subtopic, data);
                         }
                         _ => (),
                     }

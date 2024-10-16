@@ -17,7 +17,7 @@ pub struct Settings {
     pub username: String,
     pub password: String,
     pub client_id: String,
-    pub topic_root: String,
+    pub homie_domain: String,
 }
 
 #[allow(dead_code)]
@@ -39,10 +39,10 @@ pub fn get_settings() -> Settings {
     } else {
         String::from("aslkdnlauidhwwkednwek")
     };
-    let topic_root = if let Ok(topic_root) = env::var("HOMIE_MQTT_TOPIC_ROOT") {
-        topic_root
+    let homie_domain = if let Ok(homie_domain) = env::var("HOMIE_MQTT_DOMAIN") {
+        homie_domain
     } else {
-        String::from(DEFAULT_ROOT_TOPIC)
+        String::from(DEFAULT_HOMIE_DOMAIN)
     };
 
     Settings {
@@ -51,7 +51,7 @@ pub fn get_settings() -> Settings {
         username,
         password,
         client_id,
-        topic_root,
+        homie_domain,
     }
 }
 
@@ -72,7 +72,7 @@ pub struct HomieTestDefinition<DEFINITION, INPUTDATA, OUTPUTDATA> {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[serde(tag = "testtype", rename_all = "lowercase")]
 pub enum HomieTest {
     PropertyDescription(HomieTestDefinition<serde_yaml::Value, Option<()>, Option<()>>),
     PropertyValue(HomieTestDefinition<HomiePropertyDescription, String, Option<()>>),

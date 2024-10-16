@@ -1,6 +1,6 @@
 use bytes::Bytes;
 
-use homie5::{DEFAULT_ROOT_TOPIC, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION};
+use homie5::{DEFAULT_HOMIE_DOMAIN, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION};
 
 use homie5::*;
 
@@ -13,7 +13,7 @@ fn test_device_alert_msg() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/$alert/{}",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1", "battery"
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1", "battery"
         ),
         retain: false,
     };
@@ -26,7 +26,7 @@ fn test_device_alert_msg() {
         alert_msg,
     }) = event
     {
-        assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
+        assert_eq!(device.homie_domain, DEFAULT_HOMIE_DOMAIN.to_owned());
         assert_eq!(device.id.as_str(), "test-device-1");
         assert_eq!(alert_id, "battery".to_owned());
         assert_eq!(alert_msg, "Battery is low!".to_owned());
@@ -47,7 +47,7 @@ fn test_empty_state_aka_device_removal() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/{}",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1", DEVICE_ATTRIBUTE_STATE
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1", DEVICE_ATTRIBUTE_STATE
         ),
         retain: false,
     };
@@ -55,7 +55,7 @@ fn test_empty_state_aka_device_removal() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceRemoval { device }) = event {
-        assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
+        assert_eq!(device.homie_domain, DEFAULT_HOMIE_DOMAIN.to_owned());
         assert_eq!(device.id.as_str(), "test-device-1");
     } else {
         panic!(
@@ -74,7 +74,7 @@ fn test_valid_state_event() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/{}",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1", DEVICE_ATTRIBUTE_STATE
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1", DEVICE_ATTRIBUTE_STATE
         ),
         retain: false,
     };
@@ -82,7 +82,7 @@ fn test_valid_state_event() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceState { device, state }) = event {
-        assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
+        assert_eq!(device.homie_domain, DEFAULT_HOMIE_DOMAIN.to_owned());
         assert_eq!(device.id.as_str(), "test-device-1");
         assert_eq!(state, HomieDeviceStatus::Ready);
     } else {
@@ -102,7 +102,7 @@ fn test_property_value() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/some-node/some-prop",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1"
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1"
         ),
         retain: false,
     };
@@ -129,19 +129,19 @@ fn test_broadcast_message() {
         qos: rumqttc::QoS::ExactlyOnce,
         payload: "global broadcast data".into(),
         pkid: 0,
-        topic: format!("{}/{}/$broadcast/system", DEFAULT_ROOT_TOPIC, HOMIE_VERSION),
+        topic: format!("{}/{}/$broadcast/system", DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION),
         retain: false,
     };
 
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::Broadcast {
-        topic_root,
+        homie_domain,
         subtopic,
         data,
     }) = event
     {
-        assert_eq!(topic_root, DEFAULT_ROOT_TOPIC.to_owned());
+        assert_eq!(homie_domain, DEFAULT_HOMIE_DOMAIN.to_owned());
         assert_eq!(subtopic, "system".to_owned());
         assert_eq!(data, "global broadcast data".to_owned());
     } else {
@@ -159,7 +159,7 @@ fn test_invalid_topic() {
         qos: rumqttc::QoS::ExactlyOnce,
         payload: "invalid".into(),
         pkid: 0,
-        topic: format!("{}/invalid", DEFAULT_ROOT_TOPIC),
+        topic: format!("{}/invalid", DEFAULT_HOMIE_DOMAIN),
         retain: false,
     };
 
@@ -177,7 +177,7 @@ fn test_invalid_payload() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/{}",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1", DEVICE_ATTRIBUTE_STATE
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1", DEVICE_ATTRIBUTE_STATE
         ),
         retain: false,
     };
@@ -202,7 +202,7 @@ fn test_device_description_msg() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/$description",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1"
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1"
         ),
         retain: false,
     };
@@ -210,7 +210,7 @@ fn test_device_description_msg() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceDescription { device, description }) = event {
-        assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
+        assert_eq!(device.homie_domain, DEFAULT_HOMIE_DOMAIN.to_owned());
         assert_eq!(device.id.as_str(), "test-device-1");
         assert_eq!(description.name.unwrap(), "Test Device");
     } else {
@@ -228,14 +228,14 @@ fn test_device_log_msg() {
         qos: rumqttc::QoS::ExactlyOnce,
         payload: Bytes::from("Device restarted"),
         pkid: 0,
-        topic: format!("{}/{}/{}/$log", DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1"),
+        topic: format!("{}/{}/{}/$log", DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1"),
         retain: false,
     };
 
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceLog { device, log_msg }) = event {
-        assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
+        assert_eq!(device.homie_domain, DEFAULT_HOMIE_DOMAIN.to_owned());
         assert_eq!(device.id.as_str(), "test-device-1");
         assert_eq!(log_msg, "Device restarted".to_owned());
     } else {
@@ -255,7 +255,7 @@ fn test_property_target_msg() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/some-node/some-prop/$target",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1"
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1"
         ),
         retain: false,
     };
@@ -284,7 +284,7 @@ fn test_property_set_msg() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/some-node/some-prop/set",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1"
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1"
         ),
         retain: false,
     };
@@ -313,7 +313,7 @@ fn test_device_removal_msg() {
         pkid: 0,
         topic: format!(
             "{}/{}/{}/{}",
-            DEFAULT_ROOT_TOPIC, HOMIE_VERSION, "test-device-1", DEVICE_ATTRIBUTE_STATE
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1", DEVICE_ATTRIBUTE_STATE
         ),
         retain: false,
     };
@@ -321,7 +321,7 @@ fn test_device_removal_msg() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceRemoval { device }) = event {
-        assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
+        assert_eq!(device.homie_domain, DEFAULT_HOMIE_DOMAIN.to_owned());
         assert_eq!(device.id.as_str(), "test-device-1");
     } else {
         panic!(
