@@ -258,13 +258,9 @@ fn make_device_description(
     topic_root: &str,
     device_id: &HomieID,
 ) -> (HomieDeviceDescription, NodeRef, PropertyRef, PropertyRef) {
-    let light_node = NodeRef::new(
-        topic_root.to_string(),
-        device_id.clone(),
-        HomieID::new("light").unwrap(),
-    );
-    let prop_light_state = PropertyRef::from_node(light_node.clone(), HomieID::new("state").unwrap());
-    let prop_light_brightness = PropertyRef::from_node(light_node.clone(), HomieID::new("brightness").unwrap());
+    let light_node = NodeRef::new(topic_root.to_string(), device_id.clone(), "light".try_into().unwrap());
+    let prop_light_state = PropertyRef::from_node(light_node.clone(), "state".try_into().unwrap());
+    let prop_light_brightness = PropertyRef::from_node(light_node.clone(), "brightness".try_into().unwrap());
 
     // Build the device description
     let desc = DeviceDescriptionBuilder::new()
@@ -302,7 +298,7 @@ fn make_device_description(
                 .build(),
         )
         .add_node(
-            HomieID::new("node-2").unwrap(),
+            "node-2".try_into().unwrap(),
             NodeDescriptionBuilder::new()
                 .name(Some("Second Node - no props".to_owned()))
                 .build(),

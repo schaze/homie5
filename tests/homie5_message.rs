@@ -27,7 +27,7 @@ fn test_device_alert_msg() {
     }) = event
     {
         assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
-        assert_eq!(device.id.as_ref(), "test-device-1");
+        assert_eq!(device.id.as_str(), "test-device-1");
         assert_eq!(alert_id, "battery".to_owned());
         assert_eq!(alert_msg, "Battery is low!".to_owned());
     } else {
@@ -56,7 +56,7 @@ fn test_empty_state_aka_device_removal() {
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceRemoval { device }) = event {
         assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
-        assert_eq!(device.id.as_ref(), "test-device-1");
+        assert_eq!(device.id.as_str(), "test-device-1");
     } else {
         panic!(
             "Expected OK result with Homie5Message::DeviceRemoval. Instead received: {:#?}",
@@ -83,7 +83,7 @@ fn test_valid_state_event() {
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceState { device, state }) = event {
         assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
-        assert_eq!(device.id.as_ref(), "test-device-1");
+        assert_eq!(device.id.as_str(), "test-device-1");
         assert_eq!(state, HomieDeviceStatus::Ready);
     } else {
         panic!(
@@ -110,8 +110,8 @@ fn test_property_value() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::PropertyValue { property, value }) = event {
-        assert_eq!(property.node.device.id.as_ref(), "test-device-1");
-        assert_eq!(property.node.id, HomieID::new_unchecked("some-node"));
+        assert_eq!(property.node.device.id.as_str(), "test-device-1");
+        assert_eq!(property.node.id, "some-node".try_into().unwrap());
         assert_eq!(property.id, "some-prop".try_into().unwrap());
         assert_eq!(value, "true".to_owned());
     } else {
@@ -211,7 +211,7 @@ fn test_device_description_msg() {
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceDescription { device, description }) = event {
         assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
-        assert_eq!(device.id.as_ref(), "test-device-1");
+        assert_eq!(device.id.as_str(), "test-device-1");
         assert_eq!(description.name.unwrap(), "Test Device");
     } else {
         panic!(
@@ -236,7 +236,7 @@ fn test_device_log_msg() {
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceLog { device, log_msg }) = event {
         assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
-        assert_eq!(device.id.as_ref(), "test-device-1");
+        assert_eq!(device.id.as_str(), "test-device-1");
         assert_eq!(log_msg, "Device restarted".to_owned());
     } else {
         panic!(
@@ -263,7 +263,7 @@ fn test_property_target_msg() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::PropertyTarget { property, target }) = event {
-        assert_eq!(property.node.device.id.as_ref(), "test-device-1");
+        assert_eq!(property.node.device.id.as_str(), "test-device-1");
         assert_eq!(property.node.id, "some-node".try_into().unwrap());
         assert_eq!(property.id, "some-prop".try_into().unwrap());
         assert_eq!(target, "75".to_owned());
@@ -292,9 +292,9 @@ fn test_property_set_msg() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::PropertySet { property, set_value }) = event {
-        assert_eq!(property.node.device.id.as_ref(), "test-device-1");
-        assert_eq!(property.node.id, HomieID::new_unchecked("some-node"));
-        assert_eq!(property.id, HomieID::new_unchecked("some-prop"));
+        assert_eq!(property.node.device.id.as_str(), "test-device-1");
+        assert_eq!(property.node.id, "some-node".try_into().unwrap());
+        assert_eq!(property.id, "some-prop".try_into().unwrap());
         assert_eq!(set_value, "100".to_owned());
     } else {
         panic!(
@@ -322,7 +322,7 @@ fn test_device_removal_msg() {
     assert!(event.is_ok());
     if let Ok(Homie5Message::DeviceRemoval { device }) = event {
         assert_eq!(device.topic_root, DEFAULT_ROOT_TOPIC.to_owned());
-        assert_eq!(device.id.as_ref(), "test-device-1");
+        assert_eq!(device.id.as_str(), "test-device-1");
     } else {
         panic!(
             "Expected OK result with Homie5Message::DeviceRemoval. Instead received: {:#?}",

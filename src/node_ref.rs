@@ -15,9 +15,9 @@ pub struct NodeRef {
 
 impl NodeRef {
     /// Create a new NodeRef from a given topic_root, device id, and node id
-    pub fn new(topic_root: String, device_id: HomieID, node_id: HomieID) -> Self {
+    pub fn new(topic_root: String, device_i: HomieID, node_id: HomieID) -> Self {
         Self {
-            device: DeviceRef::new(topic_root, device_id),
+            device: DeviceRef::new(topic_root, device_i),
             id: node_id,
         }
     }

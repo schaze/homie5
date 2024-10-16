@@ -162,7 +162,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
     }
 
     // check the homie id provided
-    let device_id = HomieID::try_from(tokens[2])?;
+    let device_id = tokens[2].to_string().try_into()?;
 
     // Match the topic length to identify the message type
     // len: 0    1  2     3        4       5       6
@@ -239,8 +239,8 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 }
                 // Handle property values (e.g. "device-id/node-id/prop-id")
                 _ => {
-                    let node_id = HomieID::try_from(tokens[3])?;
-                    let prop_id = HomieID::try_from(tokens[4])?;
+                    let node_id = HomieID::try_from(tokens[3].to_string())?;
+                    let prop_id = HomieID::try_from(tokens[4].to_string())?;
                     Ok(Homie5Message::PropertyValue {
                         property: PropertyRef::new(topic_root, device_id, node_id, prop_id),
                         value: payload,
@@ -250,8 +250,8 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
         }
         6 => {
             // Handle property attributes (e.g. "device-id/node-id/prop-id/$target")
-            let node_id = HomieID::try_from(tokens[3])?;
-            let prop_id = HomieID::try_from(tokens[4])?;
+            let node_id = HomieID::try_from(tokens[3].to_string())?;
+            let prop_id = HomieID::try_from(tokens[4].to_string())?;
             let attr = tokens[5];
             match attr {
                 // Handle the "set" action

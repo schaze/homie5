@@ -7,7 +7,7 @@ use tokio::{
 };
 
 use common::{setup_ctrlc, HomieMQTTClient, Settings};
-use homie5::{parse_mqtt_message, Homie5ControllerProtocol, Homie5Message, ToTopic};
+use homie5::{parse_mqtt_message, Homie5ControllerProtocol, Homie5Message, HomieID, ToTopic};
 
 mod common;
 mod controller;
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
 
     let handle = run_mqtt_eventloop(eventloop, channel_tx).await;
 
-    let mut devices: HashMap<String, Device> = HashMap::new();
+    let mut devices: HashMap<HomieID, Device> = HashMap::new();
 
     loop {
         let Some(event) = channel_rx.recv().await else {
@@ -64,9 +64,7 @@ async fn main() -> anyhow::Result<()> {
             // $description,...) to get more information
             AppEvent::Homie(Homie5Message::DeviceState { device, state }) => {
                 // Check if the device already exists in the map
-                if let std::collections::hash_map::Entry::Occupied(mut entry) =
-                    devices.entry(device.id.as_ref().to_string())
-                {
+                if let std::collections::hash_map::Entry::Occupied(mut entry) = devices.entry(device.id.clone()) {
                     // If the device exists, update its state and log the update
                     log::debug!("[{}]: Received state update: {:#?}", device.to_topic(), state);
                     state.clone_into(&mut entry.get_mut().state);
@@ -75,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
 
                     // Insert the new device into the map with the provided state and an empty description
                     devices.insert(
-                        device.id.as_ref().to_owned(),
+                        device.id.clone(),
                         Device {
                             ident: device.clone(),
                             state: state.to_owned(),
@@ -94,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
             // ==> This basically concludes all steps needed for discovery
             AppEvent::Homie(Homie5Message::DeviceDescription { device, description }) => {
                 // Handle error if device does not exist
-                let Some(existing_device) = devices.get_mut(device.id.as_ref()) else {
+                let Some(existing_device) = devices.get_mut(&device.id) else {
                     log::error!(
                         "ERROR: received description for non-existing id [{}]: {:#?}",
                         device.id,
@@ -121,14 +119,14 @@ async fn main() -> anyhow::Result<()> {
             }
             AppEvent::Homie(Homie5Message::PropertyValue { property, value }) => {
                 log::debug!("PropertyValue: {} - {}", property.to_topic(), value);
-                let Some(device) = devices.get_mut(property.node.device.id.as_ref()) else {
+                let Some(device) = devices.get_mut(&property.node.device.id) else {
                     continue;
                 };
                 device.store_value(property, value)?;
             }
             AppEvent::Homie(Homie5Message::PropertyTarget { property, target }) => {
                 log::debug!("PropertyTarget: {} - {}", property.to_topic(), target);
-                let Some(device) = devices.get_mut(property.node.device.id.as_ref()) else {
+                let Some(device) = devices.get_mut(&property.node.device.id) else {
                     continue;
                 };
                 device.store_target(property, target)?;
@@ -147,7 +145,7 @@ async fn main() -> anyhow::Result<()> {
                     .await?;
 
                 // If device exists in the map, remove it, otherwise continue
-                let Some(dev) = devices.remove(device.id.as_ref()) else {
+                let Some(dev) = devices.remove(&device.id) else {
                     continue;
                 };
 

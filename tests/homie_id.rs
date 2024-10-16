@@ -6,7 +6,7 @@ use homie5::*;
 fn test_homie_id_from_file() {
     let result = run_homietests("../homie-testsuite/homie5/values/id.yml", |test_definition| {
         if let HomieTest::HomieID(test) = test_definition {
-            Ok(HomieID::try_from(test.input_data.as_str()).is_ok())
+            Ok(HomieID::try_from(test.input_data.clone()).is_ok())
         } else {
             Err(anyhow::anyhow!("Invalid Testdefinition in test file"))
         }
