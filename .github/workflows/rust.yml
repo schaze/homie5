@@ -21,7 +21,7 @@ jobs:
       - name: Checkout test set repository
         uses: actions/checkout@v4
         with:
-          repository: homieiot/homie-testsuite.git
+          repository: homieiot/homie-testsuite
           path: ${{ env.TEST_REPO_PATH }} # Use the environment variable for the path
 
       - name: Build
