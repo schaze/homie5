@@ -274,31 +274,30 @@ To create a device description use the provided builders from homie5::device_des
     <summary>show example</summary>
 
 ```rust
-    let light_node = NodeIdentifier::new(homie5::DEFAULT_ROOT_TOPIC, "test-device".to_string(), "light".to_owned());
-    let prop_light_state = PropertyIdentifier::from_node(light_node.clone(), "state".to_owned());
-    let prop_light_brightness = PropertyIdentifier::from_node(light_node.clone(), "brightness".to_owned());
+    let light_node = NodeRef::new(HomieDomain::Default, "device-1".try_into().unwrap(), "light".try_into().unwrap());
+    let prop_light_state = PropertyRef::from_node(light_node.clone(), "state".try_into().unwrap());
+    let prop_light_brightness = PropertyRef::from_node(light_node.clone(), "brightness".try_into().unwrap());
 
     // Build the device description
-    let device_desc = DeviceDescriptionBuilder::new()
+    let desc = DeviceDescriptionBuilder::new()
         .name(Some("homie5client test-device-1".to_owned()))
         .add_node(
-            &light_node.id,
+            light_node.id.clone(),
             NodeDescriptionBuilder::new()
                 .name(Some("Light node".to_owned()))
                 .add_property(
-                    &prop_light_state.id,
+                    prop_light_state.id.clone(),
                     PropertyDescriptionBuilder::new(HomieDataType::Boolean)
                         .name(Some("Light state".to_owned()))
                         .format(HomiePropertyFormat::Boolean {
                             false_val: "off".to_string(),
                             true_val: "on".to_string(),
                         })
-                        .retained(true)
                         .settable(true)
                         .build(),
                 )
                 .add_property(
-                    &prop_light_brightness.id,
+                    prop_light_brightness.id.clone(),
                     PropertyDescriptionBuilder::new(HomieDataType::Integer)
                         .name(Some("Brightness".to_owned()))
                         .format(HomiePropertyFormat::IntegerRange(IntegerRange {
@@ -307,16 +306,9 @@ To create a device description use the provided builders from homie5::device_des
                             step: None,
                         }))
                         .unit(Some(HOMIE_UNIT_PERCENT.to_string()))
-                        .retained(true)
                         .settable(true)
                         .build(),
                 )
-                .build(),
-        )
-        .add_node(
-            "node-2",
-            NodeDescriptionBuilder::new()
-                .name(Some("Second Node - no props".to_owned()))
                 .build(),
         )
         .build();
@@ -395,11 +387,11 @@ rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) => {
             }
         }
         Homie5Message::Broadcast {
-            topic_root,
+            homie_domain,
             subtopic,
             data,
         } => {
-            log::debug!("Broadcast received: {} | {} | {}", topic_root, subtopic, data);
+            log::debug!("Broadcast received: {} | {} | {}", homie_domain, subtopic, data);
         }
         _ => (),
     }
