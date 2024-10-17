@@ -14,7 +14,7 @@ pub struct Settings {
     pub username: String,
     pub password: String,
     pub client_id: String,
-    pub topic_root: String,
+    pub homie_domain: HomieDomain,
 }
 
 pub fn get_settings() -> Settings {
@@ -42,7 +42,7 @@ pub fn get_settings() -> Settings {
         username,
         password,
         client_id,
-        topic_root,
+        homie_domain: topic_root.try_into().unwrap(),
     }
 }
 
@@ -91,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
 
     let device_id = "test-dev-1".try_into()?;
     let (device_desc, _, prop_light_state, prop_light_brightness) =
-        make_device_description(&settings.topic_root, &device_id);
+        make_device_description(&settings.homie_domain, &device_id);
     let mut state;
     let mut prop_light_state_value = false;
     let mut prop_light_brightness_value = 0;
@@ -243,7 +243,7 @@ fn create_client(_settings: &Settings, device_id: &HomieID) -> (Homie5DeviceProt
     mqttoptions.set_clean_session(true);
 
     // create device protocol generater
-    let (protocol, last_will) = Homie5DeviceProtocol::new(device_id.clone(), Some(_settings.topic_root.clone()));
+    let (protocol, last_will) = Homie5DeviceProtocol::new(device_id.clone(), _settings.homie_domain.clone());
 
     // finalize mqtt options with last will from protocol generator
     mqttoptions.set_last_will(lw_to_rumqttc(last_will));
@@ -255,10 +255,10 @@ fn create_client(_settings: &Settings, device_id: &HomieID) -> (Homie5DeviceProt
 }
 
 fn make_device_description(
-    topic_root: &str,
+    homie_domain: &HomieDomain,
     device_id: &HomieID,
 ) -> (HomieDeviceDescription, NodeRef, PropertyRef, PropertyRef) {
-    let light_node = NodeRef::new(topic_root.to_string(), device_id.clone(), "light".try_into().unwrap());
+    let light_node = NodeRef::new(homie_domain.clone(), device_id.clone(), "light".try_into().unwrap());
     let prop_light_state = PropertyRef::from_node(light_node.clone(), "state".try_into().unwrap());
     let prop_light_brightness = PropertyRef::from_node(light_node.clone(), "brightness".try_into().unwrap());
 

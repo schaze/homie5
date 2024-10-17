@@ -1,6 +1,6 @@
 use crate::{
-    device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceRef, HomieDeviceStatus, HomieID,
-    PropertyRef,
+    device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceRef, HomieDeviceStatus, HomieDomain,
+    HomieID, PropertyRef,
 };
 use std::str::FromStr;
 /// Represents all possible MQTT message types according to the Homie 5 protocol.
@@ -92,7 +92,7 @@ pub enum Homie5Message {
     /// `homie/5/$broadcast/<subtopic>` to all listeners. These messages are used for general-purpose communication.
     Broadcast {
         /// The root topic of the broadcast.
-        homie_domain: String,
+        homie_domain: HomieDomain,
         /// The subtopic of the broadcast.
         subtopic: String,
         /// The broadcasted data.
@@ -147,7 +147,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
         return Err(Homie5ProtocolError::InvalidTopic);
     }
 
-    let topic_root = tokens[0].to_owned();
+    let homie_domain: HomieDomain = tokens[0].to_owned().try_into()?;
 
     // Attempt to parse the payload as a UTF-8 string
     let payload = String::from_utf8(payload.to_vec())?;
@@ -155,7 +155,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
     // Handle broadcast messages (e.g. "homie/5/$broadcast")
     if tokens[2] == "$broadcast" {
         return Ok(Homie5Message::Broadcast {
-            homie_domain: topic_root,
+            homie_domain,
             subtopic: tokens[3..].join("/"),
             data: payload,
         });
@@ -180,7 +180,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                         if let Ok(state) = HomieDeviceStatus::from_str(&payload) {
                             Ok(Homie5Message::DeviceState {
                                 device: DeviceRef {
-                                    homie_domain: topic_root,
+                                    homie_domain,
                                     id: device_id,
                                 },
                                 state,
@@ -192,7 +192,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                         // Empty payload signifies device removal
                         Ok(Homie5Message::DeviceRemoval {
                             device: DeviceRef {
-                                homie_domain: topic_root,
+                                homie_domain,
                                 id: device_id,
                             },
                         })
@@ -202,7 +202,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 "$description" => match serde_json::from_str::<HomieDeviceDescription>(&payload) {
                     Ok(description) => Ok(Homie5Message::DeviceDescription {
                         device: DeviceRef {
-                            homie_domain: topic_root,
+                            homie_domain,
                             id: device_id,
                         },
                         description,
@@ -215,7 +215,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 // Handle the "$log" attribute
                 "$log" => Ok(Homie5Message::DeviceLog {
                     device: DeviceRef {
-                        homie_domain: topic_root,
+                        homie_domain,
                         id: device_id,
                     },
                     log_msg: payload,
@@ -230,7 +230,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                     let alert_id = tokens[4].to_owned();
                     Ok(Homie5Message::DeviceAlert {
                         device: DeviceRef {
-                            homie_domain: topic_root,
+                            homie_domain,
                             id: device_id,
                         },
                         alert_id,
@@ -242,7 +242,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                     let node_id = HomieID::try_from(tokens[3].to_string())?;
                     let prop_id = HomieID::try_from(tokens[4].to_string())?;
                     Ok(Homie5Message::PropertyValue {
-                        property: PropertyRef::new(topic_root, device_id, node_id, prop_id),
+                        property: PropertyRef::new(homie_domain, device_id, node_id, prop_id),
                         value: payload,
                     })
                 }
@@ -256,12 +256,12 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
             match attr {
                 // Handle the "set" action
                 "set" => Ok(Homie5Message::PropertySet {
-                    property: PropertyRef::new(topic_root, device_id, node_id.to_owned(), prop_id.to_owned()),
+                    property: PropertyRef::new(homie_domain, device_id, node_id.to_owned(), prop_id.to_owned()),
                     set_value: payload,
                 }),
                 // Handle the "$target" attribute
                 "$target" => Ok(Homie5Message::PropertyTarget {
-                    property: PropertyRef::new(topic_root, device_id, node_id, prop_id),
+                    property: PropertyRef::new(homie_domain, device_id, node_id, prop_id),
                     target: payload,
                 }),
                 _ => Err(Homie5ProtocolError::InvalidTopic),

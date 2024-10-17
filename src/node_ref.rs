@@ -2,7 +2,7 @@
 //=== NODE
 //===========================================================
 
-use crate::{DeviceRef, HomieID, PropertyRef, ToTopic, HOMIE_VERSION};
+use crate::{DeviceRef, HomieDomain, HomieID, PropertyRef, ToTopic, HOMIE_VERSION};
 
 /// Identifies a node of a device via its DeviceRef and its node id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
@@ -15,9 +15,9 @@ pub struct NodeRef {
 
 impl NodeRef {
     /// Create a new NodeRef from a given topic_root, device id, and node id
-    pub fn new(topic_root: String, device_i: HomieID, node_id: HomieID) -> Self {
+    pub fn new(homie_domain: HomieDomain, device_i: HomieID, node_id: HomieID) -> Self {
         Self {
-            device: DeviceRef::new(topic_root, device_i),
+            device: DeviceRef::new(homie_domain, device_i),
             id: node_id,
         }
     }

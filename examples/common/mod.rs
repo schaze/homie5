@@ -4,7 +4,7 @@ use tokio::{runtime, sync::mpsc::Sender};
 
 use std::env;
 
-use homie5::DEFAULT_HOMIE_DOMAIN;
+use homie5::{HomieDomain, DEFAULT_HOMIE_DOMAIN};
 
 pub struct Settings {
     pub hostname: String,
@@ -12,7 +12,7 @@ pub struct Settings {
     pub username: String,
     pub password: String,
     pub client_id: String,
-    pub topic_root: String,
+    pub homie_domain: HomieDomain,
 }
 
 pub fn get_settings() -> Settings {
@@ -45,7 +45,7 @@ pub fn get_settings() -> Settings {
         username,
         password,
         client_id,
-        topic_root,
+        homie_domain: topic_root.try_into().unwrap(),
     }
 }
 

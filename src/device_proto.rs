@@ -3,7 +3,7 @@ use crate::{
     device_description::{HomieDeviceDescription, HomiePropertyIterator},
     error::Homie5ProtocolError,
     statemachine::{HomieStateMachine, Transition},
-    HomieDeviceStatus, HomieID, PropertyRef, DEFAULT_HOMIE_DOMAIN, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
+    HomieDeviceStatus, HomieDomain, HomieID, PropertyRef, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
     DEVICE_ATTRIBUTE_DESCRIPTION, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION,
     PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
 };
@@ -108,17 +108,12 @@ pub fn homie_device_disconnect_steps() -> impl Iterator<Item = DeviceDisconnectS
 #[derive(Clone, Debug)]
 pub struct Homie5DeviceProtocol {
     id: HomieID,
-    homie_domain: String,
+    homie_domain: HomieDomain,
     is_child: bool,
 }
 
 impl Homie5DeviceProtocol {
-    pub fn new(device_id: HomieID, homie_domain: Option<impl Into<String>>) -> (Self, LastWill) {
-        let homie_domain = if let Some(tr) = homie_domain {
-            tr.into()
-        } else {
-            DEFAULT_HOMIE_DOMAIN.to_owned()
-        };
+    pub fn new(device_id: HomieID, homie_domain: HomieDomain) -> (Self, LastWill) {
         let last_will = LastWill {
             topic: format!("{}/5/{}/$state", &homie_domain, &device_id),
             message: HomieDeviceStatus::Lost.as_str().bytes().collect(),
@@ -138,7 +133,7 @@ impl Homie5DeviceProtocol {
     pub fn id(&self) -> &HomieID {
         &self.id
     }
-    pub fn homie_domain(&self) -> &str {
+    pub fn homie_domain(&self) -> &HomieDomain {
         &self.homie_domain
     }
 

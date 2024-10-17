@@ -3,9 +3,8 @@ use std::iter;
 use crate::{
     client::{Publish, QoS, Subscription, Unsubscribe},
     device_description::{HomieDeviceDescription, HomiePropertyIterator},
-    DeviceRef, HomieID, HomieValue, PropertyRef, ToTopic, DEFAULT_HOMIE_DOMAIN, DEVICE_ATTRIBUTES,
-    DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_STATE, HOMIE_TOPIC_BROADCAST, HOMIE_VERSION, PROPERTY_ATTRIBUTE_TARGET,
-    PROPERTY_SET_TOPIC,
+    DeviceRef, HomieDomain, HomieID, HomieValue, PropertyRef, ToTopic, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
+    DEVICE_ATTRIBUTE_STATE, HOMIE_TOPIC_BROADCAST, HOMIE_VERSION, PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
 };
 
 /// Provides generators for all mqtt subscribe and publish packages needed for a homie5 controller
@@ -29,8 +28,7 @@ impl Homie5ControllerProtocol {
         Default::default()
     }
 
-    pub fn discover_devices<'a>(&'a self, homie_domain: Option<&'a str>) -> impl Iterator<Item = Subscription> + 'a {
-        let homie_domain = homie_domain.unwrap_or(DEFAULT_HOMIE_DOMAIN);
+    pub fn discover_devices<'a>(&'a self, homie_domain: &HomieDomain) -> impl Iterator<Item = Subscription> + 'a {
         iter::once(Subscription {
             topic: format!("{}/{}/+/{}", homie_domain, HOMIE_VERSION, DEVICE_ATTRIBUTE_STATE),
             qos: QoS::ExactlyOnce,
@@ -110,17 +108,12 @@ impl Homie5ControllerProtocol {
 
     pub fn set_command_ids(
         &self,
-        homie_domain: Option<&str>,
+        homie_domain: &HomieDomain,
         device_id: &HomieID,
         node_id: &HomieID,
         prop_id: &HomieID,
         value: &HomieValue,
     ) -> Publish {
-        let homie_domain = if let Some(homie_domain) = homie_domain {
-            homie_domain
-        } else {
-            DEFAULT_HOMIE_DOMAIN
-        };
         Publish {
             topic: format!(
                 "{}/{}/{}/{}/{}/{}",
@@ -135,7 +128,7 @@ impl Homie5ControllerProtocol {
     //pub fn set_command(&self, prop: &PropertyIdentifier, value: impl Into<String>) -> Publish {
     pub fn set_command(&self, prop: &PropertyRef, value: &HomieValue) -> Publish {
         self.set_command_ids(
-            Some(&prop.node.device.homie_domain),
+            &prop.node.device.homie_domain,
             &prop.node.device.id,
             &prop.node.id,
             &prop.id,
@@ -145,19 +138,14 @@ impl Homie5ControllerProtocol {
 
     pub fn send_broadcast(
         &self,
-        topic_root: Option<&str>,
+        homie_domain: &HomieDomain,
         broadcast_topic: &str,
         broadcast_message: impl Into<String>,
     ) -> Publish {
-        let topic_root = if let Some(topic_root) = topic_root {
-            topic_root
-        } else {
-            DEFAULT_HOMIE_DOMAIN
-        };
         Publish {
             topic: format!(
                 "{}/{}/{}/{}",
-                topic_root, HOMIE_VERSION, HOMIE_TOPIC_BROADCAST, broadcast_topic
+                homie_domain, HOMIE_VERSION, HOMIE_TOPIC_BROADCAST, broadcast_topic
             ),
             qos: QoS::ExactlyOnce,
             retain: false,
@@ -165,8 +153,7 @@ impl Homie5ControllerProtocol {
         }
     }
 
-    pub fn subscribe_broadcast<'a>(&'a self, topic_root: Option<&'a str>) -> impl Iterator<Item = Subscription> + 'a {
-        let topic_root = topic_root.unwrap_or("+");
+    pub fn subscribe_broadcast<'a>(&'a self, topic_root: &HomieDomain) -> impl Iterator<Item = Subscription> + 'a {
         iter::once(Subscription {
             topic: format!("{}/{}/$broadcast/#", topic_root, HOMIE_VERSION),
             qos: QoS::ExactlyOnce,

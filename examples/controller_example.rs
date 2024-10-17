@@ -50,10 +50,10 @@ async fn main() -> anyhow::Result<()> {
                 log::debug!("Connected! Discovering devices");
                 devices.clear();
                 mqtt_client
-                    .homie_subscribe(protocol.discover_devices(Some(&settings.topic_root)))
+                    .homie_subscribe(protocol.discover_devices(&settings.homie_domain))
                     .await?;
                 mqtt_client
-                    .homie_subscribe(protocol.subscribe_broadcast(Some(&settings.topic_root)))
+                    .homie_subscribe(protocol.subscribe_broadcast(&settings.homie_domain))
                     .await?;
             }
 

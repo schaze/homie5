@@ -2,19 +2,19 @@
 //=== DEVICE
 //===========================================================
 
-use crate::{HomieID, NodeRef, PropertyRef, ToTopic, HOMIE_VERSION};
+use crate::{HomieDomain, HomieID, NodeRef, PropertyRef, ToTopic, HOMIE_VERSION};
 
 /// Identifies a device via topic_root and the device id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub struct DeviceRef {
     /// the homie_domain (e.g. homie) under which the device is published
-    pub homie_domain: String,
+    pub homie_domain: HomieDomain,
     /// the homie device ID
     pub id: HomieID,
 }
 impl DeviceRef {
     /// Create a new DeviceRef from a given topic_root and a device id
-    pub fn new(homie_domain: String, id: HomieID) -> Self {
+    pub fn new(homie_domain: HomieDomain, id: HomieID) -> Self {
         Self { homie_domain, id }
     }
     /// return a slice to the device id

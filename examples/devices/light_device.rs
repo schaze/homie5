@@ -7,7 +7,7 @@ use homie5::{
         DeviceDescriptionBuilder, HomieDeviceDescription, HomiePropertyFormat, IntegerRange, NodeDescriptionBuilder,
         PropertyDescriptionBuilder,
     },
-    Homie5DeviceProtocol, HomieDataType, HomieDeviceStatus, HomieID, HomieValue, NodeRef, PropertyRef,
+    Homie5DeviceProtocol, HomieDataType, HomieDeviceStatus, HomieDomain, HomieID, HomieValue, NodeRef, PropertyRef,
     HOMIE_UNIT_PERCENT,
 };
 
@@ -43,10 +43,10 @@ impl LightDevice {
         }
     }
     fn make_device_description(
-        topic_root: &str,
+        homie_domain: &HomieDomain,
         device_id: &HomieID,
     ) -> (HomieDeviceDescription, NodeRef, PropertyRef, PropertyRef) {
-        let light_node = NodeRef::new(topic_root.to_string(), device_id.clone(), "light".try_into().unwrap());
+        let light_node = NodeRef::new(homie_domain.clone(), device_id.clone(), "light".try_into().unwrap());
         let prop_light_state = PropertyRef::from_node(light_node.clone(), "state".try_into().unwrap());
         let prop_light_brightness = PropertyRef::from_node(light_node.clone(), "brightness".try_into().unwrap());
 

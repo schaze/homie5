@@ -2,7 +2,7 @@
 //=== PROPERTY
 //===========================================================
 
-use crate::{DeviceRef, HomieID, NodeRef, ToTopic, HOMIE_VERSION};
+use crate::{DeviceRef, HomieDomain, HomieID, NodeRef, ToTopic, HOMIE_VERSION};
 
 /// Identifies a property of a node via its NodeRef and the property id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
@@ -15,9 +15,9 @@ pub struct PropertyRef {
 
 impl PropertyRef {
     /// Create a new PropertyRef from a given topic_root, device id, node id, and property id
-    pub fn new(topic_root: String, device_id: HomieID, node_id: HomieID, prop_id: HomieID) -> Self {
+    pub fn new(homie_domain: HomieDomain, device_id: HomieID, node_id: HomieID, prop_id: HomieID) -> Self {
         Self {
-            node: NodeRef::new(topic_root, device_id, node_id),
+            node: NodeRef::new(homie_domain, device_id, node_id),
             id: prop_id,
         }
     }

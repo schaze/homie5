@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::InvalidHomieIDError;
+use crate::{InvalidHomieDomainError, InvalidHomieIDError};
 
 /// Represents various errors that can occur while handling the Homie v5 protocol.
 ///
@@ -61,12 +61,17 @@ pub enum Homie5ProtocolError {
     #[error("Invalid homie datatype.")]
     InvalidHomieDataType,
 
-    /// The datatype of a property is invalid according to the Homie specification.
+    /// The data provided does not confirm to the homie specification for a homie id
     #[error("Invalid homie id: {0}")]
     InvalidHomieID(#[from] InvalidHomieIDError),
+
     /// The device state is invalid. Valid states are: "init", "ready", "disconnected", "sleeping", and "lost".
     ///
     /// The provided invalid state is included in the error message.
     #[error("Invalid device state: [{0}]! Only: init, ready, disconnected, sleeping and lost are allowed.")]
     InvalidDeviceState(String),
+
+    /// The data provided does not confirm to the homie specification for a homie-domain
+    #[error("Invalid homie domain: {0}")]
+    InvalidHomieDomain(#[from] InvalidHomieDomainError),
 }

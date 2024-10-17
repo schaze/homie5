@@ -2,13 +2,13 @@ use homie5::*;
 
 // Helper function to create a device identifier
 fn create_device_identifier() -> DeviceRef {
-    DeviceRef::new("homie".to_string(), "device1".try_into().unwrap())
+    DeviceRef::new(Default::default(), "device1".try_into().unwrap())
 }
 
 // Helper function to create a node identifier
 fn create_node_identifier() -> NodeRef {
     NodeRef::new(
-        "homie".to_string(),
+        HomieDomain::Default,
         "device1".try_into().unwrap(),
         "node1".try_into().unwrap(),
     )
@@ -17,7 +17,7 @@ fn create_node_identifier() -> NodeRef {
 // Helper function to create a property identifier
 fn create_property_identifier() -> PropertyRef {
     PropertyRef::new(
-        "homie".to_string(),
+        HomieDomain::Default,
         "device1".try_into().unwrap(),
         "node1".try_into().unwrap(),
         "prop1".try_into().unwrap(),
@@ -94,7 +94,7 @@ fn test_device_identifier_partial_eq_ref_with_node_identifier() {
 fn test_device_identifier_not_equal_to_different_property_identifier() {
     let device_id = create_device_identifier();
     let different_property_id = PropertyRef::new(
-        "homie".to_string(),
+        Default::default(),
         "device2".try_into().unwrap(),
         "node1".try_into().unwrap(),
         "prop1".try_into().unwrap(),
@@ -108,7 +108,7 @@ fn test_device_identifier_not_equal_to_different_property_identifier() {
 fn test_node_identifier_not_equal_to_different_property_identifier() {
     let node_id = create_node_identifier();
     let different_property_id = PropertyRef::new(
-        "homie".to_string(),
+        Default::default(),
         "device1".try_into().unwrap(),
         "node2".try_into().unwrap(),
         "prop1".try_into().unwrap(),
@@ -121,7 +121,7 @@ fn test_node_identifier_not_equal_to_different_property_identifier() {
 #[test]
 fn test_property_identifier_not_equal_to_different_device_identifier() {
     let property_id = create_property_identifier();
-    let different_device_id = DeviceRef::new("homie".to_string(), "device2".try_into().unwrap());
+    let different_device_id = DeviceRef::new(Default::default(), "device2".try_into().unwrap());
 
     // Ensure that mismatching property device_id results in inequality
     assert_ne!(property_id, different_device_id);
@@ -131,12 +131,12 @@ fn test_property_identifier_not_equal_to_different_device_identifier() {
 #[test]
 fn test_same_device_different_node() {
     let node1 = NodeRef::new(
-        "homie".to_string(),
+        Default::default(),
         "device1".try_into().unwrap(),
         "node1".try_into().unwrap(),
     );
     let node2 = NodeRef::new(
-        "homie".to_string(),
+        Default::default(),
         "device1".try_into().unwrap(),
         "node2".try_into().unwrap(),
     );
@@ -149,13 +149,13 @@ fn test_same_device_different_node() {
 #[test]
 fn test_same_node_different_property() {
     let property1 = PropertyRef::new(
-        "homie".to_string(),
+        Default::default(),
         "device1".try_into().unwrap(),
         "node1".try_into().unwrap(),
         "prop1".try_into().unwrap(),
     );
     let property2 = PropertyRef::new(
-        "homie".to_string(),
+        Default::default(),
         "device1".try_into().unwrap(),
         "node1".try_into().unwrap(),
         "prop2".try_into().unwrap(),
