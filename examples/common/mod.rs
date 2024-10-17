@@ -4,7 +4,7 @@ use tokio::{runtime, sync::mpsc::Sender};
 
 use std::env;
 
-use homie5::{HomieDomain, DEFAULT_HOMIE_DOMAIN};
+use homie5::HomieDomain;
 
 pub struct Settings {
     pub hostname: String,
