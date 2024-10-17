@@ -4,48 +4,6 @@ use std::time::Duration;
 use homie5::*;
 use homie5::{client::*, device_description::*};
 
-use std::env;
-
-use homie5::DEFAULT_HOMIE_DOMAIN;
-
-pub struct Settings {
-    pub hostname: String,
-    pub port: u16,
-    pub username: String,
-    pub password: String,
-    pub client_id: String,
-    pub homie_domain: HomieDomain,
-}
-
-pub fn get_settings() -> Settings {
-    let hostname = env::var("HOMIE_MQTT_HOST").unwrap_or_default();
-    let port = if let Ok(port) = env::var("HOMIE_MQTT_PORT") {
-        port.parse::<u16>().expect("Not a valid number for port!")
-    } else {
-        1883
-    };
-    let username = env::var("HOMIE_MQTT_USERNAME").unwrap_or_default();
-    let password = env::var("HOMIE_MQTT_PASSWORD").unwrap_or_default();
-    let client_id = if let Ok(client_id) = env::var("HOMIE_MQTT_CLIENT_ID") {
-        client_id
-    } else {
-        String::from("aslkdnlauidhwwkednwek")
-    };
-    let topic_root = if let Ok(topic_root) = env::var("HOMIE_MQTT_TOPIC_ROOT") {
-        topic_root
-    } else {
-        String::from(DEFAULT_HOMIE_DOMAIN)
-    };
-    Settings {
-        hostname,
-        port,
-        username,
-        password,
-        client_id,
-        homie_domain: topic_root.try_into().unwrap(),
-    }
-}
-
 // Create mqtt binding code for rumqttc
 #[allow(dead_code)]
 fn qos_to_rumqttc(value: homie5::client::QoS) -> rumqttc::QoS {
@@ -86,17 +44,15 @@ async fn main() -> anyhow::Result<()> {
     // start of actual application logic
     // ===================================================
 
-    // get settings from the environment variables
-    let settings = get_settings();
-
     let device_id = "test-dev-1".try_into()?;
-    let (device_desc, _, prop_light_state, prop_light_brightness) =
-        make_device_description(&settings.homie_domain, &device_id);
+    // create all client objects
+    let (protocol, mqtt_client, mut eventloop) = create_client(&device_id);
+
     let mut state;
     let mut prop_light_state_value = false;
     let mut prop_light_brightness_value = 0;
-    // create all client objects
-    let (protocol, mqtt_client, mut eventloop) = create_client(&settings, &device_id);
+    let (device_desc, _, prop_light_state, prop_light_brightness) =
+        make_device_description(protocol.homie_domain(), &device_id);
 
     loop {
         match eventloop.poll().await {
@@ -110,19 +66,8 @@ async fn main() -> anyhow::Result<()> {
                             // parse the value (to keep it simple for the example the whole loop will
                             // fail in case of a invalid payload. Don't do it this way in real life!
                             let value = device_desc
-                                .with_property(&property, |prop| HomieValue::parse(&set_value, prop))
-                                .ok_or_else(|| {
-                                    log::debug!("Cannot set value for: {}", property.to_topic());
-                                    Homie5ProtocolError::PropertyNotFound
-                                })?
-                                .map_err(|err| {
-                                    log::debug!(
-                                        "Invalid value provided for property: {} -- {:?}",
-                                        property.to_topic(),
-                                        err
-                                    );
-                                    Homie5ProtocolError::InvalidPayload
-                                })?;
+                                .with_property(&property, |prop| HomieValue::parse(&set_value, prop).unwrap())
+                                .unwrap();
 
                             // if the message was for light state, update our state and publish the new
                             // value
@@ -231,19 +176,15 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn create_client(_settings: &Settings, device_id: &HomieID) -> (Homie5DeviceProtocol, AsyncClient, EventLoop) {
+fn create_client(device_id: &HomieID) -> (Homie5DeviceProtocol, AsyncClient, EventLoop) {
     // start building the mqtt options
-    let mut mqttoptions = rumqttc::MqttOptions::new(
-        _settings.client_id.clone() + "_dev",
-        _settings.hostname.clone(),
-        _settings.port,
-    );
-    mqttoptions.set_credentials(_settings.username.clone(), _settings.password.clone());
+    let mut mqttoptions = rumqttc::MqttOptions::new("homie_mini_example_dev", "", 1883);
+    //mqttoptions.set_credentials("user", _"pass");
     mqttoptions.set_keep_alive(Duration::from_secs(5));
     mqttoptions.set_clean_session(true);
 
     // create device protocol generater
-    let (protocol, last_will) = Homie5DeviceProtocol::new(device_id.clone(), _settings.homie_domain.clone());
+    let (protocol, last_will) = Homie5DeviceProtocol::new(device_id.clone(), HomieDomain::Default);
 
     // finalize mqtt options with last will from protocol generator
     mqttoptions.set_last_will(lw_to_rumqttc(last_will));
@@ -277,7 +218,6 @@ fn make_device_description(
                             false_val: "off".to_string(),
                             true_val: "on".to_string(),
                         })
-                        .retained(true)
                         .settable(true)
                         .build(),
                 )
@@ -291,16 +231,9 @@ fn make_device_description(
                             step: None,
                         }))
                         .unit(Some(HOMIE_UNIT_PERCENT.to_string()))
-                        .retained(true)
                         .settable(true)
                         .build(),
                 )
-                .build(),
-        )
-        .add_node(
-            "node-2".try_into().unwrap(),
-            NodeDescriptionBuilder::new()
-                .name(Some("Second Node - no props".to_owned()))
                 .build(),
         )
         .build();

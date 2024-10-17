@@ -111,7 +111,7 @@ impl TryFrom<String> for CustomDomain {
 }
 
 impl fmt::Display for CustomDomain {
-    /// Formats the `HomieID` as a string for display purposes.
+    /// Formats the `CustomDomain` as a string for display purposes.
     ///
     /// # Arguments
     ///
