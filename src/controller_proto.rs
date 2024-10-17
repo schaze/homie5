@@ -153,16 +153,15 @@ impl Homie5ControllerProtocol {
         }
     }
 
-    pub fn subscribe_broadcast<'a>(&'a self, topic_root: &HomieDomain) -> impl Iterator<Item = Subscription> + 'a {
+    pub fn subscribe_broadcast<'a>(&'a self, homie_domain: &HomieDomain) -> impl Iterator<Item = Subscription> + 'a {
         iter::once(Subscription {
-            topic: format!("{}/{}/$broadcast/#", topic_root, HOMIE_VERSION),
+            topic: format!("{}/{}/$broadcast/#", homie_domain, HOMIE_VERSION),
             qos: QoS::ExactlyOnce,
         })
     }
-    pub fn unsubscribe_broadcast<'a>(&'a self, topic_root: Option<&'a str>) -> impl Iterator<Item = Unsubscribe> + 'a {
-        let topic_root = topic_root.unwrap_or("+");
+    pub fn unsubscribe_broadcast<'a>(&'a self, homie_domain: &HomieDomain) -> impl Iterator<Item = Unsubscribe> + 'a {
         iter::once(Unsubscribe {
-            topic: format!("{}/{}/$broadcast/#", topic_root, HOMIE_VERSION),
+            topic: format!("{}/{}/$broadcast/#", homie_domain, HOMIE_VERSION),
         })
     }
 }

@@ -33,10 +33,10 @@ pub fn get_settings() -> Settings {
     } else {
         String::from("aslkdnlauidhwwkednwek")
     };
-    let topic_root = if let Ok(topic_root) = env::var("HOMIE_MQTT_TOPIC_ROOT") {
-        topic_root
+    let homie_domain = if let Ok(homie_domain) = env::var("HOMIE_MQTT_HOMIE_DOMAIN") {
+        homie_domain.try_into().unwrap()
     } else {
-        String::from(DEFAULT_HOMIE_DOMAIN)
+        HomieDomain::Default
     };
 
     Settings {
@@ -45,7 +45,7 @@ pub fn get_settings() -> Settings {
         username,
         password,
         client_id,
-        homie_domain: topic_root.try_into().unwrap(),
+        homie_domain,
     }
 }
 

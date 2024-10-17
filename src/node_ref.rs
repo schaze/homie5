@@ -14,7 +14,7 @@ pub struct NodeRef {
 }
 
 impl NodeRef {
-    /// Create a new NodeRef from a given topic_root, device id, and node id
+    /// Create a new NodeRef from a given homie_domain, device id, and node id
     pub fn new(homie_domain: HomieDomain, device_i: HomieID, node_id: HomieID) -> Self {
         Self {
             device: DeviceRef::new(homie_domain, device_i),

@@ -4,7 +4,7 @@
 
 use crate::{HomieDomain, HomieID, NodeRef, PropertyRef, ToTopic, HOMIE_VERSION};
 
-/// Identifies a device via topic_root and the device id
+/// Identifies a device via homie-domain and the device id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub struct DeviceRef {
     /// the homie_domain (e.g. homie) under which the device is published
@@ -13,7 +13,7 @@ pub struct DeviceRef {
     pub id: HomieID,
 }
 impl DeviceRef {
-    /// Create a new DeviceRef from a given topic_root and a device id
+    /// Create a new DeviceRef from a given homie-domain and a device id
     pub fn new(homie_domain: HomieDomain, id: HomieID) -> Self {
         Self { homie_domain, id }
     }

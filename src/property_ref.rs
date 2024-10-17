@@ -14,7 +14,7 @@ pub struct PropertyRef {
 }
 
 impl PropertyRef {
-    /// Create a new PropertyRef from a given topic_root, device id, node id, and property id
+    /// Create a new PropertyRef from a given homie_domain, device id, node id, and property id
     pub fn new(homie_domain: HomieDomain, device_id: HomieID, node_id: HomieID, prop_id: HomieID) -> Self {
         Self {
             node: NodeRef::new(homie_domain, device_id, node_id),
