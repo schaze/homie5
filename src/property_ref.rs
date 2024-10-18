@@ -1,11 +1,36 @@
-//===========================================================
-//=== PROPERTY
-//===========================================================
+//! //! Represents a reference to a property in the Homie MQTT convention.
+//!
+//! A `PropertyRef` identifies a property within a Homie device by referencing the node (`NodeRef`) it belongs to and its property-specific ID (`HomieID`).
+//! This is used in parsing and interacting with Homie messages and topics related to properties.
+//!
+//! # Example
+//!
+//! ```rust
+//! use homie5::{PropertyRef, NodeRef, HomieDomain, HomieID};
+//!
+//! let device_id = HomieID::try_from("device-01").unwrap();
+//! let node_id = HomieID::try_from("node-01").unwrap();
+//! let prop_id = HomieID::try_from("temperature").unwrap();
+//! let prop_ref = PropertyRef::new(HomieDomain::Default, device_id, node_id, prop_id);
+//!
+//! assert_eq!(prop_ref.device_id().as_str(), "device-01");
+//! assert_eq!(prop_ref.node_id().as_str(), "node-01");
+//! assert_eq!(prop_ref.prop_id().as_str(), "temperature");
+//! ```
+//!
+//! # Methods
+//! - `new`: Constructs a `PropertyRef` from a domain, device ID, node ID, and property ID.
+//! - `from_node`: Creates a `PropertyRef` from an existing `NodeRef` and a property ID.
+//! - `prop_id`: Returns a reference to the property ID.
+//! - `node_id`: Returns a reference to the node ID the property belongs to.
+//! - `device_id`: Returns a reference to the device ID that the property belongs to.
+//!
+//! These methods allow precise identification and referencing of Homie properties in MQTT topics.
 
 use crate::{DeviceRef, HomieDomain, HomieID, NodeRef, ToTopic, HOMIE_VERSION};
 
 /// Identifies a property of a node via its NodeRef and the property id
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PropertyRef {
     /// Identifier of the node the property belongs to
     pub node: NodeRef,

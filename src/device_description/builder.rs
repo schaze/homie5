@@ -1,3 +1,14 @@
+//! This module provides builders for constructing descriptions of Homie devices, nodes, and properties.
+//! The builders allow for flexible and incremental building of `HomieDeviceDescription`,
+//! `HomieNodeDescription`, and `HomiePropertyDescription` objects, commonly used in the Homie protocol.
+//!
+//! # Conditional Building
+//!
+//! All builders in this module offer the `do_if` method, which allows for executing a closure
+//! only if a certain condition is met. This is useful for adding optional elements or applying logic
+//! based on runtime conditions.
+//!
+//! ```
 use crate::{HomieDataType, HomieID, HOMIE_VERSION_FULL};
 
 use super::{
@@ -6,6 +17,21 @@ use super::{
 };
 use std::collections::{hash_map, HashMap};
 
+/// Builder for constructing `HomieDeviceDescription` objects.
+///
+/// The `DeviceDescriptionBuilder` helps construct a complete `HomieDeviceDescription` by setting attributes
+/// like children, nodes, extensions, and device metadata. It provides flexibility in handling device structure
+/// and content, allowing for customization at each step.
+///
+/// ### Example Usage
+/// ```rust
+/// use homie5::device_description::*;
+/// let device_description = DeviceDescriptionBuilder::new()
+///     .name(Some("MyDevice".to_string()))
+///     .add_child("node1".try_into().unwrap())
+///     .add_extension("com.example.extension".to_string())
+///     .build();
+/// ```
 pub struct DeviceDescriptionBuilder {
     description: HomieDeviceDescription,
 }
@@ -119,6 +145,20 @@ impl DeviceDescriptionBuilder {
     }
 }
 
+/// Builder for constructing `HomieNodeDescription` objects.
+///
+/// The `NodeDescriptionBuilder` simplifies the creation of `HomieNodeDescription` instances.
+/// Nodes are the intermediate layer between devices and properties, and this builder facilitates
+/// adding properties, setting the node name and type, and optionally removing or replacing properties.
+///
+/// ### Example Usage
+/// ```rust
+/// use homie5::device_description::*;
+/// let node_description = NodeDescriptionBuilder::new()
+///     .name(Some("TemperatureNode".to_string()))
+///     .r#type("sensor")
+///     .build();
+/// ```
 pub struct NodeDescriptionBuilder {
     description: HomieNodeDescription,
 }
@@ -212,6 +252,24 @@ impl NodeDescriptionBuilder {
     }
 }
 
+/// Builder for constructing `HomiePropertyDescription` objects.
+///
+/// The `PropertyDescriptionBuilder` is designed for constructing `HomiePropertyDescription`
+/// objects, which represent individual properties of a node, such as sensor readings or settings.
+/// Properties have attributes like datatype, format, settable, and retained, which can be set using
+/// this builder.
+///
+/// ### Example Usage
+/// ```rust
+/// use homie5::device_description::*;
+/// use homie5::*;
+/// let property_description = PropertyDescriptionBuilder::new(HomieDataType::Float)
+///     .name(Some("Temperature".to_string()))
+///     .settable(false)
+///     .retained(true)
+///     .unit(Some("°C".to_string()))
+///     .build();
+/// ```
 pub struct PropertyDescriptionBuilder {
     description: HomiePropertyDescription,
 }

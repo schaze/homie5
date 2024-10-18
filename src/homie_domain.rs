@@ -1,3 +1,35 @@
+//! This module provides validation and handling for the `HomieDomain` used in the Homie 5 protocol.
+//!
+//! # HomieDomain
+//!
+//! The `HomieDomain` represents the first segment of the MQTT topic used by devices in the Homie 5 protocol.
+//! By default, the domain is `"homie"`, but it can be customized to meet specific needs (e.g., using a public broker or for branding).
+//! The domain must be a single topic segment without characters like `/`, `+`, or `#`. The major version segment (`"5"`) is fixed.
+//!
+//! - `Default`: The default domain, `"homie"`.
+//! - `All`: Represents the MQTT `+` wildcard for subscribing to all domains.
+//! - `Custom`: A user-defined domain validated to ensure compliance with Homie 5 rules.
+//!
+//! # CustomDomain
+//!
+//! `CustomDomain` wraps a user-provided domain and ensures it meets the required validation criteria.
+//! It can be created using `TryFrom<&str>` or `TryFrom<String>`. Domains must not be empty and must be single-segment topics.
+//!
+//! # Errors
+//!
+//! `InvalidHomieDomainError` is returned when a domain fails validation due to invalid characters or an empty string.
+//!
+//! # Example
+//!
+//! ```rust
+//! use homie5::*;
+//! use std::convert::TryFrom;
+//!
+//! let custom_domain = HomieDomain::try_from("my-brand").unwrap();
+//! assert_eq!(custom_domain.to_string(), "my-brand");
+//! ```
+//!
+
 use core::fmt;
 use std::borrow::Cow;
 
@@ -137,6 +169,17 @@ pub enum HomieDomain {
     Default,
     All,
     Custom(CustomDomain),
+}
+
+impl HomieDomain {
+    /// Allows borrowing the inner string slice of the `HomieID`.
+    pub fn as_str(&self) -> &str {
+        match self {
+            HomieDomain::Default => DEFAULT_HOMIE_DOMAIN,
+            HomieDomain::All => "+",
+            HomieDomain::Custom(custom) => &custom.0,
+        }
+    }
 }
 
 // Implement Serialize manually to use the Display trait's output

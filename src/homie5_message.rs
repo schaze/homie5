@@ -1,3 +1,74 @@
+//! This module defines the `Homie5Message` enum, which represents all possible MQTT message types
+//! according to the Homie 5 protocol. The module also includes the `parse_mqtt_message` function
+//! that processes incoming MQTT messages and converts them into the appropriate `Homie5Message` variant.
+//!
+//! # Overview
+//!
+//! The Homie 5 protocol is an MQTT-based standard for IoT devices, facilitating structured communication
+//! between devices and the broker. Devices publish their attributes, state changes, logs, and property
+//! values to specific topics under the Homie topic hierarchy. The `Homie5Message` enum encapsulates
+//! the various types of MQTT messages a device may publish or receive in this protocol.
+//!
+//! This module includes:
+//!
+//! - `Homie5Message`: An enum representing different types of Homie 5 messages such as `DeviceState`,
+//!   `PropertyValue`, and `DeviceLog`.
+//! - `parse_mqtt_message`: A function to parse raw MQTT messages into `Homie5Message` based on the
+//!   message's topic and payload structure.
+//!
+//! # Homie5Message Enum
+//!
+//! The `Homie5Message` enum provides variants for different message types. Each variant corresponds to
+//! a specific interaction, such as receiving a device's state, description, or property value, or handling
+//! a command like setting a property's value or processing a broadcast message.
+//!
+//! - `DeviceState`: Indicates a device's current state.
+//! - `DeviceDescription`: Provides metadata about the device.
+//! - `DeviceLog`: Contains log messages for debugging purposes.
+//! - `DeviceAlert`: Represents critical alerts from the device.
+//! - `PropertyValue`: Contains the current value of a property.
+//! - `PropertyTarget`: Represents the desired state of a property.
+//! - `PropertySet`: A command to set a property to a specific value.
+//! - `Broadcast`: Represents general-purpose communication broadcast messages.
+//! - `DeviceRemoval`: Represents the removal of a device from the network.
+//!
+//! # Parsing MQTT Messages
+//!
+//! The `parse_mqtt_message` function is responsible for parsing MQTT messages received from a broker
+//! and converting them into appropriate `Homie5Message` enum variants. This function analyzes the topic
+//! structure, which follows the Homie 5 protocol conventions, and decodes the payload accordingly.
+//!
+//! - The topic is split into components to determine the type of message.
+//! - Based on the topic structure (e.g., `homie/5/<device-id>/$state`, `homie/5/<device-id>/<node-id>/<property-id>`),
+//!   the function attempts to parse the payload and return the corresponding `Homie5Message`.
+//!
+//! # Errors
+//!
+//! The `parse_mqtt_message` function may return a `Homie5ProtocolError` if the message does not conform
+//! to the expected topic structure or if the payload is invalid. Possible errors include:
+//!
+//! - `InvalidTopic`: The topic format is not valid according to the Homie 5 protocol.
+//! - `InvalidPayload`: The payload is malformed or cannot be parsed as expected.
+//!
+//! # Example
+//!
+//! ```rust
+//! use homie5::*;
+//! let topic = "homie/5/device1/$state";
+//! let payload = b"ready";
+//! let message = parse_mqtt_message(topic, payload).unwrap();
+//! match message {
+//!     Homie5Message::DeviceState { device, state } => {
+//!         println!("Device {} is in state: {:?}", device.id, state);
+//!     }
+//!     _ => panic!("Unexpected message type"),
+//! }
+//! ```
+//!
+//! In this example, the topic and payload represent a device state message where `device1` is in the "ready" state.
+//! The `parse_mqtt_message` function successfully parses the message, and the resulting `Homie5Message` enum variant
+//! is used to handle the message.
+
 use crate::{
     device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceRef, HomieDeviceStatus, HomieDomain,
     HomieID, PropertyRef,

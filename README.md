@@ -7,6 +7,8 @@ The library provides fully typed support for all homie5 datatypes.
 
 Due to this, the usage of the library is a bit more involved as with a completly ready to use homie library. Benefit is however that you can use the library basically everywhere from a simple esp32, raspberrypi to a x86 machine.
 
+[![works with MQTT Homie](https://homieiot.github.io/img/works-with-homie.png)](https://homieiot.github.io/)
+
 ## Content
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->

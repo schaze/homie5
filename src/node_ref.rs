@@ -1,11 +1,31 @@
-//===========================================================
-//=== NODE
-//===========================================================
+//! //! Represents a reference to a node in the Homie MQTT convention.
+//!
+//! A `NodeRef` identifies a node on a Homie device through its associated `DeviceRef` and a node-specific ID (`HomieID`).
+//!
+//! # Example
+//!
+//! ```rust
+//! use homie5::{NodeRef, DeviceRef, HomieDomain, HomieID};
+//!
+//! let device_id = HomieID::try_from("device-01").unwrap();
+//! let node_id = HomieID::try_from("node-01").unwrap();
+//! let node_ref = NodeRef::new(HomieDomain::Default, device_id, node_id);
+//!
+//! assert_eq!(node_ref.device_id().as_str(), "device-01");
+//! ```
+//!
+//! # Methods
+//! - `new`: Constructs a `NodeRef` from a domain, device ID, and node ID.
+//! - `from_device`: Creates a `NodeRef` from an existing `DeviceRef` and a node ID.
+//! - `node_id`: Returns a reference to the node ID.
+//! - `device_id`: Returns a reference to the device ID that the node belongs to.
+//!
+//! These methods allow precise identification and referencing of Homie nodes in MQTT topics.
 
 use crate::{DeviceRef, HomieDomain, HomieID, PropertyRef, ToTopic, HOMIE_VERSION};
 
 /// Identifies a node of a device via its DeviceRef and its node id
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeRef {
     /// Identifier of the device the node belongs to
     pub device: DeviceRef,

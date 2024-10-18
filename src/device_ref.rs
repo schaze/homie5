@@ -1,11 +1,28 @@
-//===========================================================
-//=== DEVICE
-//===========================================================
+//! Represents a reference to a device in the Homie MQTT convention.
+//!
+//! A `DeviceRef` identifies a Homie device by its domain (`HomieDomain`) and device ID (`HomieID`). This struct is used to interact with and reference Homie devices in the MQTT topic structure.
+//!
+//! # Example
+//!
+//! ```rust
+//! use homie5::{DeviceRef, HomieDomain, HomieID};
+//!
+//! let device_id = HomieID::try_from("device-01").unwrap();
+//! let device_ref = DeviceRef::new(HomieDomain::Default, device_id);
+//!
+//! assert_eq!(device_ref.device_id().as_str(), "device-01");
+//! ```
+//!
+//! # Methods
+//! - `new`: Constructs a `DeviceRef` from a domain and device ID.
+//! - `device_id`: Returns a reference to the device ID.
+//!
+//! These methods enable referencing Homie devices within the MQTT topic structure.
 
 use crate::{HomieDomain, HomieID, NodeRef, PropertyRef, ToTopic, HOMIE_VERSION};
 
 /// Identifies a device via homie-domain and the device id
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DeviceRef {
     /// the homie_domain (e.g. homie) under which the device is published
     pub homie_domain: HomieDomain,

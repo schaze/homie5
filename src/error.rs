@@ -1,3 +1,6 @@
+//! Defines all errors the homie 5 library recognizes
+//!
+
 use thiserror::Error;
 
 use crate::{InvalidHomieDomainError, InvalidHomieIDError};

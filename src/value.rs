@@ -1,3 +1,5 @@
+//! Provides all types and functions for parsing and creating homie property values
+//!
 use std::{fmt::Display, str::FromStr};
 
 use crate::{

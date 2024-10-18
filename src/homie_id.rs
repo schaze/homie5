@@ -1,8 +1,35 @@
-//! A module for representing and validating Homie IDs according to the Homie MQTT convention.
+//! This module defines and validates Homie IDs used in the Homie MQTT convention.
 //!
-//! This module provides the `HomieID` struct, which ensures that any ID used in the context of Homie devices,
-//! nodes, and properties conforms to the specification that IDs must only contain lowercase letters `a` to `z`,
-//! numbers `0` to `9`, and hyphens `-`.
+//! # HomieID
+//!
+//! `HomieID` ensures that the ID strings for devices, nodes, and properties follow the Homie specification:
+//! - IDs must only include lowercase letters (`a-z`), digits (`0-9`), and hyphens (`-`).
+//! - IDs must not be empty or contain any other characters.
+//!
+//! A `HomieID` can be created via `TryFrom<&'static str>` or `TryFrom<String>`. The `'static` lifetime is used for string slices to ensure the ID can be safely sent across threads or through channels, where the ownership or lifetime of the data must be guaranteed for the duration of the program if needed.
+//!
+//! # Why Only `&'static str`?
+//!
+//! The use of `&'static str` ensures that any string slice used to create a `HomieID` has a lifetime that is valid for the entire runtime of the program. This is particularly important because IDs will be passed between different threads (e.g., through channels), and allowing a non-`'static` lifetime would risk referencing invalid or deallocated memory.
+//!
+//! By using `Cow<'static, str>`, `HomieID` can either hold an owned `String` or a borrowed `&'static str`, providing flexibility while ensuring thread safety when the ID is shared or sent across channels.
+//!
+//! # Errors
+//!
+//! If an ID fails to meet the specifications, an `InvalidHomieIDError` is returned with a message indicating the issue.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use homie5::*;
+//! use std::convert::TryFrom;
+//!
+//! let valid_id = HomieID::try_from("device-01").unwrap();
+//! assert_eq!(valid_id.as_str(), "device-01");
+//!
+//! let invalid_id = HomieID::try_from("Device-01"); // Returns an error due to uppercase letter
+//! assert!(invalid_id.is_err());
+//! ```
 
 use std::fmt;
 use std::{borrow::Cow, convert::TryFrom};
@@ -61,7 +88,7 @@ impl std::error::Error for InvalidHomieIDError {}
 /// let id = HomieID::try_from("sensor-01").unwrap();
 /// assert_eq!(id.as_str(), "sensor-01");
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 pub struct HomieID(Cow<'static, str>);
 
 impl HomieID {
