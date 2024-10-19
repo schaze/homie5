@@ -97,19 +97,15 @@ where
         let value = self
             .description()
             .with_property(property, |prop| HomieValue::parse(value, prop))
-            .ok_or_else(|| {
-                log::debug!("Cannot set value for: {}", property.to_topic());
-                Homie5ProtocolError::PropertyNotFound
-            })?
-            .map_err(|err| {
-                log::debug!(
-                    "Invalid value provided for property: {} -- {:?}",
-                    property.to_topic(),
-                    err
-                );
-                Homie5ProtocolError::InvalidPayload
-            })?;
+            .ok_or(Homie5ProtocolError::PropertyNotFound)?
+            .map_err(|_| Homie5ProtocolError::InvalidHomieValue)?;
 
+        //log::debug!(
+        //    "Invalid value provided for property: {} -- {:?}",
+        //    property.to_topic(),
+        //    err
+        //);
+        //log::debug!("Cannot set value for: {}", property.to_topic());
         // get the retained setting for the property
         let retained = self
             .description()

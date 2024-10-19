@@ -327,6 +327,17 @@ impl HomieDeviceDescription {
         //}
         None
     }
+    pub fn get_property(&self, property: &PropertyRef) -> Option<&HomiePropertyDescription> {
+        if let Some(prop) = self
+            .nodes
+            .get(&property.node.id)
+            .and_then(|node| node.properties.get(&property.id))
+        {
+            return Some(prop);
+        }
+        None
+    }
+
     pub fn update_version(&mut self) {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);

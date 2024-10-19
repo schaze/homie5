@@ -3,7 +3,7 @@
 
 use thiserror::Error;
 
-use crate::{InvalidHomieDomainError, InvalidHomieIDError};
+use crate::{Homie5ValueConversionError, InvalidHomieDomainError, InvalidHomieIDError};
 
 /// Represents various errors that can occur while handling the Homie v5 protocol.
 ///
@@ -77,4 +77,8 @@ pub enum Homie5ProtocolError {
     /// The data provided does not confirm to the homie specification for a homie-domain
     #[error("Invalid homie domain: {0}")]
     InvalidHomieDomain(#[from] InvalidHomieDomainError),
+
+    /// The data provided could not be parsed into a HomieValue
+    #[error("Invalid homie value")]
+    InvalidHomieValue(#[from] Homie5ValueConversionError),
 }

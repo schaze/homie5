@@ -350,10 +350,10 @@ fn test_integer_nok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
         .name(Some("test".to_owned()))
         .build();
-    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ValueConversionError));
-    assert_eq!(HomieValue::parse("122.22", &desc), Err(Homie5ValueConversionError));
-    assert_eq!(HomieValue::parse("122,22", &desc), Err(Homie5ValueConversionError));
-    assert_eq!(HomieValue::parse(" 122", &desc), Err(Homie5ValueConversionError));
+    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ProtocolError));
+    assert_eq!(HomieValue::parse("122.22", &desc), Err(Homie5ProtocolError));
+    assert_eq!(HomieValue::parse("122,22", &desc), Err(Homie5ProtocolError));
+    assert_eq!(HomieValue::parse(" 122", &desc), Err(Homie5ProtocolError));
 }
 
 #[test]
@@ -366,9 +366,9 @@ fn test_float_ok() {
 #[test]
 fn test_float_nok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Float).build();
-    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ValueConversionError));
-    assert_eq!(HomieValue::parse("122,22", &desc), Err(Homie5ValueConversionError));
-    assert_eq!(HomieValue::parse(" 122", &desc), Err(Homie5ValueConversionError));
+    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ProtocolError));
+    assert_eq!(HomieValue::parse("122,22", &desc), Err(Homie5ProtocolError));
+    assert_eq!(HomieValue::parse(" 122", &desc), Err(Homie5ProtocolError));
 }
 
 #[test]
@@ -381,9 +381,9 @@ fn test_bool_ok() {
 #[test]
 fn test_bool_nok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Boolean).build();
-    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ValueConversionError));
-    assert_eq!(HomieValue::parse("TRUE", &desc), Err(Homie5ValueConversionError));
-    assert_eq!(HomieValue::parse("False", &desc), Err(Homie5ValueConversionError));
+    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ProtocolError));
+    assert_eq!(HomieValue::parse("TRUE", &desc), Err(Homie5ProtocolError));
+    assert_eq!(HomieValue::parse("False", &desc), Err(Homie5ProtocolError));
 }
 
 #[test]
@@ -430,16 +430,10 @@ fn test_color_ok() {
 #[test]
 fn test_color_nok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Color).build();
-    assert_eq!(HomieValue::parse("rgb,12,55", &desc), Err(Homie5ValueConversionError));
-    assert_eq!(
-        HomieValue::parse("HSV,12,55,14", &desc),
-        Err(Homie5ValueConversionError)
-    );
-    assert_eq!(
-        HomieValue::parse("rgb ,12,55,14", &desc),
-        Err(Homie5ValueConversionError)
-    );
-    assert_eq!(HomieValue::parse("xyz/12,55", &desc), Err(Homie5ValueConversionError));
+    assert!(HomieValue::parse("rgb,12,55", &desc).is_err());
+    assert!(HomieValue::parse("HSV,12,55,14", &desc).is_err());
+    assert!(HomieValue::parse("rgb ,12,55,14", &desc).is_err());
+    assert!(HomieValue::parse("xyz/12,55", &desc).is_err());
 }
 
 #[test]

@@ -1,14 +1,91 @@
 //! Provides all types and functions for parsing and creating homie property values
 //!
-use std::{fmt::Display, str::FromStr};
-
-use crate::{
-    device_description::{ColorFormat, HomiePropertyDescription, HomiePropertyFormat},
-    HomieDataType,
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
 };
 
-#[derive(Debug, PartialEq)]
-pub struct Homie5ValueConversionError;
+use crate::{
+    device_description::{ColorFormat, FloatRange, HomiePropertyDescription, HomiePropertyFormat, IntegerRange},
+    Homie5ProtocolError, HomieDataType,
+};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Homie5ValueConversionError {
+    InvalidColorFormat(String),
+    InvalidIntegerFormat(String),
+    IntegerOutOfRange(i64, IntegerRange),
+    InvalidFloatFormat(String),
+    FloatOutOfRange(f64, FloatRange),
+    InvalidEnumFormat(String, Vec<String>),
+    InvalidDateTimeFormat(String),
+    InvalidDurationFormat(String),
+    UnsupportedColorFormat(ColorFormat, Vec<ColorFormat>),
+    InvalidBooleanFormat(String),
+    JsonParseError(String),
+}
+impl fmt::Display for Homie5ValueConversionError {
+    /// Formats the error message for display purposes.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Homie5ValueConversionError::InvalidColorFormat(value) => {
+                write!(f, "'{}' is not a valid color value", value)
+            }
+            Homie5ValueConversionError::InvalidIntegerFormat(value) => {
+                write!(f, "'{}' is not a valid integer value", value)
+            }
+            Homie5ValueConversionError::InvalidFloatFormat(value) => {
+                write!(f, "'{}' is not a valid float value", value)
+            }
+            Homie5ValueConversionError::InvalidEnumFormat(value, allowed_values) => {
+                write!(
+                    f,
+                    "'{}' is not allowed enum values: {}",
+                    value,
+                    allowed_values.join(",")
+                )
+            }
+            Homie5ValueConversionError::IntegerOutOfRange(value, range) => {
+                write!(f, "Integer '{}' is out of allowed range: {}", value, range)
+            }
+            Homie5ValueConversionError::FloatOutOfRange(value, range) => {
+                write!(f, "Flaot '{}' is out of allowed range: {}", value, range)
+            }
+            Homie5ValueConversionError::InvalidDateTimeFormat(value) => {
+                write!(f, "'{}' is not a valid date/time value", value)
+            }
+            Homie5ValueConversionError::InvalidDurationFormat(value) => {
+                write!(f, "'{}' is not a valid duration value", value)
+            }
+            Homie5ValueConversionError::UnsupportedColorFormat(color_format, formats) => {
+                write!(
+                    f,
+                    "'{}' is not in supported formats: {:?}",
+                    color_format,
+                    formats.iter().map(|c| c.to_string()).collect::<Vec<String>>().join(",")
+                )
+            }
+            Homie5ValueConversionError::InvalidBooleanFormat(value) => {
+                write!(f, "'{}' is not a valid boolean value", value)
+            }
+            Homie5ValueConversionError::JsonParseError(error) => {
+                write!(f, "Error parsing json value: {}", error)
+            }
+        }
+    }
+}
+
+// Implement the std::error::Error trait
+impl std::error::Error for Homie5ValueConversionError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        // This error type doesn't wrap any other errors
+        None
+    }
+}
 
 /// Represents color values supported by the Homie protocol.
 ///
@@ -45,6 +122,16 @@ pub enum HomieColorValue {
     /// The Z value is calculated as `1 - X - Y`, and all values range from 0.0 to 1.0.
     ///   - Example: `"xyz,0.25,0.34"`.
     XYZ(f64, f64, f64),
+}
+
+impl HomieColorValue {
+    pub fn color_format(&self) -> ColorFormat {
+        match self {
+            HomieColorValue::RGB(_, _, _) => ColorFormat::Rgb,
+            HomieColorValue::HSV(_, _, _) => ColorFormat::Hsv,
+            HomieColorValue::XYZ(_, _, _) => ColorFormat::Xyz,
+        }
+    }
 }
 
 impl PartialEq for HomieColorValue {
@@ -115,9 +202,9 @@ impl FromStr for HomieColorValue {
                     return Ok(Self::XYZ(x, y, 1.0 - x - y));
                 }
             }
-            _ => return Err(Homie5ValueConversionError),
+            _ => {}
         }
-        Err(Homie5ValueConversionError)
+        Err(Homie5ValueConversionError::InvalidColorFormat(s.to_owned()))
     }
 }
 
@@ -280,27 +367,24 @@ impl HomieValue {
     /// assert_eq!(value, Ok(HomieValue::Integer(42)));
     /// ```
 
-    pub fn parse(
-        raw: &str,
-        property_desc: &HomiePropertyDescription,
-    ) -> Result<HomieValue, Homie5ValueConversionError> {
+    pub fn parse(raw: &str, property_desc: &HomiePropertyDescription) -> Result<HomieValue, Homie5ProtocolError> {
         //if raw.is_empty() {
         //    return Ok(HomieValue::Empty);
         //}
         match &property_desc.datatype {
             HomieDataType::Integer => raw
                 .parse::<i64>()
-                .map_err(|_| Homie5ValueConversionError)
+                .map_err(|_| Homie5ValueConversionError::InvalidIntegerFormat(raw.to_string()))
                 .and_then(|d| Self::validate_int(d, property_desc))
                 .map(HomieValue::Integer),
             HomieDataType::Float => raw
                 .parse::<f64>()
-                .map_err(|_| Homie5ValueConversionError)
+                .map_err(|_| Homie5ValueConversionError::InvalidFloatFormat(raw.to_string()))
                 .and_then(|d| Self::validate_float(d, property_desc))
                 .map(HomieValue::Float),
             HomieDataType::Boolean => raw
                 .parse::<bool>()
-                .map_err(|_| Homie5ValueConversionError)
+                .map_err(|_| Homie5ValueConversionError::InvalidBooleanFormat(raw.to_string()))
                 .map(HomieValue::Bool),
             HomieDataType::String => Ok(HomieValue::String(raw.to_owned())),
             HomieDataType::Enum => {
@@ -309,48 +393,49 @@ impl HomieValue {
                     values
                         .contains(&string_val)
                         .then_some(HomieValue::Enum(string_val))
-                        .ok_or(Homie5ValueConversionError)
+                        .ok_or(Homie5ValueConversionError::InvalidEnumFormat(
+                            raw.to_string(),
+                            values.clone(),
+                        ))
                 } else {
-                    Err(Homie5ValueConversionError)
+                    // not sure if this can happen per spec
+                    Ok(HomieValue::Enum(raw.to_string()))
                 }
             }
             HomieDataType::Color => raw
                 .parse::<HomieColorValue>()
-                .map(HomieValue::Color)
                 .and_then(|color_value| {
                     if !property_desc.format.is_empty() {
+                        // if supported formats are specified, check if the provided value is
+                        // compatible
                         if let HomiePropertyFormat::Color(formats) = &property_desc.format {
                             match color_value {
-                                HomieValue::Color(HomieColorValue::RGB(_, _, _))
-                                    if formats.contains(&ColorFormat::Rgb) =>
-                                {
-                                    Ok(color_value)
-                                }
-                                HomieValue::Color(HomieColorValue::HSV(_, _, _))
-                                    if formats.contains(&ColorFormat::Hsv) =>
-                                {
-                                    Ok(color_value)
-                                }
-                                HomieValue::Color(HomieColorValue::XYZ(_, _, _))
-                                    if formats.contains(&ColorFormat::Xyz) =>
-                                {
-                                    Ok(color_value)
-                                }
-                                _ => Err(Homie5ValueConversionError),
+                                HomieColorValue::RGB(_, _, _) if formats.contains(&ColorFormat::Rgb) => Ok(color_value),
+                                HomieColorValue::HSV(_, _, _) if formats.contains(&ColorFormat::Hsv) => Ok(color_value),
+                                HomieColorValue::XYZ(_, _, _) if formats.contains(&ColorFormat::Xyz) => Ok(color_value),
+                                color => Err(Homie5ValueConversionError::UnsupportedColorFormat(
+                                    color.color_format(),
+                                    formats.clone(),
+                                )),
                             }
                         } else {
-                            Err(Homie5ValueConversionError)
+                            // if no color format is supplied no check is needed (this should
+                            // never happen actually)
+                            Ok(color_value)
                         }
                     } else {
+                        // if no format at all is provided, no further checks are needed
                         Ok(color_value)
                     }
-                }),
+                })
+                .map(HomieValue::Color),
             HomieDataType::Datetime => Self::flexible_datetime_parser(raw).map(HomieValue::DateTime),
             HomieDataType::Duration => Self::parse_duration(raw).map(HomieValue::Duration),
             HomieDataType::JSON => serde_json::from_str::<serde_json::Value>(raw)
                 .map(HomieValue::JSON)
-                .map_err(|_| Homie5ValueConversionError),
+                .map_err(|e| Homie5ValueConversionError::JsonParseError(e.to_string())),
         }
+        .map_err(Homie5ProtocolError::InvalidHomieValue)
     }
 
     fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
@@ -362,7 +447,7 @@ impl HomieValue {
 
             return Ok(chrono::Duration::seconds(hours * 3600 + minutes * 60 + seconds));
         }
-        Err(Homie5ValueConversionError)
+        Err(Homie5ValueConversionError::InvalidDurationFormat(s.to_string()))
     }
 
     // flexible deserialization approach as timestamps are hard and we want to keep compatibility
@@ -380,7 +465,7 @@ impl HomieValue {
                         // if this also does not work we try parsing it from a string representation with
                         // fractional seconds
                         chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f").map_or_else(
-                            |_| Err(Homie5ValueConversionError), // if this also does not work, we give
+                            |_| Err(Homie5ValueConversionError::InvalidDateTimeFormat(s.to_string())), // if this also does not work, we give
                             // up
                             |ndt| {
                                 Ok(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
@@ -403,45 +488,45 @@ impl HomieValue {
     }
 
     fn validate_float(value: f64, property_desc: &HomiePropertyDescription) -> Result<f64, Homie5ValueConversionError> {
-        let HomiePropertyFormat::FloatRange(fr) = &property_desc.format else {
+        let HomiePropertyFormat::FloatRange(range) = &property_desc.format else {
             return Ok(value);
         };
         // Use the minimum, max, or current value as base (in that priority order)
-        let base = fr.min.or(fr.max).unwrap_or(value);
+        let base = range.min.or(range.max).unwrap_or(value);
 
         // Calculate the rounded value based on the step
-        let rounded = match fr.step {
+        let rounded = match range.step {
             Some(s) if s > 0.0 => ((value - base) / s).round() * s + base,
             _ => value,
         };
 
         // Check if the rounded value is within the min/max bounds
-        if fr.min.map_or(true, |m| rounded >= m) && fr.max.map_or(true, |m| rounded <= m) {
+        if range.min.map_or(true, |m| rounded >= m) && range.max.map_or(true, |m| rounded <= m) {
             Ok(rounded)
         } else {
-            Err(Homie5ValueConversionError)
+            Err(Homie5ValueConversionError::FloatOutOfRange(value, range.clone()))
         }
     }
 
     fn validate_int(value: i64, property_desc: &HomiePropertyDescription) -> Result<i64, Homie5ValueConversionError> {
-        let HomiePropertyFormat::IntegerRange(ir) = &property_desc.format else {
+        let HomiePropertyFormat::IntegerRange(range) = &property_desc.format else {
             return Ok(value);
         };
 
         // Use the minimum or maximum as the base, or use the current value
-        let base = ir.min.or(ir.max).unwrap_or(value);
+        let base = range.min.or(range.max).unwrap_or(value);
 
         // Calculate the rounded value based on the step
-        let rounded = match ir.step {
+        let rounded = match range.step {
             Some(s) if s > 0 => ((value - base) as f64 / s as f64).round() as i64 * s + base,
             _ => value,
         };
 
         // Check if the rounded value is within the min/max bounds
-        if ir.min.map_or(true, |m| rounded >= m) && ir.max.map_or(true, |m| rounded <= m) {
+        if range.min.map_or(true, |m| rounded >= m) && range.max.map_or(true, |m| rounded <= m) {
             Ok(rounded)
         } else {
-            Err(Homie5ValueConversionError)
+            Err(Homie5ValueConversionError::IntegerOutOfRange(value, range.clone()))
         }
     }
 }
