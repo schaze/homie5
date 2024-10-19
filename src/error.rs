@@ -79,6 +79,6 @@ pub enum Homie5ProtocolError {
     InvalidHomieDomain(#[from] InvalidHomieDomainError),
 
     /// The data provided could not be parsed into a HomieValue
-    #[error("Invalid homie value")]
+    #[error("Invalid homie value: {0}")]
     InvalidHomieValue(#[from] Homie5ValueConversionError),
 }

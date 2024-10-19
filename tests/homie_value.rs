@@ -274,15 +274,15 @@ fn test_integer_value_with_step_rounding() {
 }
 
 #[test]
-fn test_integer_value_with_open_ended_range() {
+fn test_integer_value_with_max_only_range() {
     // Example: :20 allows values <= 20
-    let desc = create_integer_desc(None, Some(20), Some(2));
+    let desc = create_integer_desc(None, Some(10), Some(2));
 
     // Value within range
-    assert_eq!(HomieValue::parse("18", &desc).unwrap(), HomieValue::Integer(18));
+    assert_eq!(HomieValue::parse("8", &desc).unwrap(), HomieValue::Integer(8));
 
     // Value rounded to nearest step
-    assert_eq!(HomieValue::parse("17", &desc).unwrap(), HomieValue::Integer(16));
+    assert_eq!(HomieValue::parse("9", &desc).unwrap(), HomieValue::Integer(10));
 
     // Value too high (out of range)
     assert!(HomieValue::parse("21", &desc).is_err());
@@ -350,10 +350,30 @@ fn test_integer_nok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
         .name(Some("test".to_owned()))
         .build();
-    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ProtocolError));
-    assert_eq!(HomieValue::parse("122.22", &desc), Err(Homie5ProtocolError));
-    assert_eq!(HomieValue::parse("122,22", &desc), Err(Homie5ProtocolError));
-    assert_eq!(HomieValue::parse(" 122", &desc), Err(Homie5ProtocolError));
+    assert!(matches!(
+        HomieValue::parse("bla2", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidIntegerFormat(_)
+        ))
+    ));
+    assert!(matches!(
+        HomieValue::parse("122.22", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidIntegerFormat(_)
+        ))
+    ));
+    assert!(matches!(
+        HomieValue::parse("122,22", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidIntegerFormat(_)
+        ))
+    ));
+    assert!(matches!(
+        HomieValue::parse(" 122", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidIntegerFormat(_)
+        ))
+    ));
 }
 
 #[test]
@@ -366,9 +386,24 @@ fn test_float_ok() {
 #[test]
 fn test_float_nok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Float).build();
-    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ProtocolError));
-    assert_eq!(HomieValue::parse("122,22", &desc), Err(Homie5ProtocolError));
-    assert_eq!(HomieValue::parse(" 122", &desc), Err(Homie5ProtocolError));
+    assert!(matches!(
+        HomieValue::parse("bla2", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidFloatFormat(_)
+        ))
+    ));
+    assert!(matches!(
+        HomieValue::parse("122,22", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidFloatFormat(_)
+        ))
+    ));
+    assert!(matches!(
+        HomieValue::parse(" 122", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidFloatFormat(_)
+        ))
+    ));
 }
 
 #[test]
@@ -381,9 +416,24 @@ fn test_bool_ok() {
 #[test]
 fn test_bool_nok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Boolean).build();
-    assert_eq!(HomieValue::parse("bla2", &desc), Err(Homie5ProtocolError));
-    assert_eq!(HomieValue::parse("TRUE", &desc), Err(Homie5ProtocolError));
-    assert_eq!(HomieValue::parse("False", &desc), Err(Homie5ProtocolError));
+    assert!(matches!(
+        HomieValue::parse("bla2", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidBooleanFormat(_)
+        ))
+    ));
+    assert!(matches!(
+        HomieValue::parse("TRUE", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidBooleanFormat(_)
+        ))
+    ));
+    assert!(matches!(
+        HomieValue::parse("False", &desc),
+        Err(Homie5ProtocolError::InvalidHomieValue(
+            Homie5ValueConversionError::InvalidBooleanFormat(_)
+        ))
+    ));
 }
 
 #[test]

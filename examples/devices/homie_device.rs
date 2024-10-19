@@ -1,7 +1,7 @@
 use homie5::device_description::HomieDeviceDescription;
 use homie5::{
     homie_device_disconnect_steps, homie_device_publish_steps, Homie5DeviceProtocol, Homie5ProtocolError,
-    HomieDeviceStatus, HomieID, HomieValue, PropertyRef, ToTopic,
+    HomieDeviceStatus, HomieID, HomieValue, PropertyRef,
 };
 
 use crate::common::HomieMQTTClient;
@@ -81,7 +81,7 @@ where
     }
 
     async fn publish_target(
-        &self,
+        &mut self,
         property: &PropertyRef,
         value: impl Into<String>,
     ) -> Result<HomieValue, Self::ResultError> {
@@ -93,29 +93,15 @@ where
         Ok(value)
     }
     fn prepare_publish(&self, property: &PropertyRef, value: &str) -> Result<(HomieValue, bool), Self::ResultError> {
+        let prop = self
+            .description()
+            .get_property(property)
+            .ok_or(Homie5ProtocolError::PropertyNotFound)?;
+
         // parse the value to make sure that it conforms to the properties format requirements
-        let value = self
-            .description()
-            .with_property(property, |prop| HomieValue::parse(value, prop))
-            .ok_or(Homie5ProtocolError::PropertyNotFound)?
-            .map_err(|_| Homie5ProtocolError::InvalidHomieValue)?;
+        let value = HomieValue::parse(value, prop)?;
 
-        //log::debug!(
-        //    "Invalid value provided for property: {} -- {:?}",
-        //    property.to_topic(),
-        //    err
-        //);
-        //log::debug!("Cannot set value for: {}", property.to_topic());
-        // get the retained setting for the property
-        let retained = self
-            .description()
-            .with_property(property, |prop| prop.retained)
-            .ok_or_else(|| {
-                log::debug!("Cannot set value for: {}", property.to_topic());
-                Homie5ProtocolError::PropertyNotFound
-            })?;
-
-        Ok((value, retained))
+        Ok((value, prop.retained))
     }
 
     async fn publish_device(&mut self) -> Result<(), Self::ResultError> {

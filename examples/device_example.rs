@@ -7,7 +7,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use homie5::{parse_mqtt_message, Homie5DeviceProtocol, Homie5Message, HomieID};
+use homie5::{parse_mqtt_message, Homie5DeviceProtocol, Homie5Message, HomieID, ToTopic};
 
 mod common;
 mod devices;
@@ -63,7 +63,14 @@ async fn main() -> anyhow::Result<()> {
                 // if the set message is for our device (which it always should be as we did not
                 // subscribe to any other devices /set topics)
                 if property.node.device.id == *device.homie_id() {
-                    device.handle_set_command(property, set_value).await?;
+                    match device.handle_set_command(property, set_value).await {
+                        Ok(_) => {
+                            log::debug!("Value updated {} - {}", property.to_topic(), set_value);
+                        }
+                        Err(e) => {
+                            log::debug!("{}", e);
+                        }
+                    }
                 }
             }
             AppEvent::MqttConnect => {
