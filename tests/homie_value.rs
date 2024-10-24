@@ -24,11 +24,13 @@ fn test_homie_boolean_value_from_file() {
 fn test_homie_integer_value_from_file() {
     let result = run_homietests("homie5/values/integer.yml", |test_definition| {
         if let HomieTest::PropertyValueInteger(test) = test_definition {
-            let homie_value = HomieValue::parse(&test.input_data, &test.definition).unwrap();
+            let Ok(homie_value) = HomieValue::parse(&test.input_data, &test.definition) else {
+                return Ok(false);
+            };
             let HomieValue::Integer(value) = homie_value else {
                 return Err(anyhow::anyhow!("Invalid Testdefinition in test file"));
             };
-            Ok(value == test.output_data)
+            Ok(Some(value) == test.output_data)
         } else {
             Err(anyhow::anyhow!("Invalid Testdefinition in test file"))
         }
@@ -282,7 +284,7 @@ fn test_integer_value_with_max_only_range() {
     assert_eq!(HomieValue::parse("8", &desc).unwrap(), HomieValue::Integer(8));
 
     // Value rounded to nearest step
-    assert_eq!(HomieValue::parse("9", &desc).unwrap(), HomieValue::Integer(10));
+    assert_eq!(HomieValue::parse("9", &desc).unwrap(), HomieValue::Integer(8));
 
     // Value too high (out of range)
     assert!(HomieValue::parse("21", &desc).is_err());

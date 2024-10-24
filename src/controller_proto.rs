@@ -201,7 +201,7 @@ impl Homie5ControllerProtocol {
             ),
             qos: QoS::ExactlyOnce,
             retain: false,
-            payload: value.to_string().into(),
+            payload: value.into(),
         }
     }
 

@@ -294,6 +294,10 @@ impl HomieDeviceDescription {
         self.with_node_by_id(&node.id, f)
     }
 
+    pub fn get_node<T>(&self, node: &NodeRef) -> Option<&HomieNodeDescription> {
+        self.nodes.get(&node.id)
+    }
+
     pub fn with_property_by_id<T>(
         &self,
         node_id: &HomieID,
@@ -320,11 +324,6 @@ impl HomieDeviceDescription {
         {
             return Some(f(prop));
         }
-        //if let Some(node) = self.nodes.get(&property.node_id) {
-        //    if let Some(prop) = node.properties.get(&property.prop_id) {
-        //        return Some(f(prop));
-        //    }
-        //}
         None
     }
     pub fn get_property(&self, property: &PropertyRef) -> Option<&HomiePropertyDescription> {

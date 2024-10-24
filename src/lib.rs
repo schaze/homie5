@@ -244,6 +244,21 @@ impl FromStr for HomieDeviceStatus {
     }
 }
 
+impl TryFrom<String> for HomieDeviceStatus {
+    type Error = Homie5ProtocolError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "init" => Ok(HomieDeviceStatus::Init),
+            "ready" => Ok(HomieDeviceStatus::Ready),
+            "disconnected" => Ok(HomieDeviceStatus::Disconnected),
+            "sleeping" => Ok(HomieDeviceStatus::Sleeping),
+            "lost" => Ok(HomieDeviceStatus::Lost),
+            _ => Err(Homie5ProtocolError::InvalidDeviceState(value)),
+        }
+    }
+}
+
 /// This trait provides the capability to provide a mqtt topic for an object defining where it is
 /// published on the broker
 pub trait ToTopic {

@@ -77,8 +77,9 @@ async fn main() -> anyhow::Result<()> {
                                     log::debug!("light state: {}", prop_light_state_value);
                                     publish(
                                         &mqtt_client,
-                                        protocol.publish_value_prop(
-                                            &prop_light_state,
+                                        protocol.publish_value(
+                                            prop_light_state.node_id(),
+                                            prop_light_state.prop_id(),
                                             prop_light_state_value.to_string(),
                                             true,
                                         ),
@@ -93,8 +94,9 @@ async fn main() -> anyhow::Result<()> {
                                     log::debug!("light brightness: {}", prop_light_brightness_value);
                                     publish(
                                         &mqtt_client,
-                                        protocol.publish_value_prop(
-                                            &prop_light_brightness,
+                                        protocol.publish_value(
+                                            prop_light_brightness.node_id(),
+                                            prop_light_brightness.prop_id(),
                                             prop_light_brightness_value.to_string(),
                                             true,
                                         ),
@@ -132,8 +134,9 @@ async fn main() -> anyhow::Result<()> {
                             DevicePublishStep::PropertyValues => {
                                 publish(
                                     &mqtt_client,
-                                    protocol.publish_value_prop(
-                                        &prop_light_state,
+                                    protocol.publish_value(
+                                        prop_light_state.node_id(),
+                                        prop_light_state.prop_id(),
                                         prop_light_state_value.to_string(),
                                         true,
                                     ),
@@ -141,8 +144,9 @@ async fn main() -> anyhow::Result<()> {
                                 .await?;
                                 publish(
                                     &mqtt_client,
-                                    protocol.publish_value_prop(
-                                        &prop_light_brightness,
+                                    protocol.publish_value(
+                                        prop_light_brightness.node_id(),
+                                        prop_light_brightness.prop_id(),
                                         prop_light_brightness_value.to_string(),
                                         true,
                                     ),

@@ -313,6 +313,47 @@ impl Display for HomieValue {
         }
     }
 }
+impl From<i64> for HomieValue {
+    fn from(value: i64) -> Self {
+        HomieValue::Integer(value)
+    }
+}
+impl From<f64> for HomieValue {
+    fn from(value: f64) -> Self {
+        HomieValue::Float(value)
+    }
+}
+impl From<String> for HomieValue {
+    fn from(value: String) -> Self {
+        HomieValue::String(value)
+    }
+}
+impl From<bool> for HomieValue {
+    fn from(value: bool) -> Self {
+        HomieValue::Bool(value)
+    }
+}
+impl From<HomieColorValue> for HomieValue {
+    fn from(value: HomieColorValue) -> Self {
+        HomieValue::Color(value)
+    }
+}
+impl From<chrono::DateTime<chrono::Utc>> for HomieValue {
+    fn from(value: chrono::DateTime<chrono::Utc>) -> Self {
+        HomieValue::DateTime(value)
+    }
+}
+impl From<chrono::Duration> for HomieValue {
+    fn from(value: chrono::Duration) -> Self {
+        HomieValue::Duration(value)
+    }
+}
+impl From<serde_json::Value> for HomieValue {
+    fn from(value: serde_json::Value) -> Self {
+        HomieValue::JSON(value)
+    }
+}
+
 impl From<HomieValue> for String {
     fn from(value: HomieValue) -> Self {
         value.to_string()
@@ -321,6 +362,29 @@ impl From<HomieValue> for String {
 impl From<&HomieValue> for String {
     fn from(value: &HomieValue) -> Self {
         value.to_string() // or define custom logic
+    }
+}
+
+impl From<HomieValue> for Vec<u8> {
+    fn from(value: HomieValue) -> Self {
+        homie_str_to_vecu8(value.to_string())
+    }
+}
+
+impl From<&HomieValue> for Vec<u8> {
+    fn from(value: &HomieValue) -> Self {
+        homie_str_to_vecu8(value.to_string())
+    }
+}
+
+pub fn homie_str_to_vecu8(value: impl Into<String>) -> Vec<u8> {
+    let value_string = value.into();
+    // empty strings are published as a String with a 0 byte value as first character according
+    // to homie convention
+    if value_string.is_empty() {
+        vec![0_u8]
+    } else {
+        value_string.into_bytes()
     }
 }
 
@@ -368,7 +432,11 @@ impl HomieValue {
     /// ```
 
     pub fn parse(raw: &str, property_desc: &HomiePropertyDescription) -> Result<HomieValue, Homie5ProtocolError> {
-        //if raw.is_empty() {
+        //if raw
+        //    .first()
+        //    .map(|first| matches!(property_desc.datatype, HomieDataType::String) && *first == 0)
+        //    == Some(true)
+        //{
         //    return Ok(HomieValue::Empty);
         //}
         match &property_desc.datatype {

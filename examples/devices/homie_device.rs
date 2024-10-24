@@ -75,7 +75,13 @@ where
         let (value, retained) = self.prepare_publish(property, &value.into())?;
         // publish the value to mqtt
         self.client()
-            .homie_publish(self.protcol().publish_value_prop(property, &value, retained))
+            .homie_publish(self.protcol().publish_value_for_id(
+                property.device_id(),
+                property.node_id(),
+                property.prop_id(),
+                &value,
+                retained,
+            ))
             .await?;
         Ok(value)
     }
@@ -88,7 +94,10 @@ where
         let (value, retained) = self.prepare_publish(property, &value.into())?;
         // publish the value to mqtt
         self.client()
-            .homie_publish(self.protcol().publish_target_prop(property, &value, retained))
+            .homie_publish(
+                self.protcol()
+                    .publish_target(property.node_id(), property.prop_id(), &value, retained),
+            )
             .await?;
         Ok(value)
     }

@@ -73,7 +73,6 @@ use crate::{
     device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceRef, HomieDeviceStatus, HomieDomain,
     HomieID, PropertyRef,
 };
-use std::str::FromStr;
 /// Represents all possible MQTT message types according to the Homie 5 protocol.
 /// These messages define the interactions between devices, their attributes, and the broker.
 #[derive(Debug, Clone)]
@@ -221,7 +220,18 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
     let homie_domain: HomieDomain = tokens[0].to_owned().try_into()?;
 
     // Attempt to parse the payload as a UTF-8 string
-    let payload = String::from_utf8(payload.to_vec())?;
+    // special case:
+    // accoring to the homie convention a string with a 0 value byte as first value constitues an
+    // empty string. This is only true for homie string value types. However since all input data
+    // for all other homie data types is a string we leave the handling of a valid input data to
+    // the parsing function of HomieValue
+    println!("=============================> parse msg");
+    let payload = if payload.first().map(|first| *first == 0) == Some(true) {
+        println!("=============================> detected 0 byte value in first char, will parse as an empty string");
+        "".to_string()
+    } else {
+        String::from_utf8(payload.to_vec())?
+    };
 
     // Handle broadcast messages (e.g. "homie/5/$broadcast")
     if tokens[2] == "$broadcast" {
@@ -248,7 +258,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 // Handle the "$state" attribute
                 "$state" => {
                     if !payload.is_empty() {
-                        if let Ok(state) = HomieDeviceStatus::from_str(&payload) {
+                        if let Ok(state) = payload.try_into() {
                             Ok(Homie5Message::DeviceState {
                                 device: DeviceRef {
                                     homie_domain,

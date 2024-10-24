@@ -11,10 +11,10 @@ use crate::{
     client::{LastWill, Publish, QoS, Subscription, Unsubscribe},
     device_description::{HomieDeviceDescription, HomiePropertyIterator},
     error::Homie5ProtocolError,
+    homie_str_to_vecu8,
     statemachine::{HomieStateMachine, Transition},
-    HomieDeviceStatus, HomieDomain, HomieID, PropertyRef, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
-    DEVICE_ATTRIBUTE_DESCRIPTION, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION,
-    PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
+    HomieDeviceStatus, HomieDomain, HomieID, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_DESCRIPTION,
+    DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION, PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
 };
 
 #[derive(Default, Copy, Clone)]
@@ -262,29 +262,6 @@ impl Homie5DeviceProtocol {
     }
 
     /// Publishes a Homie value for a given property and node.
-    pub fn publish_homie_value(
-        &self,
-        node_id: &HomieID,
-        prop_id: &HomieID,
-        value: impl Into<String>,
-        retain: bool,
-    ) -> Publish {
-        self.publish_homie_value_for_id(&self.id, node_id, prop_id, value, retain)
-    }
-
-    /// Publishes a Homie value for a given property, node, and device.
-    pub fn publish_homie_value_for_id(
-        &self,
-        device_id: &HomieID,
-        node_id: &HomieID,
-        prop_id: &HomieID,
-        value: impl Into<String>,
-        retain: bool,
-    ) -> Publish {
-        self.publish_value_for_id(device_id, node_id, prop_id, value, retain)
-    }
-
-    /// Publishes a value for a given property and node.
     pub fn publish_value(
         &self,
         node_id: &HomieID,
@@ -293,10 +270,6 @@ impl Homie5DeviceProtocol {
         retain: bool,
     ) -> Publish {
         self.publish_value_for_id(&self.id, node_id, prop_id, value, retain)
-    }
-
-    pub fn publish_value_prop(&self, prop: &PropertyRef, value: impl Into<String>, retain: bool) -> Publish {
-        self.publish_value_for_id(&self.id, &prop.node.id, &prop.id, value, retain)
     }
 
     /// Publishes a value for a specific `device_id`.
@@ -315,7 +288,7 @@ impl Homie5DeviceProtocol {
             ),
             qos: QoS::ExactlyOnce,
             retain,
-            payload: value.into().into_bytes(),
+            payload: homie_str_to_vecu8(value.into()),
         }
     }
 
@@ -328,10 +301,6 @@ impl Homie5DeviceProtocol {
         retained: bool,
     ) -> Publish {
         self.publish_target_for_id(&self.id, node_id, prop_id, value, retained)
-    }
-
-    pub fn publish_target_prop(&self, prop: &PropertyRef, value: impl Into<String>, retained: bool) -> Publish {
-        self.publish_target_for_id(&self.id, &prop.node.id, &prop.id, value, retained)
     }
 
     /// Publishes the target value for a given property using the provided `device_id`.
@@ -350,7 +319,7 @@ impl Homie5DeviceProtocol {
             ),
             qos: QoS::ExactlyOnce,
             retain,
-            payload: value.into().into_bytes(),
+            payload: homie_str_to_vecu8(value),
         }
     }
 

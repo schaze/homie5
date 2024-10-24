@@ -76,7 +76,7 @@ pub struct HomieTestDefinition<DEFINITION, INPUTDATA, OUTPUTDATA> {
 pub enum HomieTest {
     PropertyDescription(HomieTestDefinition<serde_yaml::Value, Option<()>, Option<()>>),
     PropertyValue(HomieTestDefinition<HomiePropertyDescription, String, Option<()>>),
-    PropertyValueInteger(HomieTestDefinition<HomiePropertyDescription, String, i64>),
+    PropertyValueInteger(HomieTestDefinition<HomiePropertyDescription, String, Option<i64>>),
     HomieID(HomieTestDefinition<Option<()>, String, Option<()>>),
 }
 
