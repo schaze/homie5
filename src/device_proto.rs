@@ -13,8 +13,9 @@ use crate::{
     error::Homie5ProtocolError,
     homie_str_to_vecu8,
     statemachine::{HomieStateMachine, Transition},
-    HomieDeviceStatus, HomieDomain, HomieID, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_DESCRIPTION,
-    DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, HOMIE_VERSION, PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
+    DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, TopicBuilder, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
+    DEVICE_ATTRIBUTE_DESCRIPTION, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, PROPERTY_ATTRIBUTE_TARGET,
+    PROPERTY_SET_TOPIC,
 };
 
 #[derive(Default, Copy, Clone)]
@@ -143,8 +144,7 @@ pub fn homie_device_disconnect_steps() -> impl Iterator<Item = DeviceDisconnectS
 /// settable properties.
 #[derive(Clone, Debug)]
 pub struct Homie5DeviceProtocol {
-    id: HomieID,
-    homie_domain: HomieDomain,
+    device_ref: DeviceRef,
     is_child: bool,
 }
 
@@ -159,29 +159,37 @@ impl Homie5DeviceProtocol {
     /// A tuple of the created [`Homie5DeviceProtocol`] and its [`LastWill`] message.
     pub fn new(device_id: HomieID, homie_domain: HomieDomain) -> (Self, LastWill) {
         let last_will = LastWill {
-            topic: format!("{}/5/{}/$state", &homie_domain, &device_id),
+            topic: TopicBuilder::new_for_device(&homie_domain, &device_id)
+                .add_attr(DEVICE_ATTRIBUTE_STATE)
+                .build(),
             message: HomieDeviceStatus::Lost.as_str().bytes().collect(),
             qos: crate::client::QoS::AtLeastOnce,
             retain: true,
         };
 
         let homie5_proto = Self {
-            id: device_id,
-            homie_domain,
+            device_ref: DeviceRef {
+                homie_domain,
+                id: device_id,
+            },
             is_child: false,
         };
 
         (homie5_proto, last_will)
     }
 
+    /// Returns the device ref the protocol is instantiated for.
+    pub fn device_ref(&self) -> &DeviceRef {
+        &self.device_ref
+    }
     /// Returns the device's ID.
     pub fn id(&self) -> &HomieID {
-        &self.id
+        &self.device_ref.id
     }
 
     /// Returns the domain in which the device is operating.
     pub fn homie_domain(&self) -> &HomieDomain {
-        &self.homie_domain
+        &self.device_ref.homie_domain
     }
 
     /// Checks if the device is a child device.
@@ -192,8 +200,10 @@ impl Homie5DeviceProtocol {
     /// Clones the protocol for a child device using the given `device_id`.
     pub fn clone_for_child(&self, device_id: HomieID) -> Self {
         Self {
-            id: device_id,
-            homie_domain: self.homie_domain.clone(),
+            device_ref: DeviceRef {
+                homie_domain: self.device_ref.homie_domain.clone(),
+                id: device_id,
+            },
             is_child: true,
         }
     }
@@ -201,24 +211,25 @@ impl Homie5DeviceProtocol {
     /// Clones the protocol for a child device using the provided root protocol and device ID.
     pub fn for_child(device_id: HomieID, root: Homie5DeviceProtocol) -> Self {
         Self {
-            id: device_id,
-            homie_domain: root.homie_domain.clone(),
+            device_ref: DeviceRef {
+                homie_domain: root.homie_domain().clone(),
+                id: device_id,
+            },
             is_child: true,
         }
     }
 
     /// Publishes the device's state.
     pub fn publish_state(&self, state: HomieDeviceStatus) -> Publish {
-        self.publish_state_for_id(&self.id, state)
+        self.publish_state_for_id(self.id(), state)
     }
 
     /// Publishes the state for the given `device_id`.
     pub fn publish_state_for_id(&self, device_id: &HomieID, state: HomieDeviceStatus) -> Publish {
         Publish {
-            topic: format!(
-                "{}/{}/{}/{}",
-                self.homie_domain, HOMIE_VERSION, device_id, DEVICE_ATTRIBUTE_STATE
-            ),
+            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+                .add_attr(DEVICE_ATTRIBUTE_STATE)
+                .build(),
             retain: true,
             payload: state.as_str().into(),
             qos: QoS::ExactlyOnce,
@@ -227,16 +238,15 @@ impl Homie5DeviceProtocol {
 
     /// Publishes a log message for the device.
     pub fn publish_log(&self, log_msg: &str) -> Publish {
-        self.publish_log_for_id(&self.id, log_msg)
+        self.publish_log_for_id(self.id(), log_msg)
     }
 
     /// Publishes a log message for the given `device_id`.
     pub fn publish_log_for_id(&self, device_id: &HomieID, log_msg: &str) -> Publish {
         Publish {
-            topic: format!(
-                "{}/{}/{}/{}",
-                self.homie_domain, HOMIE_VERSION, device_id, DEVICE_ATTRIBUTE_LOG
-            ),
+            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+                .add_attr(DEVICE_ATTRIBUTE_LOG)
+                .build(),
             qos: QoS::AtLeastOnce,
             retain: true,
             payload: log_msg.into(),
@@ -245,16 +255,16 @@ impl Homie5DeviceProtocol {
 
     // Publishes an alert with a given `alert_id` and `alert_msg`.
     pub fn publish_alert(&self, alert_id: &str, alert_msg: &str) -> Publish {
-        self.publish_alert_for_id(&self.id, alert_id, alert_msg)
+        self.publish_alert_for_id(self.id(), alert_id, alert_msg)
     }
 
     /// Publishes an alert with a given `alert_id` and `alert_msg` for the provided `device_id`.
     pub fn publish_alert_for_id(&self, device_id: &HomieID, alert_id: &str, alert_msg: &str) -> Publish {
         Publish {
-            topic: format!(
-                "{}/{}/{}/{}/{}",
-                self.homie_domain, HOMIE_VERSION, device_id, DEVICE_ATTRIBUTE_ALERT, alert_id
-            ),
+            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+                .add_attr(DEVICE_ATTRIBUTE_ALERT)
+                .add_attr(alert_id)
+                .build(),
             qos: QoS::AtLeastOnce,
             retain: true,
             payload: alert_msg.into(),
@@ -269,7 +279,7 @@ impl Homie5DeviceProtocol {
         value: impl Into<String>,
         retain: bool,
     ) -> Publish {
-        self.publish_value_for_id(&self.id, node_id, prop_id, value, retain)
+        self.publish_value_for_id(self.id(), node_id, prop_id, value, retain)
     }
 
     /// Publishes a value for a specific `device_id`.
@@ -282,10 +292,7 @@ impl Homie5DeviceProtocol {
         retain: bool,
     ) -> Publish {
         Publish {
-            topic: format!(
-                "{}/{}/{}/{}/{}",
-                self.homie_domain, HOMIE_VERSION, device_id, node_id, prop_id
-            ),
+            topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id).build(),
             qos: QoS::ExactlyOnce,
             retain,
             payload: homie_str_to_vecu8(value.into()),
@@ -300,7 +307,7 @@ impl Homie5DeviceProtocol {
         value: impl Into<String>,
         retained: bool,
     ) -> Publish {
-        self.publish_target_for_id(&self.id, node_id, prop_id, value, retained)
+        self.publish_target_for_id(self.id(), node_id, prop_id, value, retained)
     }
 
     /// Publishes the target value for a given property using the provided `device_id`.
@@ -313,10 +320,9 @@ impl Homie5DeviceProtocol {
         retain: bool,
     ) -> Publish {
         Publish {
-            topic: format!(
-                "{}/{}/{}/{}/{}/{}",
-                self.homie_domain, HOMIE_VERSION, device_id, node_id, prop_id, PROPERTY_ATTRIBUTE_TARGET
-            ),
+            topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
+                .add_attr(PROPERTY_ATTRIBUTE_TARGET)
+                .build(),
             qos: QoS::ExactlyOnce,
             retain,
             payload: homie_str_to_vecu8(value),
@@ -328,7 +334,7 @@ impl Homie5DeviceProtocol {
     /// # Errors
     /// Returns an error if the description is invalid for the device type.
     pub fn publish_description(&self, description: &HomieDeviceDescription) -> Result<Publish, Homie5ProtocolError> {
-        self.publish_description_for_id(&self.id, description)
+        self.publish_description_for_id(self.id(), description)
     }
 
     /// Publishes the device description for the provided `device_id`.
@@ -340,17 +346,16 @@ impl Homie5DeviceProtocol {
         device_id: &HomieID,
         description: &HomieDeviceDescription,
     ) -> Result<Publish, Homie5ProtocolError> {
-        if !self.is_child && self.id == *device_id && description.root.is_some() {
+        if !self.is_child && self.id() == device_id && description.root.is_some() {
             return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id != *device_id && Some(&self.id) != description.root.as_ref() {
+        } else if !self.is_child && self.id() != device_id && Some(self.id()) != description.root.as_ref() {
             return Err(Homie5ProtocolError::RootMismatch);
         }
         match serde_json::to_string(description) {
             Ok(json) => Ok(Publish {
-                topic: format!(
-                    "{}/{}/{}/{}",
-                    self.homie_domain, HOMIE_VERSION, device_id, DEVICE_ATTRIBUTE_DESCRIPTION
-                ),
+                topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+                    .add_attr(DEVICE_ATTRIBUTE_DESCRIPTION)
+                    .build(),
                 qos: QoS::ExactlyOnce,
                 retain: true,
                 payload: json.into(),
@@ -362,11 +367,6 @@ impl Homie5DeviceProtocol {
         }
     }
 
-    /// Returns the base MQTT topic for the device.
-    pub fn base_topic_for_id(&self, device_id: &str) -> String {
-        format!("{}/{}/{}", self.homie_domain, HOMIE_VERSION, device_id)
-    }
-
     /// Subscribes to all settable properties for the device.
     ///
     /// # Errors
@@ -375,7 +375,7 @@ impl Homie5DeviceProtocol {
         &'a self,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Subscription> + 'a, Homie5ProtocolError> {
-        self.subscribe_props_for_id(&self.id, description)
+        self.subscribe_props_for_id(self.id(), description)
     }
 
     /// Subscribes to all settable properties for the given `device_id`.
@@ -387,16 +387,16 @@ impl Homie5DeviceProtocol {
         device_id: &'a HomieID,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Subscription> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id == *device_id && description.root.is_some() {
+        if !self.is_child && self.id() == device_id && description.root.is_some() {
             return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id != *device_id && Some(&self.id) != description.root.as_ref() {
+        } else if !self.is_child && self.id() != device_id && Some(self.id()) != description.root.as_ref() {
             return Err(Homie5ProtocolError::RootMismatch);
         }
-        let prop_iter = HomiePropertyIterator::new(description);
-        let base_topic = format!("{}/{}/{}", self.homie_domain, HOMIE_VERSION, device_id);
 
-        Ok(prop_iter.map(move |(node_id, _, prop_id, _)| Subscription {
-            topic: format!("{}/{}/{}/{}", base_topic, node_id, prop_id, PROPERTY_SET_TOPIC),
+        Ok(description.iter().map(move |(node_id, _, prop_id, _)| Subscription {
+            topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
+                .add_attr(PROPERTY_SET_TOPIC)
+                .build(),
             qos: QoS::ExactlyOnce,
         }))
     }
@@ -409,7 +409,7 @@ impl Homie5DeviceProtocol {
         &'a self,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Unsubscribe> + 'a, Homie5ProtocolError> {
-        self.unsubscribe_props_for_id(&self.id, description)
+        self.unsubscribe_props_for_id(self.id(), description)
     }
 
     /// Unsubscribes from all settable properties for the given `device_id`.
@@ -421,17 +421,14 @@ impl Homie5DeviceProtocol {
         device_id: &'a HomieID,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Unsubscribe> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id == *device_id && description.root.is_some() {
+        if !self.is_child && self.id() == device_id && description.root.is_some() {
             return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id != *device_id && Some(&self.id) != description.root.as_ref() {
+        } else if !self.is_child && self.id() != device_id && Some(self.id()) != description.root.as_ref() {
             return Err(Homie5ProtocolError::RootMismatch);
         }
         let prop_iter = HomiePropertyIterator::new(description);
         Ok(prop_iter.map(move |(node_id, _, prop_id, _)| Unsubscribe {
-            topic: format!(
-                "{}/{}/{}/{}/{}",
-                self.homie_domain, HOMIE_VERSION, device_id, node_id, prop_id
-            ),
+            topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id).build(),
         }))
     }
 
@@ -443,7 +440,7 @@ impl Homie5DeviceProtocol {
         &'a self,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Publish> + 'a, Homie5ProtocolError> {
-        self.remove_device_for_id(&self.id, description)
+        self.remove_device_for_id(self.id(), description)
     }
 
     /// Removes the device for the given `device_id` by clearing all retained property values.
@@ -455,15 +452,17 @@ impl Homie5DeviceProtocol {
         device_id: &'a HomieID,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Publish> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id == *device_id && description.root.is_some() {
+        if !self.is_child && self.id() == device_id && description.root.is_some() {
             return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id != *device_id && Some(&self.id) != description.root.as_ref() {
+        } else if !self.is_child && self.id() != device_id && Some(self.id()) != description.root.as_ref() {
             return Err(Homie5ProtocolError::RootMismatch);
         }
 
         // clear device attributes (startes with `$state` as per convention)
         let attrs = DEVICE_ATTRIBUTES.iter().map(move |attribute| Publish {
-            topic: format!("{}/{}/{}/{}", self.homie_domain, HOMIE_VERSION, device_id, attribute),
+            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+                .add_attr(attribute)
+                .build(),
             qos: QoS::ExactlyOnce,
             retain: true,
             payload: Vec::default(),
@@ -476,19 +475,17 @@ impl Homie5DeviceProtocol {
             .flat_map(move |(node_id, _, prop_id, _)| {
                 [
                     Publish {
-                        topic: format!(
-                            "{}/{}/{}/{}/{}/{}",
-                            self.homie_domain, HOMIE_VERSION, device_id, node_id, prop_id, PROPERTY_SET_TOPIC
-                        ),
+                        topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
+                            .add_attr(PROPERTY_SET_TOPIC)
+                            .build(),
                         qos: QoS::ExactlyOnce,
                         retain: true,
                         payload: Vec::default(),
                     },
                     Publish {
-                        topic: format!(
-                            "{}/{}/{}/{}/{}/{}",
-                            self.homie_domain, HOMIE_VERSION, device_id, node_id, prop_id, PROPERTY_ATTRIBUTE_TARGET
-                        ),
+                        topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
+                            .add_attr(PROPERTY_ATTRIBUTE_TARGET)
+                            .build(),
                         qos: QoS::ExactlyOnce,
                         retain: true,
                         payload: Vec::default(),

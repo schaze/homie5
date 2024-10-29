@@ -21,8 +21,9 @@ use std::iter;
 use crate::{
     client::{Publish, QoS, Subscription, Unsubscribe},
     device_description::{HomieDeviceDescription, HomiePropertyIterator},
-    DeviceRef, HomieDomain, HomieID, HomieValue, PropertyRef, ToTopic, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
-    DEVICE_ATTRIBUTE_STATE, HOMIE_TOPIC_BROADCAST, HOMIE_VERSION, PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
+    DeviceRef, HomieDomain, HomieID, HomieValue, PropertyRef, ToTopic, TopicBuilder, DEVICE_ATTRIBUTES,
+    DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_STATE, HOMIE_TOPIC_BROADCAST, PROPERTY_ATTRIBUTE_TARGET,
+    PROPERTY_SET_TOPIC,
 };
 
 /// The `Homie5ControllerProtocol` struct provides the core functionality for generating MQTT subscription and publish commands required for interacting with Homie 5 devices.
@@ -69,7 +70,10 @@ impl Homie5ControllerProtocol {
     /// An iterator over a `Subscription` object that subscribes to the `$state` attribute of all devices in the specified domain.
     pub fn discover_devices<'a>(&'a self, homie_domain: &HomieDomain) -> impl Iterator<Item = Subscription> + 'a {
         iter::once(Subscription {
-            topic: format!("{}/{}/+/{}", homie_domain, HOMIE_VERSION, DEVICE_ATTRIBUTE_STATE),
+            topic: TopicBuilder::new(homie_domain)
+                .add_attr("+")
+                .add_attr(DEVICE_ATTRIBUTE_STATE)
+                .build(),
             qos: QoS::ExactlyOnce,
         })
     }
@@ -88,12 +92,12 @@ impl Homie5ControllerProtocol {
             .map(move |attribute| {
                 if *attribute == DEVICE_ATTRIBUTE_ALERT {
                     Subscription {
-                        topic: format!("{}/{}/+", device.to_topic(), *attribute),
+                        topic: device.to_topic().add_attr(attribute).add_attr("+").build(),
                         qos: QoS::ExactlyOnce,
                     }
                 } else {
                     Subscription {
-                        topic: format!("{}/{}", device.to_topic(), *attribute),
+                        topic: device.to_topic().add_attr(attribute).build(),
                         qos: QoS::ExactlyOnce,
                     }
                 }
@@ -111,11 +115,11 @@ impl Homie5ControllerProtocol {
         DEVICE_ATTRIBUTES.iter().skip(1).map(move |attribute| {
             if *attribute == DEVICE_ATTRIBUTE_ALERT {
                 Unsubscribe {
-                    topic: format!("{}/{}/+", device.to_topic(), *attribute),
+                    topic: device.to_topic().add_attr(attribute).add_attr("+").build(),
                 }
             } else {
                 Unsubscribe {
-                    topic: format!("{}/{}", device.to_topic(), *attribute),
+                    topic: device.to_topic().add_attr(attribute).build(),
                 }
             }
         })
@@ -139,17 +143,16 @@ impl Homie5ControllerProtocol {
         prop_iter.flat_map(move |(node_id, _, prop_id, _)| {
             [
                 Subscription {
-                    topic: format!("{}/{}/{}", device.to_topic(), node_id, prop_id),
+                    topic: device.to_topic().add_id(node_id).add_id(prop_id).build(),
                     qos: QoS::ExactlyOnce,
                 },
                 Subscription {
-                    topic: format!(
-                        "{}/{}/{}/{}",
-                        device.to_topic(),
-                        node_id,
-                        prop_id,
-                        PROPERTY_ATTRIBUTE_TARGET
-                    ),
+                    topic: device
+                        .to_topic()
+                        .add_id(node_id)
+                        .add_id(prop_id)
+                        .add_attr(PROPERTY_ATTRIBUTE_TARGET)
+                        .build(),
                     qos: QoS::ExactlyOnce,
                 },
             ]
@@ -171,7 +174,7 @@ impl Homie5ControllerProtocol {
     ) -> impl Iterator<Item = Unsubscribe> + 'a {
         let prop_iter = HomiePropertyIterator::new(description);
         prop_iter.map(move |(node_id, _, prop_id, _)| Unsubscribe {
-            topic: format!("{}/{}/{}", device.to_topic(), node_id, prop_id),
+            topic: device.to_topic().add_id(node_id).add_id(prop_id).build(),
         })
     }
 
@@ -195,10 +198,9 @@ impl Homie5ControllerProtocol {
         value: &HomieValue,
     ) -> Publish {
         Publish {
-            topic: format!(
-                "{}/{}/{}/{}/{}/{}",
-                homie_domain, HOMIE_VERSION, device_id, node_id, prop_id, PROPERTY_SET_TOPIC
-            ),
+            topic: TopicBuilder::new_for_property(homie_domain, device_id, node_id, prop_id)
+                .add_attr(PROPERTY_SET_TOPIC)
+                .build(),
             qos: QoS::ExactlyOnce,
             retain: false,
             payload: value.into(),
@@ -239,10 +241,11 @@ impl Homie5ControllerProtocol {
         broadcast_message: impl Into<String>,
     ) -> Publish {
         Publish {
-            topic: format!(
-                "{}/{}/{}/{}",
-                homie_domain, HOMIE_VERSION, HOMIE_TOPIC_BROADCAST, broadcast_topic
-            ),
+            topic: TopicBuilder::new(homie_domain)
+                .add_attr(HOMIE_TOPIC_BROADCAST)
+                .add_attr(broadcast_topic)
+                .build(),
+
             qos: QoS::ExactlyOnce,
             retain: false,
             payload: broadcast_message.into().into(),
@@ -258,7 +261,10 @@ impl Homie5ControllerProtocol {
     /// An iterator over a `Subscription` object that subscribes to broadcast messages.
     pub fn subscribe_broadcast<'a>(&'a self, homie_domain: &HomieDomain) -> impl Iterator<Item = Subscription> + 'a {
         iter::once(Subscription {
-            topic: format!("{}/{}/$broadcast/#", homie_domain, HOMIE_VERSION),
+            topic: TopicBuilder::new(homie_domain)
+                .add_attr(HOMIE_TOPIC_BROADCAST)
+                .add_attr("#")
+                .build(),
             qos: QoS::ExactlyOnce,
         })
     }
@@ -272,7 +278,10 @@ impl Homie5ControllerProtocol {
     /// An iterator over an `Unsubscribe` object that unsubscribes from broadcast messages.
     pub fn unsubscribe_broadcast<'a>(&'a self, homie_domain: &HomieDomain) -> impl Iterator<Item = Unsubscribe> + 'a {
         iter::once(Unsubscribe {
-            topic: format!("{}/{}/$broadcast/#", homie_domain, HOMIE_VERSION),
+            topic: TopicBuilder::new(homie_domain)
+                .add_attr(HOMIE_TOPIC_BROADCAST)
+                .add_attr("#")
+                .build(),
         })
     }
 }

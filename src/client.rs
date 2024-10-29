@@ -26,6 +26,8 @@
 //! These primitives form the backbone of MQTT communication and can be converted to their equivalents in
 //! various MQTT libraries, making this module a flexible foundation for MQTT client implementations.
 
+use std::string::FromUtf8Error;
+
 /// Represents the Last Will (LW) contract for an MQTT client.
 ///
 /// The Last Will message is a feature in MQTT that ensures a device can notify others of an unexpected disconnection.
@@ -167,4 +169,18 @@ pub struct Unsubscribe {
     /// This topic specifies the exact path that the client will stop receiving messages from. After successfully
     /// unsubscribing, the client will no longer receive any further publications from the broker on this topic.
     pub topic: String,
+}
+
+/// Attempt to parse the payload as a UTF-8 string
+/// special case:
+/// accoring to the homie convention a string with a 0 value byte as first value constitues an
+/// empty string. This is only true for homie string value types. However since all input data
+/// for all other homie data types is a string we leave the handling of a valid input data to
+/// the parsing function of HomieValue
+pub fn mqtt_payload_to_string(payload: &[u8]) -> Result<String, FromUtf8Error> {
+    if payload.first() == Some(&0) {
+        Ok(String::new())
+    } else {
+        String::from_utf8(payload.to_vec())
+    }
 }

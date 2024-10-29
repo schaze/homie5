@@ -344,7 +344,7 @@ fn test_integer_ok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
         .name(Some("test".to_owned()))
         .build();
-    assert_eq!(HomieValue::parse("122", &desc), Ok(HomieValue::Integer(122)));
+    assert!(matches!(HomieValue::parse("122", &desc), Ok(HomieValue::Integer(122))));
 }
 
 #[test]
@@ -381,8 +381,11 @@ fn test_integer_nok() {
 #[test]
 fn test_float_ok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Float).build();
-    assert_eq!(HomieValue::parse("122", &desc), Ok(HomieValue::Float(122.0)));
-    assert_eq!(HomieValue::parse("122.12", &desc), Ok(HomieValue::Float(122.12)));
+    assert!(matches!(HomieValue::parse("122", &desc), Ok(HomieValue::Float(122.0))));
+    assert!(matches!(
+        HomieValue::parse("122.12", &desc),
+        Ok(HomieValue::Float(122.12))
+    ));
 }
 
 #[test]
@@ -411,8 +414,8 @@ fn test_float_nok() {
 #[test]
 fn test_bool_ok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Boolean).build();
-    assert_eq!(HomieValue::parse("true", &desc), Ok(HomieValue::Bool(true)));
-    assert_eq!(HomieValue::parse("false", &desc), Ok(HomieValue::Bool(false)));
+    assert!(matches!(HomieValue::parse("true", &desc), Ok(HomieValue::Bool(true))));
+    assert!(matches!(HomieValue::parse("false", &desc), Ok(HomieValue::Bool(false))));
 }
 
 #[test]
@@ -442,8 +445,8 @@ fn test_bool_nok() {
 fn test_string_ok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::String).build();
     assert_eq!(
-        HomieValue::parse("blah", &desc),
-        Ok(HomieValue::String("blah".to_owned()))
+        HomieValue::parse("blah", &desc).ok(),
+        Some(HomieValue::String("blah".to_owned()))
     );
 }
 
@@ -453,8 +456,8 @@ fn test_enum_ok() {
         .format(HomiePropertyFormat::Enum(vec!["blah".to_owned()]))
         .build();
     assert_eq!(
-        HomieValue::parse("blah", &desc),
-        Ok(HomieValue::Enum("blah".to_owned()))
+        HomieValue::parse("blah", &desc).ok(),
+        Some(HomieValue::Enum("blah".to_owned()))
     );
 }
 
@@ -462,16 +465,16 @@ fn test_enum_ok() {
 fn test_color_ok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Color).build();
     assert_eq!(
-        HomieValue::parse("rgb,12,55,14", &desc),
-        Ok(HomieValue::Color(HomieColorValue::RGB(12, 55, 14)))
+        HomieValue::parse("rgb,12,55,14", &desc).ok(),
+        Some(HomieValue::Color(HomieColorValue::RGB(12, 55, 14)))
     );
     assert_eq!(
-        HomieValue::parse("hsv,112,155,55", &desc),
-        Ok(HomieValue::Color(HomieColorValue::HSV(112, 155, 55)))
+        HomieValue::parse("hsv,112,155,55", &desc).ok(),
+        Some(HomieValue::Color(HomieColorValue::HSV(112, 155, 55)))
     );
     assert_eq!(
-        HomieValue::parse("xyz,0.33453,0.123456", &desc),
-        Ok(HomieValue::Color(HomieColorValue::XYZ(
+        HomieValue::parse("xyz,0.33453,0.123456", &desc).ok(),
+        Some(HomieValue::Color(HomieColorValue::XYZ(
             0.33453,
             0.123456,
             1.0 - 0.33453 - 0.123456
@@ -492,32 +495,32 @@ fn test_color_nok() {
 fn test_datetime_ok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Datetime).build();
     assert_eq!(
-        HomieValue::parse("2023-09-26T10:54:59+00:00", &desc),
-        Ok(HomieValue::DateTime(
+        HomieValue::parse("2023-09-26T10:54:59+00:00", &desc).ok(),
+        Some(HomieValue::DateTime(
             chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 0).unwrap()
         ))
     );
     assert_eq!(
-        HomieValue::parse("2023-09-26T11:54:59+01:00", &desc),
-        Ok(HomieValue::DateTime(
+        HomieValue::parse("2023-09-26T11:54:59+01:00", &desc).ok(),
+        Some(HomieValue::DateTime(
             chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 0).unwrap()
         ))
     );
     assert_eq!(
-        HomieValue::parse("2023-09-26T10:54:59Z", &desc),
-        Ok(HomieValue::DateTime(
+        HomieValue::parse("2023-09-26T10:54:59Z", &desc).ok(),
+        Some(HomieValue::DateTime(
             chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 0).unwrap()
         ))
     );
     assert_eq!(
-        HomieValue::parse("2023-09-26T10:54:59", &desc),
-        Ok(HomieValue::DateTime(
+        HomieValue::parse("2023-09-26T10:54:59", &desc).ok(),
+        Some(HomieValue::DateTime(
             chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 0).unwrap()
         ))
     );
     assert_eq!(
-        HomieValue::parse("2023-09-26T10:54:59.100", &desc),
-        Ok(HomieValue::DateTime(
+        HomieValue::parse("2023-09-26T10:54:59.100", &desc).ok(),
+        Some(HomieValue::DateTime(
             chrono::DateTime::<chrono::Utc>::from_timestamp(1695725699, 100000000).unwrap()
         ))
     );
@@ -526,14 +529,14 @@ fn test_datetime_ok() {
 fn test_duration_ok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Duration).build();
     assert_eq!(
-        HomieValue::parse("PT12H4M2S", &desc),
-        Ok(HomieValue::Duration(
+        HomieValue::parse("PT12H4M2S", &desc).ok(),
+        Some(HomieValue::Duration(
             chrono::Duration::from_std(std::time::Duration::from_secs(12 * 60 * 60 + 4 * 60 + 2)).unwrap()
         ))
     );
     assert_eq!(
-        HomieValue::parse("PT43442S", &desc),
-        Ok(HomieValue::Duration(
+        HomieValue::parse("PT43442S", &desc).ok(),
+        Some(HomieValue::Duration(
             chrono::Duration::from_std(std::time::Duration::from_secs(12 * 60 * 60 + 4 * 60 + 2)).unwrap()
         ))
     );

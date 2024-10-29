@@ -27,7 +27,7 @@
 //!
 //! These methods allow precise identification and referencing of Homie properties in MQTT topics.
 
-use crate::{DeviceRef, HomieDomain, HomieID, NodeRef, ToTopic, HOMIE_VERSION};
+use crate::{DeviceRef, HomieDomain, HomieID, NodeRef, ToTopic, TopicBuilder};
 
 /// Identifies a property of a node via its NodeRef and the property id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -65,6 +65,11 @@ impl PropertyRef {
     /// Return a slice of the device id the property belongs to
     pub fn device_id(&self) -> &HomieID {
         &self.node.device.id
+    }
+
+    /// Return a reference to the homie domain the property belongs to
+    pub fn homie_domain(&self) -> &HomieDomain {
+        &self.node.device.homie_domain
     }
 }
 
@@ -109,10 +114,18 @@ impl PropertyRef {
 }
 
 impl ToTopic for PropertyRef {
-    fn to_topic(&self) -> String {
-        format!(
-            "{}/{HOMIE_VERSION}/{}/{}/{}",
-            self.node.device.homie_domain, self.node.device.id, self.node.id, self.id
-        )
+    fn to_topic(&self) -> TopicBuilder {
+        TopicBuilder::new_for_property(self.homie_domain(), self.device_id(), self.node_id(), self.prop_id())
+    }
+}
+
+impl ToTopic for (&HomieDomain, &HomieID, &HomieID, &HomieID) {
+    fn to_topic(&self) -> TopicBuilder {
+        TopicBuilder::new_for_property(self.0, self.1, self.2, self.3)
+    }
+}
+impl ToTopic for (&HomieDomain, &HomieID, &HomieID, &HomieID, &str) {
+    fn to_topic(&self) -> TopicBuilder {
+        TopicBuilder::new_for_property(self.0, self.1, self.2, self.3).add_attr(self.4)
     }
 }

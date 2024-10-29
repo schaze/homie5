@@ -165,7 +165,7 @@ fn test_invalid_topic() {
 
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_err());
-    assert_eq!(event.unwrap_err(), Homie5ProtocolError::InvalidTopic);
+    assert!(matches!(event.unwrap_err(), Homie5ProtocolError::InvalidTopic));
 }
 
 #[test]
@@ -184,7 +184,7 @@ fn test_invalid_payload() {
 
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_err());
-    assert_eq!(event.unwrap_err(), Homie5ProtocolError::InvalidPayload);
+    assert!(matches!(event.unwrap_err(), Homie5ProtocolError::InvalidPayload));
 }
 #[test]
 fn test_device_description_msg() {

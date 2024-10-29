@@ -70,8 +70,8 @@
 //! is used to handle the message.
 
 use crate::{
-    device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceRef, HomieDeviceStatus, HomieDomain,
-    HomieID, PropertyRef,
+    client::mqtt_payload_to_string, device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceRef,
+    HomieDeviceStatus, HomieDomain, HomieID, PropertyRef, HOMIE_VERSION,
 };
 /// Represents all possible MQTT message types according to the Homie 5 protocol.
 /// These messages define the interactions between devices, their attributes, and the broker.
@@ -219,26 +219,17 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
 
     let homie_domain: HomieDomain = tokens[0].to_owned().try_into()?;
 
-    // Attempt to parse the payload as a UTF-8 string
-    // special case:
-    // accoring to the homie convention a string with a 0 value byte as first value constitues an
-    // empty string. This is only true for homie string value types. However since all input data
-    // for all other homie data types is a string we leave the handling of a valid input data to
-    // the parsing function of HomieValue
-    println!("=============================> parse msg");
-    let payload = if payload.first().map(|first| *first == 0) == Some(true) {
-        println!("=============================> detected 0 byte value in first char, will parse as an empty string");
-        "".to_string()
-    } else {
-        String::from_utf8(payload.to_vec())?
-    };
+    // Ensure homie version matches to supported version
+    if tokens[1] != HOMIE_VERSION {
+        return Err(Homie5ProtocolError::InvalidTopic);
+    }
 
     // Handle broadcast messages (e.g. "homie/5/$broadcast")
     if tokens[2] == "$broadcast" {
         return Ok(Homie5Message::Broadcast {
             homie_domain,
             subtopic: tokens[3..].join("/"),
-            data: payload,
+            data: mqtt_payload_to_string(payload)?,
         });
     }
 
@@ -258,7 +249,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 // Handle the "$state" attribute
                 "$state" => {
                     if !payload.is_empty() {
-                        if let Ok(state) = payload.try_into() {
+                        if let Ok(state) = mqtt_payload_to_string(payload)?.try_into() {
                             Ok(Homie5Message::DeviceState {
                                 device: DeviceRef {
                                     homie_domain,
@@ -280,26 +271,28 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                     }
                 }
                 // Handle the "$description" attribute, parsing as JSON
-                "$description" => match serde_json::from_str::<HomieDeviceDescription>(&payload) {
-                    Ok(description) => Ok(Homie5Message::DeviceDescription {
-                        device: DeviceRef {
-                            homie_domain,
-                            id: device_id,
-                        },
-                        description,
-                    }),
-                    Err(err) => {
-                        log::error!("{:#?}", err);
-                        Err(Homie5ProtocolError::InvalidPayload)
+                "$description" => {
+                    match serde_json::from_str::<HomieDeviceDescription>(&mqtt_payload_to_string(payload)?) {
+                        Ok(description) => Ok(Homie5Message::DeviceDescription {
+                            device: DeviceRef {
+                                homie_domain,
+                                id: device_id,
+                            },
+                            description,
+                        }),
+                        Err(err) => {
+                            log::error!("{:#?}", err);
+                            Err(Homie5ProtocolError::InvalidPayload)
+                        }
                     }
-                },
+                }
                 // Handle the "$log" attribute
                 "$log" => Ok(Homie5Message::DeviceLog {
                     device: DeviceRef {
                         homie_domain,
                         id: device_id,
                     },
-                    log_msg: payload,
+                    log_msg: mqtt_payload_to_string(payload)?,
                 }),
                 _ => Err(Homie5ProtocolError::InvalidTopic),
             }
@@ -315,7 +308,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                             id: device_id,
                         },
                         alert_id,
-                        alert_msg: payload,
+                        alert_msg: mqtt_payload_to_string(payload)?,
                     })
                 }
                 // Handle property values (e.g. "device-id/node-id/prop-id")
@@ -324,7 +317,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                     let prop_id = HomieID::try_from(tokens[4].to_string())?;
                     Ok(Homie5Message::PropertyValue {
                         property: PropertyRef::new(homie_domain, device_id, node_id, prop_id),
-                        value: payload,
+                        value: mqtt_payload_to_string(payload)?,
                     })
                 }
             }
@@ -338,12 +331,12 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 // Handle the "set" action
                 "set" => Ok(Homie5Message::PropertySet {
                     property: PropertyRef::new(homie_domain, device_id, node_id.to_owned(), prop_id.to_owned()),
-                    set_value: payload,
+                    set_value: mqtt_payload_to_string(payload)?,
                 }),
                 // Handle the "$target" attribute
                 "$target" => Ok(Homie5Message::PropertyTarget {
                     property: PropertyRef::new(homie_domain, device_id, node_id, prop_id),
-                    target: payload,
+                    target: mqtt_payload_to_string(payload)?,
                 }),
                 _ => Err(Homie5ProtocolError::InvalidTopic),
             }

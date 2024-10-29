@@ -10,7 +10,7 @@ use crate::{Homie5ValueConversionError, InvalidHomieDomainError, InvalidHomieIDE
 /// This error enum is used to encapsulate all possible errors encountered during
 /// interaction with devices and MQTT messages under the Homie v5 protocol. It
 /// covers errors related to subscribing, publishing, message formatting, and more.
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Error)]
 pub enum Homie5ProtocolError {
     /// Error occurred while subscribing to a topic.
     #[error("Error Subscribing to topic")]

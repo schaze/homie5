@@ -22,7 +22,7 @@
 //!
 //! These methods allow precise identification and referencing of Homie nodes in MQTT topics.
 
-use crate::{DeviceRef, HomieDomain, HomieID, PropertyRef, ToTopic, HOMIE_VERSION};
+use crate::{DeviceRef, HomieDomain, HomieID, PropertyRef, ToTopic, TopicBuilder};
 
 /// Identifies a node of a device via its DeviceRef and its node id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -56,6 +56,11 @@ impl NodeRef {
     pub fn device_id(&self) -> &HomieID {
         &self.device.id
     }
+
+    /// Return a reference to the homie domain the node belongs to
+    pub fn homie_domain(&self) -> &HomieDomain {
+        &self.device.homie_domain
+    }
 }
 
 impl PartialEq<DeviceRef> for NodeRef {
@@ -88,11 +93,13 @@ impl PartialEq<PropertyRef> for &NodeRef {
 }
 
 impl ToTopic for NodeRef {
-    fn to_topic(&self) -> String {
-        format!(
-            "{}/{HOMIE_VERSION}/{}/{}",
-            self.device.homie_domain, self.device.id, self.id
-        )
+    fn to_topic(&self) -> TopicBuilder {
+        TopicBuilder::new_for_node(self.homie_domain(), self.device_id(), self.node_id())
+    }
+}
+impl ToTopic for (&HomieDomain, &HomieID, &HomieID) {
+    fn to_topic(&self) -> TopicBuilder {
+        TopicBuilder::new_for_node(self.0, self.1, self.2)
     }
 }
 

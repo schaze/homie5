@@ -24,6 +24,7 @@ pub mod device_description;
 mod device_proto;
 mod device_ref;
 mod error;
+pub mod extensions;
 mod homie5_message;
 mod homie_domain;
 mod homie_id;
@@ -263,10 +264,58 @@ impl TryFrom<String> for HomieDeviceStatus {
 /// published on the broker
 pub trait ToTopic {
     /// return the mqtt topic under which the object is published
-    fn to_topic(&self) -> String;
-    /// return the mqtt topic under which the object is published with the addition of a subpath
-    fn to_topic_with_subpath(&self, subpath: &str) -> String {
-        format!("{}/{}", self.to_topic(), subpath)
+    fn to_topic(&self) -> TopicBuilder;
+}
+
+#[derive(Default, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct TopicBuilder {
+    topic: String,
+}
+
+impl Display for TopicBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Write the topic string to the formatter
+        write!(f, "{}", self.topic)
+    }
+}
+
+impl TopicBuilder {
+    pub fn new(homie_domain: &HomieDomain) -> Self {
+        let mut topic = String::with_capacity(96);
+        topic.push_str(homie_domain.as_str());
+        topic.push('/');
+        topic.push_str(HOMIE_VERSION);
+        Self { topic }
+    }
+
+    pub fn new_for_device(homie_domain: &HomieDomain, device_id: &HomieID) -> Self {
+        Self::new(homie_domain).add_id(device_id)
+    }
+
+    pub fn new_for_node(homie_domain: &HomieDomain, device_id: &HomieID, node_id: &HomieID) -> Self {
+        Self::new_for_device(homie_domain, device_id).add_id(node_id)
+    }
+    pub fn new_for_property(
+        homie_domain: &HomieDomain,
+        device_id: &HomieID,
+        node_id: &HomieID,
+        property_id: &HomieID,
+    ) -> Self {
+        Self::new_for_node(homie_domain, device_id, node_id).add_id(property_id)
+    }
+    pub fn add_attr(mut self, attr: &str) -> Self {
+        self.topic.push('/');
+        self.topic.push_str(attr);
+        self
+    }
+
+    pub fn add_id(mut self, id: &HomieID) -> Self {
+        self.topic.push('/');
+        self.topic.push_str(id.as_str());
+        self
+    }
+    pub fn build(self) -> String {
+        self.topic
     }
 }
 

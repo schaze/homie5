@@ -65,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
                 if property.node.device.id == *device.homie_id() {
                     match device.handle_set_command(property, set_value).await {
                         Ok(_) => {
-                            log::debug!("Value updated {} - {}", property.to_topic(), set_value);
+                            log::debug!("Value updated {} - {}", property.to_topic().build(), set_value);
                         }
                         Err(e) => {
                             log::debug!("{}", e);
