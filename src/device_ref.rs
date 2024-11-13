@@ -42,6 +42,13 @@ impl DeviceRef {
     pub fn homie_domain(&self) -> &HomieDomain {
         &self.homie_domain
     }
+
+    pub fn clone_with_id(&self, id: HomieID) -> DeviceRef {
+        Self {
+            homie_domain: self.homie_domain.clone(),
+            id,
+        }
+    }
 }
 
 impl PartialEq<PropertyRef> for DeviceRef {

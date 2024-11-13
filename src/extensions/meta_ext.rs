@@ -6,7 +6,7 @@ use thiserror::Error;
 use crate::{
     client::{mqtt_payload_to_string, Publish, QoS, Subscription},
     DeviceRef, Homie5DeviceProtocol, HomieDomain, HomieID, InvalidHomieDomainError, InvalidHomieIDError, NodeRef,
-    PropertyRef, ToTopic, HOMIE_VERSION,
+    PropertyRef, TopicBuilder, HOMIE_VERSION,
 };
 
 pub const EXT_META_ATTRIBUTE: &str = "$meta";
@@ -68,34 +68,97 @@ impl MetaDeviceProtocol {
     }
 
     /// Publishes the state for the given `device_id`.
-    pub fn publish_meta_for_id(
+    pub fn publish_meta_device(
         &self,
         device_id: &HomieID,
         meta: &HashMap<String, String>,
     ) -> Result<Publish, MetaExtError> {
         Ok(Publish {
-            topic: format!(
-                "{}/{}/{}/{}",
-                self.homie_domain, HOMIE_VERSION, device_id, EXT_META_ATTRIBUTE
-            ),
+            topic: TopicBuilder::new_for_device(&self.homie_domain, device_id)
+                .add_attr(EXT_META_ATTRIBUTE)
+                .build(),
             retain: true,
             payload: serde_json::to_string(meta)?.into(),
             qos: QoS::ExactlyOnce,
         })
     }
 
-    pub fn publish_meta(&self, meta: &HashMap<String, String>) -> Result<Publish, MetaExtError> {
-        self.publish_meta_for_id(&self.id, meta)
-    }
-    pub fn publish_meta_topic(
+    /// Publishes the state for the given `device_id` and `node_id`.
+    pub fn publish_meta_node(
         &self,
-        topic: &dyn ToTopic,
+        device_id: &HomieID,
+        node_id: &HomieID,
         meta: &HashMap<String, String>,
     ) -> Result<Publish, MetaExtError> {
         Ok(Publish {
-            topic: topic.to_topic().add_attr(EXT_META_ATTRIBUTE).build(),
+            topic: TopicBuilder::new_for_node(&self.homie_domain, device_id, node_id)
+                .add_attr(EXT_META_ATTRIBUTE)
+                .build(),
             retain: true,
             payload: serde_json::to_string(meta)?.into(),
+            qos: QoS::ExactlyOnce,
+        })
+    }
+    /// Publishes the state for the given `device_id` and `node_id`.
+    pub fn publish_meta_property(
+        &self,
+        device_id: &HomieID,
+        node_id: &HomieID,
+        property_id: &HomieID,
+        meta: &HashMap<String, String>,
+    ) -> Result<Publish, MetaExtError> {
+        Ok(Publish {
+            topic: TopicBuilder::new_for_property(&self.homie_domain, device_id, node_id, property_id)
+                .add_attr(EXT_META_ATTRIBUTE)
+                .build(),
+            retain: true,
+            payload: serde_json::to_string(meta)?.into(),
+            qos: QoS::ExactlyOnce,
+        })
+    }
+
+    /// Publishes the state for the given `device_id`.
+    pub fn publish_tags_device(&self, device_id: &HomieID, tags: &Vec<String>) -> Result<Publish, MetaExtError> {
+        Ok(Publish {
+            topic: TopicBuilder::new_for_device(&self.homie_domain, device_id)
+                .add_attr(EXT_TAGS_ATTRIBUTE)
+                .build(),
+            retain: true,
+            payload: serde_json::to_string(tags)?.into(),
+            qos: QoS::ExactlyOnce,
+        })
+    }
+
+    /// Publishes the state for the given `device_id` and `node_id`.
+    pub fn publish_tags_node(
+        &self,
+        device_id: &HomieID,
+        node_id: &HomieID,
+        tags: &Vec<String>,
+    ) -> Result<Publish, MetaExtError> {
+        Ok(Publish {
+            topic: TopicBuilder::new_for_node(&self.homie_domain, device_id, node_id)
+                .add_attr(EXT_TAGS_ATTRIBUTE)
+                .build(),
+            retain: true,
+            payload: serde_json::to_string(tags)?.into(),
+            qos: QoS::ExactlyOnce,
+        })
+    }
+    /// Publishes the state for the given `device_id` and `node_id`.
+    pub fn publish_tags_property(
+        &self,
+        device_id: &HomieID,
+        node_id: &HomieID,
+        property_id: &HomieID,
+        tags: &Vec<String>,
+    ) -> Result<Publish, MetaExtError> {
+        Ok(Publish {
+            topic: TopicBuilder::new_for_property(&self.homie_domain, device_id, node_id, property_id)
+                .add_attr(EXT_TAGS_ATTRIBUTE)
+                .build(),
+            retain: true,
+            payload: serde_json::to_string(tags)?.into(),
             qos: QoS::ExactlyOnce,
         })
     }
