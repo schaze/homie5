@@ -92,6 +92,10 @@ impl std::error::Error for InvalidHomieIDError {}
 pub struct HomieID(Cow<'static, str>);
 
 impl HomieID {
+    pub const fn new_const(id: &'static str) -> Self {
+        Self(Cow::Borrowed(id))
+    }
+
     /// Allows borrowing the inner string slice of the `HomieID`.
     pub fn as_str(&self) -> &str {
         &self.0
