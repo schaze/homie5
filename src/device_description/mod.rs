@@ -1,9 +1,10 @@
 //! This module provides all types and tools to create (builders) and manage homie device, node and property
 //! descriptions.
 use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
+use std::hash::Hash;
 use std::hash::Hasher;
 use std::iter::Iterator;
-use std::{collections::HashMap, hash::Hash};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -159,7 +160,7 @@ pub struct HomieNodeDescription {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub r#type: Option<String>,
     #[serde(default, skip_serializing_if = "serde_skip_if_properties")]
-    pub properties: HashMap<HomieID, HomiePropertyDescription>,
+    pub properties: BTreeMap<HomieID, HomiePropertyDescription>,
 }
 impl HomieNodeDescription {
     pub fn with_property<T>(
@@ -207,11 +208,11 @@ where
 }
 
 /// If the properties HashMap is empty, skip serializing the field
-fn serde_skip_if_properties(properties: &HashMap<HomieID, HomiePropertyDescription>) -> bool {
+fn serde_skip_if_properties(properties: &BTreeMap<HomieID, HomiePropertyDescription>) -> bool {
     properties.is_empty()
 }
 
-pub type HomieNodes = HashMap<HomieID, HomieNodeDescription>;
+pub type HomieNodes = BTreeMap<HomieID, HomieNodeDescription>;
 /// HomieDeviceDescription
 ///
 /// The JSON description document has the following format:
@@ -271,7 +272,7 @@ impl Default for HomieDeviceDescription {
             root: None,
             parent: None,
             extensions: Vec::new(),
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
         }
     }
 }
@@ -381,7 +382,7 @@ impl Hash for HomieDeviceDescription {
 }
 
 /// If the nodes HashMap is empty, skip serializing the field
-fn serde_skip_if_nodes(nodes: &HashMap<HomieID, HomieNodeDescription>) -> bool {
+fn serde_skip_if_nodes(nodes: &BTreeMap<HomieID, HomieNodeDescription>) -> bool {
     nodes.is_empty()
 }
 
@@ -395,9 +396,9 @@ fn serde_skip_if_empty_list<T>(children: &[T]) -> bool {
 
 pub struct HomiePropertyIterator<'a> {
     _device: &'a HomieDeviceDescription,
-    node_iter: std::collections::hash_map::Iter<'a, HomieID, HomieNodeDescription>,
+    node_iter: std::collections::btree_map::Iter<'a, HomieID, HomieNodeDescription>,
     current_node: Option<(&'a HomieID, &'a HomieNodeDescription)>,
-    property_iter: Option<std::collections::hash_map::Iter<'a, HomieID, HomiePropertyDescription>>,
+    property_iter: Option<std::collections::btree_map::Iter<'a, HomieID, HomiePropertyDescription>>,
 }
 
 impl<'a> HomiePropertyIterator<'a> {
