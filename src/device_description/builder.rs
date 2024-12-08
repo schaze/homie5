@@ -155,7 +155,7 @@ impl DeviceDescriptionBuilder {
 /// ```rust
 /// use homie5::device_description::*;
 /// let node_description = NodeDescriptionBuilder::new()
-///     .name(Some("TemperatureNode".to_string()))
+///     .name("TemperatureNode")
 ///     .r#type("sensor")
 ///     .build();
 /// ```
@@ -190,8 +190,8 @@ impl NodeDescriptionBuilder {
         self.description
     }
 
-    pub fn name(mut self, name: Option<String>) -> Self {
-        self.description.name = name;
+    pub fn name<S: Into<String>>(mut self, name: impl Into<Option<S>>) -> Self {
+        self.description.name = name.into().map(Into::into);
         self
     }
 
@@ -264,10 +264,10 @@ impl NodeDescriptionBuilder {
 /// use homie5::device_description::*;
 /// use homie5::*;
 /// let property_description = PropertyDescriptionBuilder::new(HomieDataType::Float)
-///     .name(Some("Temperature".to_string()))
+///     .name("Temperature")
 ///     .settable(false)
 ///     .retained(true)
-///     .unit(Some("°C".to_string()))
+///     .unit(HOMIE_UNIT_DEGREE_CELSIUS)
 ///     .build();
 /// ```
 pub struct PropertyDescriptionBuilder {
@@ -310,8 +310,8 @@ impl PropertyDescriptionBuilder {
         self
     }
 
-    pub fn name(mut self, name: Option<String>) -> Self {
-        self.description.name = name;
+    pub fn name<S: Into<String>>(mut self, name: impl Into<Option<S>>) -> Self {
+        self.description.name = name.into().map(Into::into);
         self
     }
 
@@ -325,8 +325,8 @@ impl PropertyDescriptionBuilder {
         self
     }
 
-    pub fn unit(mut self, unit: Option<String>) -> Self {
-        self.description.unit = unit;
+    pub fn unit<S: Into<String>>(mut self, unit: impl Into<Option<S>>) -> Self {
+        self.description.unit = unit.into().map(Into::into);
         self
     }
 
