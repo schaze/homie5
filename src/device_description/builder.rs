@@ -9,13 +9,12 @@
 //! based on runtime conditions.
 //!
 //! ```
-use crate::{HomieDataType, HomieID, HOMIE_VERSION_FULL};
-
+use super::property_format::HomiePropertyFormat;
 use super::{
-    property_format::HomiePropertyFormat, HomieDeviceDescription, HomieNodeDescription, HomiePropertyDescription,
-    RETAINTED_DEFAULT, SETTABLE_DEFAULT,
+    HomieDeviceDescription, HomieNodeDescription, HomiePropertyDescription, RETAINTED_DEFAULT, SETTABLE_DEFAULT,
 };
-use std::collections::{hash_map, HashMap};
+use crate::{HomieDataType, HomieID, HOMIE_VERSION_FULL};
+use std::collections::{BTreeMap, btree_map};
 
 /// Builder for constructing `HomieDeviceDescription` objects.
 ///
@@ -45,7 +44,7 @@ impl Default for DeviceDescriptionBuilder {
                 homie: HOMIE_VERSION_FULL.to_owned(),
                 children: Vec::new(),
                 extensions: Vec::new(),
-                nodes: HashMap::new(),
+                nodes: BTreeMap::new(),
                 parent: None,
                 root: None,
             },
@@ -131,12 +130,12 @@ impl DeviceDescriptionBuilder {
     ) -> Self {
         let entry = self.description.nodes.entry(node_id);
         match entry {
-            hash_map::Entry::Occupied(mut oe) => {
+            btree_map::Entry::Occupied(mut oe) => {
                 let oe_mut = oe.get_mut();
                 let new_desc = f(Some(oe_mut));
                 *oe_mut = new_desc;
             }
-            hash_map::Entry::Vacant(ve) => {
+            btree_map::Entry::Vacant(ve) => {
                 let new_desc = f(None);
                 ve.insert(new_desc);
             }
@@ -169,7 +168,7 @@ impl Default for NodeDescriptionBuilder {
             description: HomieNodeDescription {
                 name: None,
                 r#type: None,
-                properties: HashMap::new(),
+                properties: BTreeMap::new(),
             },
         }
     }
@@ -238,12 +237,12 @@ impl NodeDescriptionBuilder {
     ) -> Self {
         let entry = self.description.properties.entry(prop_id);
         match entry {
-            hash_map::Entry::Occupied(mut oe) => {
+            btree_map::Entry::Occupied(mut oe) => {
                 let oe_mut = oe.get_mut();
                 let new_desc = f(Some(oe_mut));
                 *oe_mut = new_desc;
             }
-            hash_map::Entry::Vacant(ve) => {
+            btree_map::Entry::Vacant(ve) => {
                 let new_desc = f(None);
                 ve.insert(new_desc);
             }
