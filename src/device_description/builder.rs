@@ -311,7 +311,7 @@ impl PropertyDescriptionBuilder {
     }
 
     pub fn name<S: Into<String>>(mut self, name: impl Into<Option<S>>) -> Self {
-        self.description.name = name.into().map(Into::into);
+        self.description.name = name.into().map(|s| s.into());
         self
     }
 
