@@ -52,15 +52,15 @@ impl LightDevice {
 
         // Build the device description
         let desc = DeviceDescriptionBuilder::new()
-            .name(Some("homie5client test-device-1".to_owned()))
+            .name("homie5client test-device-1")
             .add_node(
                 light_node.id.clone(),
                 NodeDescriptionBuilder::new()
-                    .name(Some("Light node".to_owned()))
+                    .name("Light node")
                     .add_property(
                         prop_light_state.id.clone(),
                         PropertyDescriptionBuilder::new(HomieDataType::Boolean)
-                            .name(Some("Light state".to_owned()))
+                            .name("Light state")
                             .format(HomiePropertyFormat::Boolean {
                                 false_val: "off".to_string(),
                                 true_val: "on".to_string(),
@@ -72,13 +72,13 @@ impl LightDevice {
                     .add_property(
                         prop_light_brightness.id.clone(),
                         PropertyDescriptionBuilder::new(HomieDataType::Integer)
-                            .name(Some("Brightness".to_owned()))
+                            .name("Brightness")
                             .format(HomiePropertyFormat::IntegerRange(IntegerRange {
                                 min: Some(0),
                                 max: Some(100),
                                 step: None,
                             }))
-                            .unit(Some(HOMIE_UNIT_PERCENT.to_string()))
+                            .unit(HOMIE_UNIT_PERCENT)
                             .retained(true)
                             .settable(true)
                             .build(),
@@ -87,9 +87,7 @@ impl LightDevice {
             )
             .add_node(
                 "node-2".try_into().unwrap(),
-                NodeDescriptionBuilder::new()
-                    .name(Some("Second Node - no props".to_owned()))
-                    .build(),
+                NodeDescriptionBuilder::new().name("Second Node - no props").build(),
             )
             .build();
         (desc, light_node, prop_light_state, prop_light_brightness)

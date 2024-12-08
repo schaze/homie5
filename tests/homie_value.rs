@@ -342,7 +342,7 @@ fn test_integer_value_with_step_rounding_2() {
 #[test]
 fn test_integer_ok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
-        .name(Some("test".to_owned()))
+        .name("test")
         .build();
     assert!(matches!(HomieValue::parse("122", &desc), Ok(HomieValue::Integer(122))));
 }
@@ -350,7 +350,7 @@ fn test_integer_ok() {
 #[test]
 fn test_integer_nok() {
     let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
-        .name(Some("test".to_owned()))
+        .name("test")
         .build();
     assert!(matches!(
         HomieValue::parse("bla2", &desc),
