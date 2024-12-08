@@ -27,7 +27,7 @@ use std::collections::{hash_map, HashMap};
 /// ```rust
 /// use homie5::device_description::*;
 /// let device_description = DeviceDescriptionBuilder::new()
-///     .name(Some("MyDevice".to_string()))
+///     .name("MyDevice")
 ///     .add_child("node1".try_into().unwrap())
 ///     .add_extension("com.example.extension".to_string())
 ///     .build();
@@ -91,18 +91,18 @@ impl DeviceDescriptionBuilder {
         self
     }
 
-    pub fn parent(mut self, parent: Option<HomieID>) -> Self {
-        self.description.parent = parent;
+    pub fn parent(mut self, parent: impl Into<Option<HomieID>>) -> Self {
+        self.description.parent = parent.into();
         self
     }
 
-    pub fn root(mut self, parent: Option<HomieID>) -> Self {
-        self.description.root = parent;
+    pub fn root(mut self, parent: impl Into<Option<HomieID>>) -> Self {
+        self.description.root = parent.into();
         self
     }
 
-    pub fn name(mut self, name: Option<String>) -> Self {
-        self.description.name = name;
+    pub fn name<S: Into<String>>(mut self, name: impl Into<Option<S>>) -> Self {
+        self.description.name = name.into().map(Into::into);
         self
     }
 
