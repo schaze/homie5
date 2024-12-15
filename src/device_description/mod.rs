@@ -49,6 +49,7 @@ pub const RETAINTED_DEFAULT: bool = true;
 /// ```
 #[derive(Debug, Serialize, Clone, Hash, PartialEq)]
 pub struct HomiePropertyDescription {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub datatype: HomieDataType,
     #[serde(
@@ -156,6 +157,7 @@ impl<'de> Deserialize<'de> for HomiePropertyDescription {
 /// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HomieNodeDescription {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub r#type: Option<String>,
@@ -247,6 +249,7 @@ pub type HomieNodes = BTreeMap<HomieID, HomieNodeDescription>;
 /// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HomieDeviceDescription {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub version: i64,
     pub homie: String,
