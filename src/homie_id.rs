@@ -41,7 +41,7 @@ use serde::{de, Deserialize, Deserializer, Serialize};
 /// Provides details about why the validation failed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InvalidHomieIDError {
-    details: String,
+    details: &'static str,
 }
 
 impl InvalidHomieIDError {
@@ -50,10 +50,8 @@ impl InvalidHomieIDError {
     /// # Arguments
     ///
     /// * `msg` - A string slice that holds the error message.
-    fn new(msg: &str) -> Self {
-        InvalidHomieIDError {
-            details: msg.to_string(),
-        }
+    const fn new(msg: &'static str) -> Self {
+        InvalidHomieIDError { details: msg }
     }
 }
 
@@ -92,7 +90,13 @@ impl std::error::Error for InvalidHomieIDError {}
 pub struct HomieID(Cow<'static, str>);
 
 impl HomieID {
+    /// Wrap a statically known string into a `HomieID`.
+    ///
+    /// Panics if the `id` is not a valid `HomieID`.
     pub const fn new_const(id: &'static str) -> Self {
+        if let Err(e) = Self::validate(id) {
+            panic!("{}", e.details);
+        }
         Self(Cow::Borrowed(id))
     }
 
@@ -100,17 +104,25 @@ impl HomieID {
     pub fn as_str(&self) -> &str {
         &self.0
     }
-    pub fn validate(id: &str) -> Result<(), InvalidHomieIDError> {
+
+    pub const fn validate(id: &str) -> Result<(), InvalidHomieIDError> {
         if id.is_empty() {
             return Err(InvalidHomieIDError::new("Homie ID cannot be empty"));
         }
-        if id.chars().all(|c| matches!(c, 'a'..='z' | '0'..='9' | '-')) {
-            Ok(())
-        } else {
-            Err(InvalidHomieIDError::new(
-                "Homie ID can only contain lowercase letters a-z, numbers 0-9, and hyphens (-)",
-            ))
+        // Since IDs may only be ASCII it is fine to iterate over the bytes of this ID, rather than
+        // trying to decode full characters. Unfortunately the following code is the only thing we
+        // can do for const functions.
+        let mut bytes = id.as_bytes();
+        while !bytes.is_empty() {
+            let [b'a'..=b'z' | b'0'..=b'9' | b'-', remainder @ ..] = bytes else {
+                return Err(InvalidHomieIDError::new(
+                    "Homie ID can only contain lowercase letters a-z, numbers 0-9, and hyphens (-)",
+                ));
+            };
+            bytes = remainder;
+            continue;
         }
+        Ok(())
     }
 }
 
