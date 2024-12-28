@@ -110,9 +110,9 @@ fn test_property_value() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::PropertyValue { property, value }) = event {
-        assert_eq!(property.node.device.id.as_str(), "test-device-1");
-        assert_eq!(property.node.id, "some-node".try_into().unwrap());
-        assert_eq!(property.id, "some-prop".try_into().unwrap());
+        assert_eq!(property.device_id().as_str(), "test-device-1");
+        assert_eq!(property.node_id().as_str(), "some-node");
+        assert_eq!(property.prop_id().as_str(), "some-prop");
         assert_eq!(value, "true".to_owned());
     } else {
         panic!(
@@ -263,9 +263,9 @@ fn test_property_target_msg() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::PropertyTarget { property, target }) = event {
-        assert_eq!(property.node.device.id.as_str(), "test-device-1");
-        assert_eq!(property.node.id, "some-node".try_into().unwrap());
-        assert_eq!(property.id, "some-prop".try_into().unwrap());
+        assert_eq!(property.device_id().as_str(), "test-device-1");
+        assert_eq!(property.node_id().as_str(), "some-node");
+        assert_eq!(property.prop_id().as_str(), "some-prop");
         assert_eq!(target, "75".to_owned());
     } else {
         panic!(
@@ -292,9 +292,9 @@ fn test_property_set_msg() {
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
     if let Ok(Homie5Message::PropertySet { property, set_value }) = event {
-        assert_eq!(property.node.device.id.as_str(), "test-device-1");
-        assert_eq!(property.node.id, "some-node".try_into().unwrap());
-        assert_eq!(property.id, "some-prop".try_into().unwrap());
+        assert_eq!(property.device_id().as_str(), "test-device-1");
+        assert_eq!(property.node_id().as_str(), "some-node");
+        assert_eq!(property.prop_id().as_str(), "some-prop");
         assert_eq!(set_value, "100".to_owned());
     } else {
         panic!(

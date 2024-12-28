@@ -22,26 +22,22 @@ pub mod client;
 mod controller_proto;
 pub mod device_description;
 mod device_proto;
-mod device_ref;
 mod error;
 pub mod extensions;
 mod homie5_message;
 mod homie_domain;
 mod homie_id;
-mod node_ref;
-mod property_ref;
+mod homie_ref;
 mod statemachine;
 mod value;
 
 pub use controller_proto::*;
 pub use device_proto::*;
-pub use device_ref::*;
 pub use error::Homie5ProtocolError;
 pub use homie5_message::*;
 pub use homie_domain::*;
 pub use homie_id::*;
-pub use node_ref::*;
-pub use property_ref::*;
+pub use homie_ref::*;
 pub use value::*;
 
 use serde::{Deserialize, Serialize};

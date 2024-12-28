@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
                 };
                 // if the set message is for our device (which it always should be as we did not
                 // subscribe to any other devices /set topics)
-                if property.node.device.id == *device.homie_id() {
+                if property.device_id() == device.homie_id() {
                     match device.handle_set_command(property, set_value).await {
                         Ok(_) => {
                             log::debug!("Value updated {} - {}", property.to_topic().build(), set_value);

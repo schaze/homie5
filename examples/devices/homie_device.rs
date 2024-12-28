@@ -104,7 +104,7 @@ where
     fn prepare_publish(&self, property: &PropertyRef, value: &str) -> Result<(HomieValue, bool), Self::ResultError> {
         let prop = self
             .description()
-            .get_property(property)
+            .get_property(property.prop_pointer())
             .ok_or(Homie5ProtocolError::PropertyNotFound)?;
 
         // parse the value to make sure that it conforms to the properties format requirements

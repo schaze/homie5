@@ -5,6 +5,9 @@ use std::{
     str::FromStr,
 };
 
+use serde::de;
+use serde::{Deserialize, Deserializer};
+
 use crate::{
     device_description::{ColorFormat, FloatRange, HomiePropertyDescription, HomiePropertyFormat, IntegerRange},
     Homie5ProtocolError, HomieDataType,
@@ -108,7 +111,7 @@ impl std::error::Error for Homie5ValueConversionError {
 /// attribute of the property, and the value must conform to that format.
 ///
 /// For more details on the color formats and their constraints, refer to the Homie specification.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 pub enum HomieColorValue {
     /// Represents a color in the RGB format, using three integers for red, green, and blue channels.
     /// Each value must be an integer between 0 and 255.
@@ -216,7 +219,7 @@ impl FromStr for HomieColorValue {
 ///
 /// The Homie protocol imposes specific rules on how these types should be represented in
 /// MQTT payloads, and this enum models those types.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 pub enum HomieValue {
     /// Represents an empty value, often used for uninitialized states.
     #[default]
@@ -274,6 +277,7 @@ pub enum HomieValue {
     /// - Must adhere to ISO 8601 format.
     ///
     /// Example: `2024-10-08T10:15:30Z`.
+    #[serde(deserialize_with = "deserialize_datetime")]
     DateTime(chrono::DateTime<chrono::Utc>),
 
     /// Represents a duration value.
@@ -281,6 +285,7 @@ pub enum HomieValue {
     /// - Must use ISO 8601 duration format (`PTxHxMxS`).
     ///
     /// Example: `"PT12H5M46S"` (12 hours, 5 minutes, 46 seconds).
+    #[serde(deserialize_with = "deserialize_duration")]
     Duration(chrono::Duration),
 
     /// Represents a complex JSON object or array.
@@ -289,6 +294,22 @@ pub enum HomieValue {
     ///
     /// Example: `{"temperature": 21.5, "humidity": 60}`.
     JSON(serde_json::Value),
+}
+
+fn deserialize_duration<'de, D>(deserializer: D) -> Result<chrono::Duration, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: &str = Deserialize::deserialize(deserializer)?;
+    HomieValue::parse_duration(s).map_err(de::Error::custom)
+}
+
+fn deserialize_datetime<'de, D>(deserializer: D) -> Result<chrono::DateTime<chrono::Utc>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: &str = Deserialize::deserialize(deserializer)?;
+    HomieValue::flexible_datetime_parser(s).map_err(de::Error::custom)
 }
 
 impl Display for HomieValue {

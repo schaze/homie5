@@ -119,14 +119,14 @@ async fn main() -> anyhow::Result<()> {
             }
             AppEvent::Homie(Homie5Message::PropertyValue { property, value }) => {
                 log::debug!("PropertyValue: {} - {}", property.to_topic(), value);
-                let Some(device) = devices.get_mut(&property.node.device.id) else {
+                let Some(device) = devices.get_mut(property.device_id()) else {
                     continue;
                 };
                 device.store_value(property, value)?;
             }
             AppEvent::Homie(Homie5Message::PropertyTarget { property, target }) => {
                 log::debug!("PropertyTarget: {} - {}", property.to_topic(), target);
-                let Some(device) = devices.get_mut(&property.node.device.id) else {
+                let Some(device) = devices.get_mut(property.device_id()) else {
                     continue;
                 };
                 device.store_target(property, target)?;

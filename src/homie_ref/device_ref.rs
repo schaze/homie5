@@ -53,18 +53,18 @@ impl DeviceRef {
 
 impl PartialEq<PropertyRef> for DeviceRef {
     fn eq(&self, other: &PropertyRef) -> bool {
-        other.node.device == *self
+        other.device_ref() == self
     }
 }
 
 impl PartialEq<PropertyRef> for &DeviceRef {
     fn eq(&self, other: &PropertyRef) -> bool {
-        other.node.device == **self
+        other.device_ref() == *self
     }
 }
 impl PartialEq<NodeRef> for DeviceRef {
     fn eq(&self, other: &NodeRef) -> bool {
-        other.device == *self
+        other.device_ref() == self
     }
 }
 
@@ -94,7 +94,7 @@ impl From<DeviceRef> for TopicBuilder {
 impl From<&PropertyRef> for DeviceRef {
     /// Create a DeviceRef from a PropertyRef
     fn from(value: &PropertyRef) -> Self {
-        value.node.device.clone()
+        value.device.clone()
     }
 }
 

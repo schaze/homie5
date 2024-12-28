@@ -31,6 +31,7 @@
 //!
 
 use core::fmt;
+use serde::{self, Deserialize};
 use std::borrow::Cow;
 
 use crate::DEFAULT_HOMIE_DOMAIN;

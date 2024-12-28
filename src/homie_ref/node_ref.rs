@@ -22,15 +22,16 @@
 //!
 //! These methods allow precise identification and referencing of Homie nodes in MQTT topics.
 
+use crate::AsNodeId;
 use crate::{DeviceRef, HomieDomain, HomieID, PropertyRef, ToTopic, TopicBuilder};
 
 /// Identifies a node of a device via its DeviceRef and its node id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeRef {
     /// Identifier of the device the node belongs to
-    pub device: DeviceRef,
+    pub(crate) device: DeviceRef,
     /// then node's id
-    pub id: HomieID,
+    pub(crate) id: HomieID,
 }
 
 impl NodeRef {
@@ -61,6 +62,16 @@ impl NodeRef {
     pub fn homie_domain(&self) -> &HomieDomain {
         &self.device.homie_domain
     }
+
+    pub fn device_ref(&self) -> &DeviceRef {
+        &self.device
+    }
+}
+
+impl AsNodeId for NodeRef {
+    fn as_node_id(&self) -> &HomieID {
+        self.node_id()
+    }
 }
 
 impl PartialEq<DeviceRef> for NodeRef {
@@ -82,13 +93,13 @@ impl PartialEq<DeviceRef> for &NodeRef {
 }
 impl PartialEq<PropertyRef> for NodeRef {
     fn eq(&self, other: &PropertyRef) -> bool {
-        *self == other.node
+        self.device_ref() == other.device_ref() && self.node_id() == other.node_id()
     }
 }
 
 impl PartialEq<PropertyRef> for &NodeRef {
     fn eq(&self, other: &PropertyRef) -> bool {
-        **self == other.node
+        self.device_ref() == other.device_ref() && self.node_id() == other.node_id()
     }
 }
 
@@ -105,6 +116,9 @@ impl ToTopic for (&HomieDomain, &HomieID, &HomieID) {
 
 impl From<&PropertyRef> for NodeRef {
     fn from(value: &PropertyRef) -> Self {
-        value.node.clone()
+        Self {
+            device: value.device_ref().clone(),
+            id: value.node_id().clone(),
+        }
     }
 }

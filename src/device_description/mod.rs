@@ -8,7 +8,10 @@ use std::iter::Iterator;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{HomieDataType, HomieID, NodeRef, PropertyRef};
+use crate::AsNodeId;
+use crate::AsPropPointer;
+use crate::PropertyPointer;
+use crate::{HomieDataType, HomieID, PropertyRef};
 
 mod builder;
 mod number_ranges;
@@ -170,7 +173,7 @@ impl HomieNodeDescription {
         property: &PropertyRef,
         f: impl FnOnce(&HomiePropertyDescription) -> T,
     ) -> Option<T> {
-        self.with_property_by_id(&property.id, f)
+        self.with_property_by_id(property.prop_id(), f)
     }
 
     pub fn with_property_by_id<T>(
@@ -281,25 +284,15 @@ impl Default for HomieDeviceDescription {
 }
 
 impl HomieDeviceDescription {
-    //pub fn with_node<T>(&self, node_id: impl Into<String>, f: impl FnOnce(Option<&HomieNodeDescription>) -> T) -> T {
-    //    let node_id = node_id.into();
-    //    let result = f(self.nodes.get(&node_id));
-    //    result
-    //}
-
-    pub fn with_node_by_id<T>(&self, node_id: &HomieID, f: impl FnOnce(&HomieNodeDescription) -> T) -> Option<T> {
-        if let Some(node) = self.nodes.get(node_id) {
+    pub fn with_node<T>(&self, node: impl AsNodeId, f: impl FnOnce(&HomieNodeDescription) -> T) -> Option<T> {
+        if let Some(node) = self.nodes.get(node.as_node_id()) {
             return Some(f(node));
         }
         None
     }
 
-    pub fn with_node<T>(&self, node: &NodeRef, f: impl FnOnce(&HomieNodeDescription) -> T) -> Option<T> {
-        self.with_node_by_id(&node.id, f)
-    }
-
-    pub fn get_node<T>(&self, node: &NodeRef) -> Option<&HomieNodeDescription> {
-        self.nodes.get(&node.id)
+    pub fn get_node<T>(&self, node_id: &HomieID) -> Option<&HomieNodeDescription> {
+        self.nodes.get(node_id)
     }
 
     pub fn with_property_by_id<T>(
@@ -308,37 +301,28 @@ impl HomieDeviceDescription {
         prop_id: &HomieID,
         f: impl FnOnce(&HomiePropertyDescription) -> T,
     ) -> Option<T> {
-        if let Some(node) = self.nodes.get(node_id) {
-            if let Some(prop) = node.properties.get(prop_id) {
-                return Some(f(prop));
-            }
+        if let Some(prop) = self.nodes.get(node_id).and_then(|node| node.properties.get(prop_id)) {
+            return Some(f(prop));
         }
         None
     }
 
     pub fn with_property<T>(
         &self,
-        property: &PropertyRef,
+        prop: impl AsPropPointer,
         f: impl FnOnce(&HomiePropertyDescription) -> T,
     ) -> Option<T> {
-        if let Some(prop) = self
-            .nodes
-            .get(&property.node.id)
-            .and_then(|node| node.properties.get(&property.id))
-        {
-            return Some(f(prop));
-        }
-        None
+        self.with_property_by_id(prop.as_prop_pointer().node_id(), prop.as_prop_pointer().prop_id(), f)
     }
-    pub fn get_property(&self, property: &PropertyRef) -> Option<&HomiePropertyDescription> {
-        if let Some(prop) = self
-            .nodes
-            .get(&property.node.id)
-            .and_then(|node| node.properties.get(&property.id))
-        {
+
+    pub fn get_property_by_id(&self, node_id: &HomieID, prop_id: &HomieID) -> Option<&HomiePropertyDescription> {
+        if let Some(prop) = self.nodes.get(node_id).and_then(|node| node.properties.get(prop_id)) {
             return Some(prop);
         }
         None
+    }
+    pub fn get_property(&self, property: &PropertyPointer) -> Option<&HomiePropertyDescription> {
+        self.get_property_by_id(property.node_id(), property.prop_id())
     }
 
     pub fn update_version(&mut self) {

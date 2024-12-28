@@ -211,11 +211,11 @@ fn make_device_description(
     let desc = DeviceDescriptionBuilder::new()
         .name("homie5client test-device-1")
         .add_node(
-            light_node.id.clone(),
+            light_node.node_id().clone(),
             NodeDescriptionBuilder::new()
                 .name("Light node")
                 .add_property(
-                    prop_light_state.id.clone(),
+                    prop_light_state.prop_id().clone(),
                     PropertyDescriptionBuilder::new(HomieDataType::Boolean)
                         .name("Light state")
                         .format(HomiePropertyFormat::Boolean {
@@ -226,7 +226,7 @@ fn make_device_description(
                         .build(),
                 )
                 .add_property(
-                    prop_light_brightness.id.clone(),
+                    prop_light_brightness.prop_id().clone(),
                     PropertyDescriptionBuilder::new(HomieDataType::Integer)
                         .name("Brightness")
                         .format(HomiePropertyFormat::IntegerRange(IntegerRange {

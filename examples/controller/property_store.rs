@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use homie5::{HomieValue, NodeRef, PropertyRef};
+use homie5::{HomieValue, PropertyPointer, PropertyRef};
 
 #[derive(Debug, Clone, Default)]
 pub struct PropertyState {
@@ -9,19 +9,14 @@ pub struct PropertyState {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct PropertyStore {
-    properties: HashMap<PropertyRef, PropertyState>, // Properties for this node
-}
-
-#[derive(Debug, Clone, Default)]
 pub struct PropertyValueStore {
-    nodes: HashMap<NodeRef, PropertyStore>, // Nodes in the device
+    values: HashMap<PropertyPointer, PropertyState>, // Nodes in the device
 }
 
 #[allow(dead_code)]
 impl PropertyValueStore {
     pub fn new() -> Self {
-        PropertyValueStore { nodes: HashMap::new() }
+        PropertyValueStore { values: HashMap::new() }
     }
 
     // Store both property value and target, or update if already exists
@@ -31,8 +26,7 @@ impl PropertyValueStore {
         value: Option<HomieValue>,
         target: Option<HomieValue>,
     ) {
-        let node_store = self.nodes.entry(property.node.clone()).or_default();
-        let property_state = node_store.properties.entry(property).or_default();
+        let property_state = self.values.entry(property.prop_pointer().clone()).or_default();
 
         if let Some(v) = value {
             property_state.value = Some(v);
@@ -44,9 +38,7 @@ impl PropertyValueStore {
 
     // Get the current state of the property (returns value and target)
     pub fn get_property_state(&self, property: &PropertyRef) -> Option<&PropertyState> {
-        self.nodes
-            .get(&property.node)
-            .and_then(|node_store| node_store.properties.get(property))
+        self.values.get(property.prop_pointer())
     }
 
     // Get the current value of a property
@@ -62,19 +54,11 @@ impl PropertyValueStore {
 
     // Check if a property exists in the store
     pub fn property_exists(&self, property: &PropertyRef) -> bool {
-        self.nodes
-            .get(&property.node)
-            .and_then(|node_store| node_store.properties.get(property))
-            .is_some()
+        self.values.contains_key(property.prop_pointer())
     }
 
     // Remove a property from the store
     pub fn remove_property(&mut self, property: &PropertyRef) {
-        if let Some(node_store) = self.nodes.get_mut(&property.node) {
-            node_store.properties.remove(property);
-            if node_store.properties.is_empty() {
-                self.nodes.remove(&property.node);
-            }
-        }
+        self.values.remove(property.prop_pointer());
     }
 }

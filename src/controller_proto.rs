@@ -217,10 +217,10 @@ impl Homie5ControllerProtocol {
     /// A `Publish` object containing the set command to be sent to the MQTT broker.
     pub fn set_command(&self, prop: &PropertyRef, value: &HomieValue) -> Publish {
         self.set_command_ids(
-            &prop.node.device.homie_domain,
-            &prop.node.device.id,
-            &prop.node.id,
-            &prop.id,
+            prop.homie_domain(),
+            prop.device_id(),
+            prop.node_id(),
+            prop.prop_id(),
             value,
         )
     }

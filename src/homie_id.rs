@@ -36,6 +36,8 @@ use std::{borrow::Cow, convert::TryFrom};
 
 use serde::{de, Deserialize, Deserializer, Serialize};
 
+use crate::AsNodeId;
+
 /// Error type returned when a string fails to validate as a Homie ID.
 ///
 /// Provides details about why the validation failed.
@@ -62,7 +64,7 @@ impl fmt::Display for InvalidHomieIDError {
     ///
     /// * `f` - The formatter.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.details)
+        f.write_str(self.details)
     }
 }
 
@@ -198,5 +200,16 @@ impl<'de> Deserialize<'de> for HomieID {
     {
         let s = String::deserialize(deserializer)?;
         HomieID::try_from(s).map_err(de::Error::custom)
+    }
+}
+
+impl AsNodeId for HomieID {
+    fn as_node_id(&self) -> &HomieID {
+        self
+    }
+}
+impl AsNodeId for &HomieID {
+    fn as_node_id(&self) -> &HomieID {
+        self
     }
 }

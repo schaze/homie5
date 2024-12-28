@@ -28,6 +28,8 @@
 
 use std::string::FromUtf8Error;
 
+use serde::{Deserialize, Serialize};
+
 /// Represents the Last Will (LW) contract for an MQTT client.
 ///
 /// The Last Will message is a feature in MQTT that ensures a device can notify others of an unexpected disconnection.
@@ -71,7 +73,7 @@ pub struct LastWill {
 ///
 /// The QoS level determines how the MQTT protocol ensures message delivery between the publisher and the broker.
 /// Higher QoS levels offer greater message delivery guarantees but may also involve more overhead.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum QoS {
     /// At most once delivery (QoS 0). The message is delivered at most once, without confirmation.
     ///

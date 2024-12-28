@@ -1,6 +1,6 @@
 //! //! Represents a reference to a property in the Homie MQTT convention.
 //!
-//! A `PropertyRef` identifies a property within a Homie device by referencing the node (`NodeRef`) it belongs to and its property-specific ID (`HomieID`).
+//! A `PropertyRef` identifies a property within a Homie device by the owned DeviceRef as well as a pointer (`PropertyPointer`) to the property within the device consisting of a node id and property id.
 //! This is used in parsing and interacting with Homie messages and topics related to properties.
 //!
 //! # Example
@@ -27,91 +27,137 @@
 //!
 //! These methods allow precise identification and referencing of Homie properties in MQTT topics.
 
-use crate::{DeviceRef, HomieDomain, HomieID, NodeRef, ToTopic, TopicBuilder};
+use crate::AsPropPointer;
+use crate::{AsNodeId, DeviceRef, HomieDomain, HomieID, NodeRef, ToTopic, TopicBuilder};
+
+use super::PropertyPointer;
 
 /// Identifies a property of a node via its NodeRef and the property id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PropertyRef {
     /// Identifier of the node the property belongs to
-    pub node: NodeRef,
-    /// The property's id within the node
-    pub id: HomieID,
+    pub(crate) device: DeviceRef,
+    pub(crate) prop_pointer: PropertyPointer,
 }
 
 impl PropertyRef {
     /// Create a new PropertyRef from a given homie_domain, device id, node id, and property id
     pub fn new(homie_domain: HomieDomain, device_id: HomieID, node_id: HomieID, prop_id: HomieID) -> Self {
         Self {
-            node: NodeRef::new(homie_domain, device_id, node_id),
-            id: prop_id,
+            device: DeviceRef::new(homie_domain, device_id),
+            prop_pointer: PropertyPointer { node_id, prop_id },
         }
     }
 
     /// Create a new PropertyRef from an existing NodeRef and a property id
     pub fn from_node(node: NodeRef, prop_id: HomieID) -> Self {
-        Self { node, id: prop_id }
+        Self {
+            device: node.device,
+            prop_pointer: PropertyPointer {
+                node_id: node.id,
+                prop_id,
+            },
+        }
     }
 
     /// Return a slice of the property id
     pub fn prop_id(&self) -> &HomieID {
-        &self.id
+        &self.prop_pointer.prop_id
     }
 
     /// Return a slice of the node id the property belongs to
     pub fn node_id(&self) -> &HomieID {
-        &self.node.id
+        &self.prop_pointer.node_id
     }
 
     /// Return a slice of the device id the property belongs to
     pub fn device_id(&self) -> &HomieID {
-        &self.node.device.id
+        &self.device.id
     }
 
     /// Return a reference to the homie domain the property belongs to
     pub fn homie_domain(&self) -> &HomieDomain {
-        &self.node.device.homie_domain
+        &self.device.homie_domain
+    }
+
+    pub fn device_ref(&self) -> &DeviceRef {
+        &self.device
+    }
+
+    pub fn prop_pointer(&self) -> &PropertyPointer {
+        &self.prop_pointer
+    }
+
+    pub fn match_with_node(&self, node: &NodeRef, prop_id: &HomieID) -> bool {
+        self == node && &self.prop_pointer.prop_id == prop_id
+    }
+    pub fn match_with_device(&self, device: &DeviceRef, node_id: &HomieID, prop_id: &HomieID) -> bool {
+        &self.device == device && &self.prop_pointer.node_id == node_id && &self.prop_pointer.prop_id == prop_id
     }
 }
 
+impl AsPropPointer for PropertyRef {
+    fn as_prop_pointer(&self) -> &PropertyPointer {
+        self.prop_pointer()
+    }
+}
+
+impl AsPropPointer for &PropertyRef {
+    fn as_prop_pointer(&self) -> &PropertyPointer {
+        self.prop_pointer()
+    }
+}
+
+impl AsNodeId for PropertyRef {
+    fn as_node_id(&self) -> &HomieID {
+        self.node_id()
+    }
+}
+impl AsNodeId for &PropertyRef {
+    fn as_node_id(&self) -> &HomieID {
+        self.node_id()
+    }
+}
+
+// Partial impls
+// ================================
+
 impl PartialEq<DeviceRef> for PropertyRef {
     fn eq(&self, other: &DeviceRef) -> bool {
-        &self.node.device == other
+        &self.device == other
     }
 }
 impl PartialEq<DeviceRef> for &PropertyRef {
     fn eq(&self, other: &DeviceRef) -> bool {
-        &self.node.device == other
+        &self.device == other
     }
 }
 impl PartialEq<&DeviceRef> for PropertyRef {
     fn eq(&self, other: &&DeviceRef) -> bool {
-        &&self.node.device == other
+        &&self.device == other
     }
 }
 
 impl PartialEq<NodeRef> for PropertyRef {
     fn eq(&self, other: &NodeRef) -> bool {
-        &self.node == other
+        self.device == other.device && self.prop_pointer.node_id == other.id
     }
 }
 
 impl PartialEq<&NodeRef> for PropertyRef {
     fn eq(&self, other: &&NodeRef) -> bool {
-        &&self.node == other
+        self.device == other.device && self.prop_pointer.node_id == other.id
     }
 }
 
 impl PartialEq<NodeRef> for &PropertyRef {
     fn eq(&self, other: &NodeRef) -> bool {
-        &self.node == other
+        self.device == other.device && self.prop_pointer.node_id == other.id
     }
 }
 
-impl PropertyRef {
-    pub fn match_with_node(&self, node: &NodeRef, prop_id: &HomieID) -> bool {
-        self == node && &self.id == prop_id
-    }
-}
+// ToTopic impls
+// ===================================
 
 impl ToTopic for PropertyRef {
     fn to_topic(&self) -> TopicBuilder {
