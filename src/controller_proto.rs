@@ -87,32 +87,6 @@ impl Homie5ControllerProtocol {
     /// An iterator over `Subscription` objects for the device's attributes (e.g., `$log`, `$description`, `$alert`).
     pub fn subscribe_device<'a>(&'a self, device: &'a DeviceRef) -> impl Iterator<Item = Subscription> + 'a {
         DeviceSubscriptionIterator::new(device, &DEVICE_ATTRIBUTES[1..]).map(|(topic, qos)| Subscription { topic, qos })
-        //     DEVICE_ATTRIBUTES
-        //         .iter()
-        //         .skip(1) // Skip the $state attribute
-        //         .flat_map(move |attribute| {
-        //             if *attribute == DEVICE_ATTRIBUTE_ALERT {
-        //                 iter::once(Subscription {
-        //                     topic: device.to_topic().add_attr(attribute).add_attr("+").build(),
-        //                     qos: QoS::ExactlyOnce,
-        //                 })
-        //                 .chain(iter::empty())
-        //             } else if *attribute == DEVICE_ATTRIBUTE_LOG {
-        //                 DEVICE_LOG_LEVELS
-        //                     .iter()
-        //                     .map(|level| Subscription {
-        //                         topic: device.to_topic().add_attr(attribute).add_attr(level.as_str()).build(),
-        //                         qos: QoS::ExactlyOnce,
-        //                     })
-        //                     .chain(iter::empty())
-        //             } else {
-        //                 iter::once(Subscription {
-        //                     topic: device.to_topic().add_attr(attribute).build(),
-        //                     qos: QoS::ExactlyOnce,
-        //                 })
-        //                 .chain(iter::empty())
-        //             }
-        //         })
     }
 
     /// Generates unsubscribe requests for all attributes of a specified device, excluding `$state`.
@@ -124,17 +98,6 @@ impl Homie5ControllerProtocol {
     /// An iterator over `Unsubscribe` objects for the device's attributes (e.g., `$log`, `$description`, `$alert`).
     pub fn unsubscribe_device<'a>(&'a self, device: &'a DeviceRef) -> impl Iterator<Item = Unsubscribe> + 'a {
         DeviceSubscriptionIterator::new(device, &DEVICE_ATTRIBUTES[1..]).map(|(topic, _)| Unsubscribe { topic })
-        //     DEVICE_ATTRIBUTES.iter().skip(1).map(move |attribute| {
-        //         if *attribute == DEVICE_ATTRIBUTE_ALERT {
-        //             Unsubscribe {
-        //                 topic: device.to_topic().add_attr(attribute).add_attr("+").build(),
-        //             }
-        //         } else {
-        //             Unsubscribe {
-        //                 topic: device.to_topic().add_attr(attribute).build(),
-        //             }
-        //         }
-        //     })
     }
 
     /// Subscribes to all properties of a device as described in the provided `HomieDeviceDescription`.
