@@ -256,6 +256,70 @@ impl TryFrom<String> for HomieDeviceStatus {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum DeviceLogLevel {
+    Debug,
+    Info,
+    Warn,
+    Error,
+    Fatal,
+}
+
+const DEVICE_LOG_LEVELS: [DeviceLogLevel; 5] = [
+    DeviceLogLevel::Debug,
+    DeviceLogLevel::Info,
+    DeviceLogLevel::Warn,
+    DeviceLogLevel::Error,
+    DeviceLogLevel::Fatal,
+];
+
+impl DeviceLogLevel {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DeviceLogLevel::Debug => "debug",
+            DeviceLogLevel::Info => "info",
+            DeviceLogLevel::Warn => "warn",
+            DeviceLogLevel::Error => "error",
+            DeviceLogLevel::Fatal => "fatal",
+        }
+    }
+}
+
+impl fmt::Display for DeviceLogLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl TryFrom<String> for DeviceLogLevel {
+    type Error = Homie5ProtocolError;
+
+    fn try_from(value: String) -> Result<Self, <DeviceLogLevel as TryFrom<String>>::Error> {
+        match value.as_str() {
+            "debug" => Ok(DeviceLogLevel::Debug),
+            "info" => Ok(DeviceLogLevel::Info),
+            "warn" => Ok(DeviceLogLevel::Warn),
+            "error" => Ok(DeviceLogLevel::Error),
+            "fatal" => Ok(DeviceLogLevel::Fatal),
+            _ => Err(Homie5ProtocolError::InvalidDeviceLogLevel(value)),
+        }
+    }
+}
+
+impl TryFrom<&str> for DeviceLogLevel {
+    type Error = Homie5ProtocolError;
+
+    fn try_from(value: &str) -> Result<Self, <DeviceLogLevel as TryFrom<String>>::Error> {
+        match value {
+            "debug" => Ok(DeviceLogLevel::Debug),
+            "info" => Ok(DeviceLogLevel::Info),
+            "warn" => Ok(DeviceLogLevel::Warn),
+            "error" => Ok(DeviceLogLevel::Error),
+            "fatal" => Ok(DeviceLogLevel::Fatal),
+            _ => Err(Homie5ProtocolError::InvalidDeviceLogLevel(value.to_owned())),
+        }
+    }
+}
 /// This trait provides the capability to provide a mqtt topic for an object defining where it is
 /// published on the broker
 pub trait ToTopic {

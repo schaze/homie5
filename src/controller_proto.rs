@@ -21,9 +21,9 @@ use std::iter;
 use crate::{
     client::{Publish, QoS, Subscription, Unsubscribe},
     device_description::{HomieDeviceDescription, HomiePropertyIterator},
-    DeviceRef, HomieDomain, HomieID, HomieValue, PropertyRef, ToTopic, TopicBuilder, DEVICE_ATTRIBUTES,
-    DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_STATE, HOMIE_TOPIC_BROADCAST, PROPERTY_ATTRIBUTE_TARGET,
-    PROPERTY_SET_TOPIC,
+    DeviceLogLevel, DeviceRef, HomieDomain, HomieID, HomieValue, PropertyRef, ToTopic, TopicBuilder, DEVICE_ATTRIBUTES,
+    DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, DEVICE_LOG_LEVELS, HOMIE_TOPIC_BROADCAST,
+    PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
 };
 
 /// The `Homie5ControllerProtocol` struct provides the core functionality for generating MQTT subscription and publish commands required for interacting with Homie 5 devices.
@@ -86,22 +86,33 @@ impl Homie5ControllerProtocol {
     /// # Returns
     /// An iterator over `Subscription` objects for the device's attributes (e.g., `$log`, `$description`, `$alert`).
     pub fn subscribe_device<'a>(&'a self, device: &'a DeviceRef) -> impl Iterator<Item = Subscription> + 'a {
-        DEVICE_ATTRIBUTES
-            .iter()
-            .skip(1) // Skip the $state attribute
-            .map(move |attribute| {
-                if *attribute == DEVICE_ATTRIBUTE_ALERT {
-                    Subscription {
-                        topic: device.to_topic().add_attr(attribute).add_attr("+").build(),
-                        qos: QoS::ExactlyOnce,
-                    }
-                } else {
-                    Subscription {
-                        topic: device.to_topic().add_attr(attribute).build(),
-                        qos: QoS::ExactlyOnce,
-                    }
-                }
-            })
+        DeviceSubscriptionIterator::new(device, &DEVICE_ATTRIBUTES[1..]).map(|(topic, qos)| Subscription { topic, qos })
+        //     DEVICE_ATTRIBUTES
+        //         .iter()
+        //         .skip(1) // Skip the $state attribute
+        //         .flat_map(move |attribute| {
+        //             if *attribute == DEVICE_ATTRIBUTE_ALERT {
+        //                 iter::once(Subscription {
+        //                     topic: device.to_topic().add_attr(attribute).add_attr("+").build(),
+        //                     qos: QoS::ExactlyOnce,
+        //                 })
+        //                 .chain(iter::empty())
+        //             } else if *attribute == DEVICE_ATTRIBUTE_LOG {
+        //                 DEVICE_LOG_LEVELS
+        //                     .iter()
+        //                     .map(|level| Subscription {
+        //                         topic: device.to_topic().add_attr(attribute).add_attr(level.as_str()).build(),
+        //                         qos: QoS::ExactlyOnce,
+        //                     })
+        //                     .chain(iter::empty())
+        //             } else {
+        //                 iter::once(Subscription {
+        //                     topic: device.to_topic().add_attr(attribute).build(),
+        //                     qos: QoS::ExactlyOnce,
+        //                 })
+        //                 .chain(iter::empty())
+        //             }
+        //         })
     }
 
     /// Generates unsubscribe requests for all attributes of a specified device, excluding `$state`.
@@ -112,17 +123,18 @@ impl Homie5ControllerProtocol {
     /// # Returns
     /// An iterator over `Unsubscribe` objects for the device's attributes (e.g., `$log`, `$description`, `$alert`).
     pub fn unsubscribe_device<'a>(&'a self, device: &'a DeviceRef) -> impl Iterator<Item = Unsubscribe> + 'a {
-        DEVICE_ATTRIBUTES.iter().skip(1).map(move |attribute| {
-            if *attribute == DEVICE_ATTRIBUTE_ALERT {
-                Unsubscribe {
-                    topic: device.to_topic().add_attr(attribute).add_attr("+").build(),
-                }
-            } else {
-                Unsubscribe {
-                    topic: device.to_topic().add_attr(attribute).build(),
-                }
-            }
-        })
+        DeviceSubscriptionIterator::new(device, &DEVICE_ATTRIBUTES[1..]).map(|(topic, _)| Unsubscribe { topic })
+        //     DEVICE_ATTRIBUTES.iter().skip(1).map(move |attribute| {
+        //         if *attribute == DEVICE_ATTRIBUTE_ALERT {
+        //             Unsubscribe {
+        //                 topic: device.to_topic().add_attr(attribute).add_attr("+").build(),
+        //             }
+        //         } else {
+        //             Unsubscribe {
+        //                 topic: device.to_topic().add_attr(attribute).build(),
+        //             }
+        //         }
+        //     })
     }
 
     /// Subscribes to all properties of a device as described in the provided `HomieDeviceDescription`.
@@ -283,5 +295,59 @@ impl Homie5ControllerProtocol {
                 .add_attr("#")
                 .build(),
         })
+    }
+}
+
+pub struct DeviceSubscriptionIterator<'a> {
+    device: &'a DeviceRef,
+    attributes: std::slice::Iter<'a, &'static str>,
+    current_log_lvl: Option<std::slice::Iter<'a, DeviceLogLevel>>,
+}
+
+impl<'a> DeviceSubscriptionIterator<'a> {
+    pub fn new(device: &'a DeviceRef, attributes: &'a [&'static str]) -> Self {
+        Self {
+            device,
+            attributes: attributes.iter(),
+            current_log_lvl: None,
+        }
+    }
+}
+
+impl Iterator for DeviceSubscriptionIterator<'_> {
+    type Item = (String, QoS);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(log_levels) = &mut self.current_log_lvl {
+            // Continue iterating over log levels
+            if let Some(level) = log_levels.next() {
+                return Some((
+                    self.device
+                        .to_topic()
+                        .add_attr(DEVICE_ATTRIBUTE_LOG)
+                        .add_attr(level.as_str())
+                        .build(),
+                    QoS::ExactlyOnce,
+                ));
+            }
+            self.current_log_lvl = None; // Reset log level iterator
+        }
+
+        // Process the next attribute
+        if let Some(&attribute) = self.attributes.next() {
+            if attribute == DEVICE_ATTRIBUTE_ALERT {
+                return Some((
+                    self.device.to_topic().add_attr(attribute).add_attr("+").build(),
+                    QoS::ExactlyOnce,
+                ));
+            } else if attribute == DEVICE_ATTRIBUTE_LOG {
+                self.current_log_lvl = Some(DEVICE_LOG_LEVELS.iter());
+                return self.next(); // Recurse to process the first log level
+            } else {
+                return Some((self.device.to_topic().add_attr(attribute).build(), QoS::ExactlyOnce));
+            }
+        }
+
+        None // End of iteration
     }
 }

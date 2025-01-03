@@ -70,8 +70,8 @@
 //! is used to handle the message.
 
 use crate::{
-    client::mqtt_payload_to_string, device_description::HomieDeviceDescription, error::Homie5ProtocolError, DeviceRef,
-    HomieDeviceStatus, HomieDomain, HomieID, PropertyRef, HOMIE_VERSION,
+    client::mqtt_payload_to_string, device_description::HomieDeviceDescription, error::Homie5ProtocolError,
+    DeviceLogLevel, DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, PropertyRef, HOMIE_VERSION,
 };
 /// Represents all possible MQTT message types according to the Homie 5 protocol.
 /// These messages define the interactions between devices, their attributes, and the broker.
@@ -106,6 +106,8 @@ pub enum Homie5Message {
     DeviceLog {
         /// The device identifier from which the log was received.
         device: DeviceRef,
+        /// The log level under which the message is published
+        level: DeviceLogLevel,
         /// The log message from the device.
         log_msg: String,
     },
@@ -286,14 +288,6 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                         }
                     }
                 }
-                // Handle the "$log" attribute
-                "$log" => Ok(Homie5Message::DeviceLog {
-                    device: DeviceRef {
-                        homie_domain,
-                        id: device_id,
-                    },
-                    log_msg: mqtt_payload_to_string(payload)?,
-                }),
                 _ => Err(Homie5ProtocolError::InvalidTopic),
             }
         }
@@ -309,6 +303,18 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                         },
                         alert_id,
                         alert_msg: mqtt_payload_to_string(payload)?,
+                    })
+                }
+                // Handle the "$log" attribute
+                "$log" => {
+                    let level = DeviceLogLevel::try_from(tokens[4])?;
+                    Ok(Homie5Message::DeviceLog {
+                        device: DeviceRef {
+                            homie_domain,
+                            id: device_id,
+                        },
+                        level,
+                        log_msg: mqtt_payload_to_string(payload)?,
                     })
                 }
                 // Handle property values (e.g. "device-id/node-id/prop-id")

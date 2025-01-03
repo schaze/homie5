@@ -228,15 +228,19 @@ fn test_device_log_msg() {
         qos: rumqttc::QoS::ExactlyOnce,
         payload: Bytes::from("Device restarted"),
         pkid: 0,
-        topic: format!("{}/{}/{}/$log", DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1"),
+        topic: format!(
+            "{}/{}/{}/$log/warn",
+            DEFAULT_HOMIE_DOMAIN, HOMIE_VERSION, "test-device-1"
+        ),
         retain: false,
     };
 
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
-    if let Ok(Homie5Message::DeviceLog { device, log_msg }) = event {
+    if let Ok(Homie5Message::DeviceLog { device, level, log_msg }) = event {
         assert_eq!(device.homie_domain, HomieDomain::Default);
         assert_eq!(device.id.as_str(), "test-device-1");
+        assert!(matches!(level, DeviceLogLevel::Warn));
         assert_eq!(log_msg, "Device restarted".to_owned());
     } else {
         panic!(

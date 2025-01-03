@@ -13,9 +13,9 @@ use crate::{
     error::Homie5ProtocolError,
     homie_str_to_vecu8,
     statemachine::{HomieStateMachine, Transition},
-    DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, TopicBuilder, DEVICE_ATTRIBUTES, DEVICE_ATTRIBUTE_ALERT,
-    DEVICE_ATTRIBUTE_DESCRIPTION, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, PROPERTY_ATTRIBUTE_TARGET,
-    PROPERTY_SET_TOPIC,
+    DeviceLogLevel, DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, TopicBuilder, DEVICE_ATTRIBUTES,
+    DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_DESCRIPTION, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE,
+    PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
 };
 
 #[derive(Default, Copy, Clone)]
@@ -237,15 +237,16 @@ impl Homie5DeviceProtocol {
     }
 
     /// Publishes a log message for the device.
-    pub fn publish_log(&self, log_msg: &str) -> Publish {
-        self.publish_log_for_id(self.id(), log_msg)
+    pub fn publish_log(&self, level: DeviceLogLevel, log_msg: &str) -> Publish {
+        self.publish_log_for_id(self.id(), level, log_msg)
     }
 
     /// Publishes a log message for the given `device_id`.
-    pub fn publish_log_for_id(&self, device_id: &HomieID, log_msg: &str) -> Publish {
+    pub fn publish_log_for_id(&self, device_id: &HomieID, level: DeviceLogLevel, log_msg: &str) -> Publish {
         Publish {
             topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
                 .add_attr(DEVICE_ATTRIBUTE_LOG)
+                .add_attr(level.as_str())
                 .build(),
             qos: QoS::AtLeastOnce,
             retain: true,

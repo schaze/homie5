@@ -114,8 +114,8 @@ async fn main() -> anyhow::Result<()> {
                     .homie_subscribe(protocol.subscribe_props(&device, existing_device.description.as_ref().unwrap()))
                     .await?;
             }
-            AppEvent::Homie(Homie5Message::DeviceLog { device, log_msg }) => {
-                log::debug!("DeviceLog: {:?}o - {}", device.to_topic(), log_msg);
+            AppEvent::Homie(Homie5Message::DeviceLog { device, level, log_msg }) => {
+                log::debug!("DeviceLog: {:?} - {} - {}", device.to_topic(), level, log_msg);
             }
             AppEvent::Homie(Homie5Message::PropertyValue { property, value }) => {
                 log::debug!("PropertyValue: {} - {}", property.to_topic(), value);
