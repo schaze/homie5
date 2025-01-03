@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 /// The Last Will message is a feature in MQTT that ensures a device can notify others of an unexpected disconnection.
 /// When a device loses connection to the MQTT broker unexpectedly, the broker will publish this "last will" message
 /// on behalf of the disconnected client, typically indicating the device is "lost" or "offline".
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LastWill {
     /// The MQTT topic where the Last Will message will be published.
     ///
