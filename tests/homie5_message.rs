@@ -28,7 +28,7 @@ fn test_device_alert_msg() {
     {
         assert_eq!(device.homie_domain, HomieDomain::Default);
         assert_eq!(device.id.as_str(), "test-device-1");
-        assert_eq!(alert_id, "battery".to_owned());
+        assert_eq!(alert_id, HomieID::new_const("battery"));
         assert_eq!(alert_msg, "Battery is low!".to_owned());
     } else {
         panic!(

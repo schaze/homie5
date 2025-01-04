@@ -120,7 +120,7 @@ pub enum Homie5Message {
         /// The device identifier from which the alert was received.
         device: DeviceRef,
         /// A unique identifier for the alert.
-        alert_id: String,
+        alert_id: HomieID,
         /// The alert message providing details about the issue.
         alert_msg: String,
     },
@@ -295,7 +295,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
             match tokens[3] {
                 // Handle alert messages (e.g. "device-id/$alert/alert-id")
                 "$alert" => {
-                    let alert_id = tokens[4].to_owned();
+                    let alert_id = HomieID::try_from(tokens[4].to_owned())?;
                     Ok(Homie5Message::DeviceAlert {
                         device: DeviceRef {
                             homie_domain,

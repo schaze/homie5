@@ -24,7 +24,6 @@ use crate::{
 /// This enum enumerates the sequential steps needed to bring a device online
 /// following the Homie protocol, from setting the device's initial state to
 /// publishing the device's retained properties and subscribing to relevant topics.
-
 pub enum DevicePublishStep {
     #[default]
     /// Set the state of the device to "init" and publish the state
@@ -255,16 +254,16 @@ impl Homie5DeviceProtocol {
     }
 
     // Publishes an alert with a given `alert_id` and `alert_msg`.
-    pub fn publish_alert(&self, alert_id: &str, alert_msg: &str) -> Publish {
+    pub fn publish_alert(&self, alert_id: &HomieID, alert_msg: &str) -> Publish {
         self.publish_alert_for_id(self.id(), alert_id, alert_msg)
     }
 
     /// Publishes an alert with a given `alert_id` and `alert_msg` for the provided `device_id`.
-    pub fn publish_alert_for_id(&self, device_id: &HomieID, alert_id: &str, alert_msg: &str) -> Publish {
+    pub fn publish_alert_for_id(&self, device_id: &HomieID, alert_id: &HomieID, alert_msg: &str) -> Publish {
         Publish {
             topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
                 .add_attr(DEVICE_ATTRIBUTE_ALERT)
-                .add_attr(alert_id)
+                .add_attr(alert_id.as_str())
                 .build(),
             qos: QoS::AtLeastOnce,
             retain: true,
