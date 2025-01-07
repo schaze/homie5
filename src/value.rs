@@ -1,6 +1,7 @@
 //! Provides all types and functions for parsing and creating homie property values
 //!
 use std::{
+    cmp::Ordering,
     fmt::{self, Display},
     str::FromStr,
 };
@@ -148,6 +149,16 @@ impl PartialEq for HomieColorValue {
                 (x1 - x2).abs() < EPSILON && (y1 - y2).abs() < EPSILON && (z1 - z2).abs() < EPSILON
             }
             _ => false,
+        }
+    }
+}
+
+impl PartialOrd<HomieColorValue> for HomieColorValue {
+    fn partial_cmp(&self, other: &HomieColorValue) -> Option<Ordering> {
+        if self.eq(other) {
+            Some(Ordering::Equal)
+        } else {
+            None
         }
     }
 }
@@ -406,6 +417,36 @@ pub fn homie_str_to_vecu8(value: impl Into<String>) -> Vec<u8> {
         vec![0_u8]
     } else {
         value_string.into_bytes()
+    }
+}
+
+impl PartialOrd<HomieValue> for HomieValue {
+    fn partial_cmp(&self, other: &HomieValue) -> Option<Ordering> {
+        match (self, other) {
+            (HomieValue::Empty, HomieValue::Empty) => Some(Ordering::Equal),
+            (HomieValue::Empty, _) => Some(Ordering::Less),
+            (_, HomieValue::Empty) => Some(Ordering::Greater),
+            (HomieValue::String(self_str), HomieValue::String(other_str)) => self_str.partial_cmp(other_str),
+            (HomieValue::Integer(self_int), HomieValue::Integer(other_int)) => self_int.partial_cmp(other_int),
+            (HomieValue::Float(self_float), HomieValue::Float(other_float)) => self_float.partial_cmp(other_float),
+            (HomieValue::Bool(self_bool), HomieValue::Bool(other_bool)) => self_bool.partial_cmp(other_bool),
+            (HomieValue::Enum(self_enum), HomieValue::Enum(other_enum)) => self_enum.partial_cmp(other_enum),
+            (HomieValue::Enum(self_enum), HomieValue::String(other_string)) => self_enum.partial_cmp(other_string),
+            (HomieValue::String(self_string), HomieValue::Enum(other_enum)) => self_string.partial_cmp(other_enum),
+            (HomieValue::Color(self_homie_color_value), HomieValue::Color(other_homie_color_value)) => {
+                self_homie_color_value.partial_cmp(other_homie_color_value)
+            }
+            (HomieValue::DateTime(self_date_time), HomieValue::DateTime(other_date_time)) => {
+                self_date_time.partial_cmp(other_date_time)
+            }
+            (HomieValue::Duration(self_time_delta), HomieValue::Duration(other_time_delte)) => {
+                self_time_delta.partial_cmp(other_time_delte)
+            }
+            (HomieValue::JSON(self_value), HomieValue::JSON(other_value)) => {
+                self_value.to_string().partial_cmp(&other_value.to_string())
+            }
+            _ => None,
+        }
     }
 }
 
