@@ -492,7 +492,6 @@ impl HomieValue {
     /// let value = HomieValue::parse("42", &property_desc);
     /// assert_eq!(value.ok(), Some(HomieValue::Integer(42)));
     /// ```
-
     pub fn parse(raw: &str, property_desc: &HomiePropertyDescription) -> Result<HomieValue, Homie5ProtocolError> {
         //if raw
         //    .first()
