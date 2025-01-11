@@ -49,7 +49,7 @@ use crate::{
 /// ```
 ///
 /// The struct is intended for use in controller applications interacting with multiple Homie devices, enabling efficient subscription management and MQTT communication.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Homie5ControllerProtocol {}
 
 impl Homie5ControllerProtocol {
