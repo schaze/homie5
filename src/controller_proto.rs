@@ -68,13 +68,35 @@ impl Homie5ControllerProtocol {
     ///
     /// # Returns
     /// An iterator over a `Subscription` object that subscribes to the `$state` attribute of all devices in the specified domain.
-    pub fn discover_devices<'a>(&'a self, homie_domain: &HomieDomain) -> impl Iterator<Item = Subscription> + 'a {
+    pub fn subscribe_device_discovery<'a>(
+        &'a self,
+        homie_domain: &HomieDomain,
+    ) -> impl Iterator<Item = Subscription> + 'a {
         iter::once(Subscription {
             topic: TopicBuilder::new(homie_domain)
                 .add_attr("+")
                 .add_attr(DEVICE_ATTRIBUTE_STATE)
                 .build(),
             qos: QoS::ExactlyOnce,
+        })
+    }
+
+    /// Generates a unsubscription to stop discover Homie devices.
+    ///
+    /// # Parameters
+    /// - `homie_domain`: The Homie domain in which to discover devices.
+    ///
+    /// # Returns
+    /// An iterator over a `Subscription` object that subscribes to the `$state` attribute of all devices in the specified domain.
+    pub fn unsubscribe_device_discovery<'a>(
+        &'a self,
+        homie_domain: &HomieDomain,
+    ) -> impl Iterator<Item = Unsubscribe> + 'a {
+        iter::once(Unsubscribe {
+            topic: TopicBuilder::new(homie_domain)
+                .add_attr("+")
+                .add_attr(DEVICE_ATTRIBUTE_STATE)
+                .build(),
         })
     }
 
