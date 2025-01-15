@@ -6,7 +6,7 @@ use std::{
     str::FromStr,
 };
 
-use serde::de;
+use serde::{de, Serialize};
 use serde::{Deserialize, Deserializer};
 
 use crate::{

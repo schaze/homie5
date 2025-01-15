@@ -10,7 +10,7 @@ use crate::HomieDataType;
 
 use super::number_ranges::{FloatRange, IntegerRange};
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
 pub enum HomiePropertyFormat {
     FloatRange(FloatRange),
     IntegerRange(IntegerRange),
@@ -66,7 +66,7 @@ impl Display for HomiePropertyFormat {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash, PartialOrd)]
 pub enum ColorFormat {
     Rgb,
     Hsv,

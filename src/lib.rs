@@ -77,7 +77,7 @@ pub const PROPERTY_SET_TOPIC: &str = "set";
 pub const PROPERTY_ATTRIBUTE_TARGET: &str = "$target";
 
 /// Datatypes in the homie protocol
-#[derive(Serialize, Deserialize, Default, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Clone, Hash, PartialEq, Eq, PartialOrd)]
 #[serde(rename_all = "lowercase")]
 pub enum HomieDataType {
     /// - Integer types are string literal representations of 64-bit signed whole numbers

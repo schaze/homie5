@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::property_format::HomiePropertyFormatError;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, PartialOrd)]
 pub struct FloatRange {
     pub min: Option<f64>,
     pub max: Option<f64>,
@@ -127,7 +127,7 @@ impl Display for FloatRange {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
 pub struct IntegerRange {
     pub min: Option<i64>,
     pub max: Option<i64>,
