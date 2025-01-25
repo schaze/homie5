@@ -291,7 +291,7 @@ impl HomieDeviceDescription {
         None
     }
 
-    pub fn get_node<T>(&self, node_id: &HomieID) -> Option<&HomieNodeDescription> {
+    pub fn get_node(&self, node_id: &HomieID) -> Option<&HomieNodeDescription> {
         self.nodes.get(node_id)
     }
 
