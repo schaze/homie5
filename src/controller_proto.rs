@@ -42,7 +42,7 @@ use crate::{
 /// use homie5::{Homie5ControllerProtocol, HomieDomain};
 ///
 /// let protocol = Homie5ControllerProtocol::new();
-/// let subscriptions = protocol.discover_devices(&HomieDomain::Default);
+/// let subscriptions = protocol.subscribe_device_discovery(&HomieDomain::Default);
 /// for subscription in subscriptions {
 ///     // Handle each subscription
 /// }

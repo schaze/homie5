@@ -68,11 +68,11 @@ pub struct HomiePropertyDescription {
     pub unit: Option<String>,
 }
 
-fn serde_default_settable() -> bool {
+pub fn serde_default_settable() -> bool {
     SETTABLE_DEFAULT
 }
 
-fn serde_default_retained() -> bool {
+pub fn serde_default_retained() -> bool {
     RETAINTED_DEFAULT
 }
 
@@ -373,11 +373,11 @@ fn serde_skip_if_nodes(nodes: &BTreeMap<HomieID, HomieNodeDescription>) -> bool 
     nodes.is_empty()
 }
 
-fn serde_default_list<T>() -> Vec<T> {
+pub fn serde_default_list<T>() -> Vec<T> {
     vec![]
 }
 
-fn serde_skip_if_empty_list<T>(children: &[T]) -> bool {
+pub fn serde_skip_if_empty_list<T>(children: &[T]) -> bool {
     children.is_empty()
 }
 
