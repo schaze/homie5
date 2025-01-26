@@ -73,7 +73,7 @@ pub struct LastWill {
 ///
 /// The QoS level determines how the MQTT protocol ensures message delivery between the publisher and the broker.
 /// Higher QoS levels offer greater message delivery guarantees but may also involve more overhead.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum QoS {
     /// At most once delivery (QoS 0). The message is delivered at most once, without confirmation.
     ///
@@ -94,6 +94,7 @@ pub enum QoS {
     /// - This is the highest level of message delivery guarantee in MQTT.
     /// - The publisher and broker engage in a handshake process to ensure the message is delivered once and only once.
     /// - This QoS level introduces the most overhead and can increase latency due to the multiple confirmation steps.
+    #[default]
     ExactlyOnce,
 }
 

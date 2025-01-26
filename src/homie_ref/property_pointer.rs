@@ -9,6 +9,9 @@ pub struct PropertyPointer {
 }
 
 impl PropertyPointer {
+    pub fn new(node_id: HomieID, prop_id: HomieID) -> Self {
+        Self { node_id, prop_id }
+    }
     pub fn node_id(&self) -> &HomieID {
         &self.node_id
     }
