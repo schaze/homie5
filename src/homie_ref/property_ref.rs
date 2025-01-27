@@ -94,6 +94,12 @@ impl PropertyRef {
     pub fn match_with_device(&self, device: &DeviceRef, node_id: &HomieID, prop_id: &HomieID) -> bool {
         &self.device == device && &self.prop_pointer.node_id == node_id && &self.prop_pointer.prop_id == prop_id
     }
+
+    pub fn into_parts(self) -> (HomieDomain, HomieID, HomieID, HomieID) {
+        let (homie_domain, device_id) = self.device.into_parts();
+        let (node_id, prop_id) = self.prop_pointer.into_parts();
+        (homie_domain, device_id, node_id, prop_id)
+    }
 }
 
 impl AsPropPointer for PropertyRef {

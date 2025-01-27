@@ -66,6 +66,10 @@ impl NodeRef {
     pub fn device_ref(&self) -> &DeviceRef {
         &self.device
     }
+    pub fn into_parts(self) -> (HomieDomain, HomieID, HomieID) {
+        let (homie_domain, device_id) = self.device.into_parts();
+        (homie_domain, device_id, self.id)
+    }
 }
 
 impl AsNodeId for NodeRef {

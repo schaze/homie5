@@ -25,9 +25,9 @@ use crate::{HomieDomain, HomieID, NodeRef, PropertyRef, ToTopic, TopicBuilder};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DeviceRef {
     /// the homie_domain (e.g. homie) under which the device is published
-    pub homie_domain: HomieDomain,
+    pub(crate) homie_domain: HomieDomain,
     /// the homie device ID
-    pub id: HomieID,
+    pub(crate) id: HomieID,
 }
 impl DeviceRef {
     /// Create a new DeviceRef from a given homie-domain and a device id
@@ -48,6 +48,10 @@ impl DeviceRef {
             homie_domain: self.homie_domain.clone(),
             id,
         }
+    }
+
+    pub fn into_parts(self) -> (HomieDomain, HomieID) {
+        (self.homie_domain, self.id)
     }
 }
 

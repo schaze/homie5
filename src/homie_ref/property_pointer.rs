@@ -18,6 +18,9 @@ impl PropertyPointer {
     pub fn prop_id(&self) -> &HomieID {
         &self.prop_id
     }
+    pub fn into_parts(self) -> (HomieID, HomieID) {
+        (self.node_id, self.prop_id)
+    }
 }
 
 impl AsPropPointer for PropertyPointer {

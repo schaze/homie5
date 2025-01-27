@@ -64,7 +64,9 @@ async fn main() -> anyhow::Result<()> {
             // $description,...) to get more information
             AppEvent::Homie(Homie5Message::DeviceState { device, state }) => {
                 // Check if the device already exists in the map
-                if let std::collections::hash_map::Entry::Occupied(mut entry) = devices.entry(device.id.clone()) {
+                if let std::collections::hash_map::Entry::Occupied(mut entry) =
+                    devices.entry(device.device_id().clone())
+                {
                     // If the device exists, update its state and log the update
                     log::debug!("[{}]: Received state update: {:#?}", device.to_topic().build(), state);
                     state.clone_into(&mut entry.get_mut().state);
@@ -73,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
 
                     // Insert the new device into the map with the provided state and an empty description
                     devices.insert(
-                        device.id.clone(),
+                        device.device_id().clone(),
                         Device {
                             ident: device.clone(),
                             state: state.to_owned(),
@@ -92,10 +94,10 @@ async fn main() -> anyhow::Result<()> {
             // ==> This basically concludes all steps needed for discovery
             AppEvent::Homie(Homie5Message::DeviceDescription { device, description }) => {
                 // Handle error if device does not exist
-                let Some(existing_device) = devices.get_mut(&device.id) else {
+                let Some(existing_device) = devices.get_mut(device.device_id()) else {
                     log::error!(
                         "ERROR: received description for non-existing id [{}]: {:#?}",
-                        device.id,
+                        device.device_id(),
                         description
                     );
                     continue;
@@ -145,7 +147,7 @@ async fn main() -> anyhow::Result<()> {
                     .await?;
 
                 // If device exists in the map, remove it, otherwise continue
-                let Some(dev) = devices.remove(&device.id) else {
+                let Some(dev) = devices.remove(device.device_id()) else {
                     continue;
                 };
 
@@ -156,7 +158,7 @@ async fn main() -> anyhow::Result<()> {
                         .await?;
                 }
 
-                log::debug!("Device removed: {}", device.id);
+                log::debug!("Device removed: {}", device.device_id());
             }
             AppEvent::Exit => {
                 log::debug!("Disconnecting mqtt");
