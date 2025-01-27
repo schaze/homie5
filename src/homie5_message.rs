@@ -59,7 +59,7 @@
 //! let message = parse_mqtt_message(topic, payload).unwrap();
 //! match message {
 //!     Homie5Message::DeviceState { device, state } => {
-//!         println!("Device {} is in state: {:?}", device.id, state);
+//!         println!("Device {} is in state: {:?}", device.device_id(), state);
 //!     }
 //!     _ => panic!("Unexpected message type"),
 //! }
