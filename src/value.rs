@@ -658,4 +658,58 @@ impl HomieValue {
             Err(Homie5ValueConversionError::IntegerOutOfRange(value, range.clone()))
         }
     }
+
+    pub fn validate(&self, property_desc: &HomiePropertyDescription) -> bool {
+        match (self, property_desc.datatype) {
+            (HomieValue::Empty, HomieDataType::String) => true,
+            (HomieValue::String(_), HomieDataType::String) => true,
+            (HomieValue::Integer(value), HomieDataType::Integer) => Self::validate_int(*value, property_desc)
+                .map(|v| v == *value)
+                .unwrap_or(false),
+            (HomieValue::Float(value), HomieDataType::Float) => Self::validate_float(*value, property_desc)
+                .map(|v| v == *value)
+                .unwrap_or(false),
+            (HomieValue::Bool(_), HomieDataType::Boolean) => true,
+            (HomieValue::Enum(value), HomieDataType::Enum) => {
+                let HomiePropertyFormat::Enum(variants) = &property_desc.format else {
+                    return false;
+                };
+                variants.contains(value)
+            }
+            (HomieValue::Color(value), HomieDataType::Color) => {
+                let HomiePropertyFormat::Color(color_formats) = &property_desc.format else {
+                    return false;
+                };
+                match value {
+                    HomieColorValue::RGB(_, _, _) => color_formats.contains(&ColorFormat::Rgb),
+                    HomieColorValue::HSV(_, _, _) => color_formats.contains(&ColorFormat::Hsv),
+                    HomieColorValue::XYZ(_, _, _) => color_formats.contains(&ColorFormat::Xyz),
+                }
+            }
+            (HomieValue::DateTime(_), HomieDataType::Datetime) => true,
+            (HomieValue::Duration(_), HomieDataType::Duration) => true,
+            (HomieValue::JSON(_), HomieDataType::JSON) => true, // No JSON Schema validation
+            // implemented yet
+            _ => false,
+        }
+    }
+
+    pub fn datatype(&self) -> HomieDataType {
+        match self {
+            HomieValue::Empty => HomieDataType::String,
+            HomieValue::String(_) => HomieDataType::String,
+            HomieValue::Integer(_) => HomieDataType::Integer,
+            HomieValue::Float(_) => HomieDataType::Float,
+            HomieValue::Bool(_) => HomieDataType::Boolean,
+            HomieValue::Enum(_) => HomieDataType::Enum,
+            HomieValue::Color(_) => HomieDataType::Color,
+            HomieValue::DateTime(_) => HomieDataType::Datetime,
+            HomieValue::Duration(_) => HomieDataType::Duration,
+            HomieValue::JSON(_) => HomieDataType::JSON,
+        }
+    }
+
+    pub fn matches(&self, datatype: HomieDataType) -> bool {
+        self.datatype() == datatype
+    }
 }

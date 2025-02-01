@@ -265,12 +265,29 @@ impl Homie5DeviceProtocol {
                 .add_attr(DEVICE_ATTRIBUTE_ALERT)
                 .add_attr(alert_id.as_str())
                 .build(),
-            qos: QoS::AtLeastOnce,
+            qos: QoS::ExactlyOnce,
             retain: true,
             payload: alert_msg.into(),
         }
     }
 
+    // Publishes an alert with a given `alert_id` and `alert_msg`.
+    pub fn publish_clear_alert(&self, alert_id: &HomieID) -> Publish {
+        self.publish_clear_alert_for_id(self.id(), alert_id)
+    }
+
+    /// Publishes an alert with a given `alert_id` and `alert_msg` for the provided `device_id`.
+    pub fn publish_clear_alert_for_id(&self, device_id: &HomieID, alert_id: &HomieID) -> Publish {
+        Publish {
+            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+                .add_attr(DEVICE_ATTRIBUTE_ALERT)
+                .add_attr(alert_id.as_str())
+                .build(),
+            qos: QoS::ExactlyOnce,
+            retain: true,
+            payload: Vec::default(),
+        }
+    }
     /// Publishes a Homie value for a given property and node.
     pub fn publish_value(
         &self,
