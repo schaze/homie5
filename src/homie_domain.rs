@@ -279,6 +279,18 @@ impl TryFrom<String> for HomieDomain {
     }
 }
 
+// impl FromStr for HomieDomain {
+//     type Err = InvalidHomieDomainError;
+//
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         match s {
+//             DEFAULT_HOMIE_DOMAIN => Ok(HomieDomain::Default),
+//             "+" => Ok(HomieDomain::All),
+//             _ => Ok(HomieDomain::Custom(s.to_owned().try_into()?)),
+//         }
+//     }
+// }
+//
 #[test]
 fn test_homie_domain() {
     assert_eq!(HomieDomain::try_from("hello").unwrap().to_string(), "hello");
