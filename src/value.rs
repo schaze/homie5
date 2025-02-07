@@ -567,7 +567,7 @@ impl HomieValue {
         .map_err(Homie5ProtocolError::InvalidHomieValue)
     }
 
-    fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
+    pub fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
         let re = regex::Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").unwrap();
         if let Some(captures) = re.captures(s) {
             let hours: i64 = captures.get(1).map_or(0, |m| m.as_str().parse().unwrap());
@@ -581,7 +581,7 @@ impl HomieValue {
 
     // flexible deserialization approach as timestamps are hard and we want to keep compatibility
     // high
-    fn flexible_datetime_parser(s: &str) -> Result<chrono::DateTime<chrono::Utc>, Homie5ValueConversionError> {
+    pub fn flexible_datetime_parser(s: &str) -> Result<chrono::DateTime<chrono::Utc>, Homie5ValueConversionError> {
         // try standard RFC3339 compliant parsing
         chrono::DateTime::parse_from_rfc3339(s).map_or_else(
             |_| {
