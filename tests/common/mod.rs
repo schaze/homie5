@@ -77,6 +77,7 @@ pub enum HomieTest {
     PropertyDescription(HomieTestDefinition<serde_yaml::Value, Option<()>, Option<()>>),
     PropertyValue(HomieTestDefinition<HomiePropertyDescription, String, Option<()>>),
     PropertyValueInteger(HomieTestDefinition<HomiePropertyDescription, String, Option<i64>>),
+    PropertyValueFloat(HomieTestDefinition<HomiePropertyDescription, String, Option<f64>>),
     HomieID(HomieTestDefinition<Option<()>, String, Option<()>>),
 }
 
@@ -88,6 +89,7 @@ impl HomieTest {
             HomieTest::PropertyValue(homie_test_definition) => &homie_test_definition.description,
             HomieTest::PropertyValueInteger(homie_test_definition) => &homie_test_definition.description,
             HomieTest::HomieID(homie_test_definition) => &homie_test_definition.description,
+            HomieTest::PropertyValueFloat(homie_test_definition) => &homie_test_definition.description,
         }
     }
     pub fn valid(&self) -> bool {
@@ -95,6 +97,7 @@ impl HomieTest {
             HomieTest::PropertyDescription(homie_test_definition) => homie_test_definition.valid,
             HomieTest::PropertyValue(homie_test_definition) => homie_test_definition.valid,
             HomieTest::PropertyValueInteger(homie_test_definition) => homie_test_definition.valid,
+            HomieTest::PropertyValueFloat(homie_test_definition) => homie_test_definition.valid,
             HomieTest::HomieID(homie_test_definition) => homie_test_definition.valid,
         }
     }
