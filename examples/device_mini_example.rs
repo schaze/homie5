@@ -218,10 +218,10 @@ fn make_device_description(
                     prop_light_state.prop_id().clone(),
                     PropertyDescriptionBuilder::new(HomieDataType::Boolean)
                         .name("Light state")
-                        .format(HomiePropertyFormat::Boolean {
+                        .format(HomiePropertyFormat::Boolean(BooleanFormat {
                             false_val: "off".to_string(),
                             true_val: "on".to_string(),
-                        })
+                        }))
                         .settable(true)
                         .build(),
                 )

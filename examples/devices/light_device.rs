@@ -4,8 +4,8 @@ use rumqttc::AsyncClient;
 
 use homie5::{
     device_description::{
-        DeviceDescriptionBuilder, HomieDeviceDescription, HomiePropertyFormat, IntegerRange, NodeDescriptionBuilder,
-        PropertyDescriptionBuilder,
+        BooleanFormat, DeviceDescriptionBuilder, HomieDeviceDescription, HomiePropertyFormat, IntegerRange,
+        NodeDescriptionBuilder, PropertyDescriptionBuilder,
     },
     Homie5DeviceProtocol, HomieDataType, HomieDeviceStatus, HomieDomain, HomieID, HomieValue, NodeRef, PropertyRef,
     HOMIE_UNIT_PERCENT,
@@ -61,10 +61,10 @@ impl LightDevice {
                         prop_light_state.prop_id().clone(),
                         PropertyDescriptionBuilder::new(HomieDataType::Boolean)
                             .name("Light state")
-                            .format(HomiePropertyFormat::Boolean {
+                            .format(HomiePropertyFormat::Boolean(BooleanFormat {
                                 false_val: "off".to_string(),
                                 true_val: "on".to_string(),
-                            })
+                            }))
                             .retained(true)
                             .settable(true)
                             .build(),
