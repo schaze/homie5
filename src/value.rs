@@ -57,7 +57,7 @@ impl fmt::Display for Homie5ValueConversionError {
                 write!(f, "Integer '{}' is out of allowed range: {}", value, range)
             }
             Homie5ValueConversionError::FloatOutOfRange(value, range) => {
-                write!(f, "Flaot '{}' is out of allowed range: {}", value, range)
+                write!(f, "Float '{}' is out of allowed range: {}", value, range)
             }
             Homie5ValueConversionError::InvalidDateTimeFormat(value) => {
                 write!(f, "'{}' is not a valid date/time value", value)
@@ -188,7 +188,7 @@ impl Display for HomieColorValue {
 impl FromStr for HomieColorValue {
     type Err = Homie5ValueConversionError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut tokens = str::split(s, ',');
+        let mut tokens = s.split(',');
         match tokens.next() {
             Some("rgb") => {
                 if let (Some(Ok(r)), Some(Ok(g)), Some(Ok(b))) = (
@@ -620,12 +620,13 @@ impl HomieValue {
         let HomiePropertyFormat::FloatRange(range) = &property_desc.format else {
             return Ok(value);
         };
-        // Use the minimum, max, or current value as base (in that priority order)
+
+        // Use min as base, if not present, use max, otherwise use the current value
         let base = range.min.or(range.max).unwrap_or(value);
 
-        // Calculate the rounded value based on the step
+        // Adjust rounding logic: floor((x + 0.5)) to always round up
         let rounded = match range.step {
-            Some(s) if s > 0.0 => ((value - base) / s).round() * s + base,
+            Some(s) if s > 0.0 => ((value - base) / s + 0.5).floor() * s + base,
             _ => value,
         };
 
@@ -642,12 +643,12 @@ impl HomieValue {
             return Ok(value);
         };
 
-        // Use the minimum or maximum as the base, or use the current value
+        // Use min as base, if not present, use max, otherwise use the current value
         let base = range.min.or(range.max).unwrap_or(value);
 
-        // Calculate the rounded value based on the step
+        // Adjust rounding logic: floor((x + 0.5)) to always round up
         let rounded = match range.step {
-            Some(s) if s > 0 => ((value - base) as f64 / s as f64).round() as i64 * s + base,
+            Some(s) if s > 0 => ((value - base) as f64 / s as f64 + 0.5).floor() as i64 * s + base,
             _ => value,
         };
 

@@ -40,6 +40,24 @@ fn test_homie_integer_value_from_file() {
 }
 
 #[test]
+fn test_homie_float_value_from_file() {
+    let result = run_homietests("homie5/values/float.yml", |test_definition| {
+        if let HomieTest::PropertyValueFloat(test) = test_definition {
+            let Ok(homie_value) = HomieValue::parse(&test.input_data, &test.definition) else {
+                return Ok(false);
+            };
+            let HomieValue::Float(value) = homie_value else {
+                return Err(anyhow::anyhow!("Invalid Testdefinition in test file"));
+            };
+            Ok(Some(value) == test.output_data)
+        } else {
+            Err(anyhow::anyhow!("Invalid Testdefinition in test file"))
+        }
+    });
+
+    assert!(result.is_ok(), "{:?}", result);
+}
+#[test]
 fn test_homie_color_value_display_rgb() {
     let color = HomieColorValue::RGB(255, 100, 50);
     assert_eq!(color.to_string(), "rgb,255,100,50");
@@ -284,7 +302,7 @@ fn test_integer_value_with_max_only_range() {
     assert_eq!(HomieValue::parse("8", &desc).unwrap(), HomieValue::Integer(8));
 
     // Value rounded to nearest step
-    assert_eq!(HomieValue::parse("9", &desc).unwrap(), HomieValue::Integer(8));
+    assert_eq!(HomieValue::parse("9", &desc).unwrap(), HomieValue::Integer(10));
 
     // Value too high (out of range)
     assert!(HomieValue::parse("21", &desc).is_err());
