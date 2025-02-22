@@ -6,7 +6,7 @@ use std::{
     str::FromStr,
 };
 
-use serde::de;
+use serde::{de, Serialize, Serializer};
 use serde::{Deserialize, Deserializer};
 
 use crate::{
@@ -112,7 +112,7 @@ impl std::error::Error for Homie5ValueConversionError {
 /// attribute of the property, and the value must conform to that format.
 ///
 /// For more details on the color formats and their constraints, refer to the Homie specification.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub enum HomieColorValue {
     /// Represents a color in the RGB format, using three integers for red, green, and blue channels.
     /// Each value must be an integer between 0 and 255.
@@ -135,6 +135,38 @@ impl HomieColorValue {
             HomieColorValue::HSV(_, _, _) => ColorFormat::Hsv,
             HomieColorValue::XYZ(_, _, _) => ColorFormat::Xyz,
         }
+    }
+}
+
+/// Serialize the ColorValue to its string representation
+///
+///   - Example: `"rgb,255,0,0"` for red.
+///   - Example: `"hsv,120,100,100"` for bright green.
+///   - Example: `"xyz,0.25,0.34"`.
+impl Serialize for HomieColorValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Serialize the enum as its string representation.
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+/// Deserialize the ColorValue from its string representation
+///
+///   - Example: `"rgb,255,0,0"` for red.
+///   - Example: `"hsv,120,100,100"` for bright green.
+///   - Example: `"xyz,0.25,0.34"`.
+impl<'de> Deserialize<'de> for HomieColorValue {
+    fn deserialize<D>(deserializer: D) -> Result<HomieColorValue, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Deserialize into a string first.
+        let s = String::deserialize(deserializer)?;
+        // Use the FromStr implementation to parse the string.
+        HomieColorValue::from_str(&s).map_err(serde::de::Error::custom)
     }
 }
 

@@ -100,6 +100,7 @@ impl FromStr for BooleanFormat {
     }
 }
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash, PartialOrd)]
+#[serde(rename_all = "lowercase")]
 pub enum ColorFormat {
     Rgb,
     Hsv,
