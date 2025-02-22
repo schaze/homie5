@@ -16,7 +16,7 @@ pub enum HomiePropertyFormat {
     IntegerRange(IntegerRange),
     Enum(Vec<String>),
     Color(Vec<ColorFormat>),
-    Boolean { false_val: String, true_val: String },
+    Boolean(BooleanFormat),
     Json(String), // Raw JSON schema as string
     Custom(String),
     Empty,
@@ -32,7 +32,7 @@ impl HomiePropertyFormat {
             HomiePropertyFormat::IntegerRange(r) => r.is_empty(),
             HomiePropertyFormat::Enum(values) => values.is_empty(),
             HomiePropertyFormat::Color(formats) => formats.is_empty(),
-            HomiePropertyFormat::Boolean { false_val, true_val } => false_val.is_empty() || true_val.is_empty(),
+            HomiePropertyFormat::Boolean(bf) => bf.is_empty(),
             HomiePropertyFormat::Json(data) => data.is_empty(),
             HomiePropertyFormat::Custom(data) => data.is_empty(),
             HomiePropertyFormat::Empty => true,
@@ -56,9 +56,7 @@ impl Display for HomiePropertyFormat {
                     formats.iter().map(|c| c.to_string()).collect::<Vec<String>>().join(",")
                 )
             }
-            HomiePropertyFormat::Boolean { false_val, true_val } => {
-                write!(f, "{},{}", false_val, true_val)
-            }
+            HomiePropertyFormat::Boolean(bf) => bf.fmt(f),
             HomiePropertyFormat::Json(data) => write!(f, "{}", data),
             HomiePropertyFormat::Custom(data) => write!(f, "{}", data),
             HomiePropertyFormat::Empty => write!(f, ""),
@@ -66,6 +64,41 @@ impl Display for HomiePropertyFormat {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
+pub struct BooleanFormat {
+    pub false_val: String,
+    pub true_val: String,
+}
+
+impl BooleanFormat {
+    pub fn is_empty(&self) -> bool {
+        self.false_val.is_empty() && self.true_val.is_empty()
+    }
+}
+
+impl Display for BooleanFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{},{}", self.false_val, self.true_val)
+    }
+}
+
+impl FromStr for BooleanFormat {
+    type Err = HomiePropertyFormatError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let tokens = s.split(',').collect::<Vec<&str>>();
+        if tokens.len() != 2 {
+            return Err(HomiePropertyFormatError::BooleanFormatError);
+        }
+        if tokens[0].is_empty() || tokens[1].is_empty() || tokens[0] == tokens[1] {
+            return Err(HomiePropertyFormatError::BooleanFormatError);
+        }
+
+        Ok(Self {
+            false_val: tokens[0].to_owned(),
+            true_val: tokens[1].to_owned(),
+        })
+    }
+}
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash, PartialOrd)]
 pub enum ColorFormat {
     Rgb,
@@ -141,20 +174,7 @@ impl HomiePropertyFormat {
                 }
                 Ok(Self::Color(formats))
             }
-            HomieDataType::Boolean => {
-                let tokens = raw.split(',').collect::<Vec<&str>>();
-                if tokens.len() != 2 {
-                    return Err(HomiePropertyFormatError::BooleanFormatError);
-                }
-                if tokens[0].is_empty() || tokens[1].is_empty() || tokens[0] == tokens[1] {
-                    return Err(HomiePropertyFormatError::BooleanFormatError);
-                }
-
-                Ok(Self::Boolean {
-                    false_val: tokens[0].to_owned(),
-                    true_val: tokens[1].to_owned(),
-                })
-            }
+            HomieDataType::Boolean => Ok(Self::Boolean(BooleanFormat::from_str(raw)?)),
             HomieDataType::JSON => Ok(Self::Json(raw.to_owned())), // todo: we need to check if
             // this contains valid json
             // string data
