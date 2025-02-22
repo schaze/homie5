@@ -24,7 +24,8 @@ jobs:
       - name: Checkout test set repository
         uses: actions/checkout@v4
         with:
-          repository: homieiot/homie-testsuite
+          repository: schaze/homie-testsuite
+          ref: bugfix/incorrect_number_float_range_roundings
           path: ${{ env.TEST_REPO_PATH }}
 
       - name: Set up Rust
