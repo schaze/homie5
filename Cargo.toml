@@ -1,6 +1,6 @@
 [package]
 name = "homie5"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 publish = true
 description = "Low level implemenation of the homie v5 protocol"
@@ -17,7 +17,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4.38", features = ["serde"] }
 regex = { version = "1.11", default-features = true }
-thiserror = "1.0"
+thiserror = "2.0"
 log = "0.4.22"
 
 [dev-dependencies]
@@ -28,6 +28,6 @@ tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0.75"
 ctrlc = "3.1"
 log = "0.4"
-env_logger = "0.9"
+env_logger = "0.11"
 serde_yaml = "0.9"
 
