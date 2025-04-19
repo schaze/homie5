@@ -182,6 +182,14 @@ impl TryFrom<String> for HomieID {
     }
 }
 
+impl std::str::FromStr for HomieID {
+    type Err = InvalidHomieIDError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        <String as TryInto<Self>>::try_into(s.to_string())
+    }
+}
+
 impl fmt::Display for HomieID {
     /// Formats the `HomieID` as a string for display purposes.
     ///
