@@ -304,8 +304,8 @@ impl PropertyDescriptionBuilder {
         self.description
     }
 
-    pub fn format(mut self, format: HomiePropertyFormat) -> Self {
-        self.description.format = format;
+    pub fn format<F: Into<HomiePropertyFormat>>(mut self, format: F) -> Self {
+        self.description.format = format.into();
         self
     }
 
