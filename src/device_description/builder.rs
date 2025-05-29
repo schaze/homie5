@@ -14,7 +14,7 @@ use super::{
     HomieDeviceDescription, HomieNodeDescription, HomiePropertyDescription, RETAINTED_DEFAULT, SETTABLE_DEFAULT,
 };
 use crate::{HomieDataType, HomieID, HOMIE_VERSION_FULL};
-use std::collections::{BTreeMap, btree_map};
+use std::collections::{btree_map, BTreeMap};
 
 /// Builder for constructing `HomieDeviceDescription` objects.
 ///
@@ -42,6 +42,7 @@ impl Default for DeviceDescriptionBuilder {
                 name: None,
                 version: 0,
                 homie: HOMIE_VERSION_FULL.to_owned(),
+                r#type: None,
                 children: Vec::new(),
                 extensions: Vec::new(),
                 nodes: BTreeMap::new(),
@@ -102,6 +103,11 @@ impl DeviceDescriptionBuilder {
 
     pub fn name<S: Into<String>>(mut self, name: impl Into<Option<S>>) -> Self {
         self.description.name = name.into().map(Into::into);
+        self
+    }
+
+    pub fn r#type<S: Into<String>>(mut self, r#type: impl Into<Option<S>>) -> Self {
+        self.description.name = r#type.into().map(Into::into);
         self
     }
 

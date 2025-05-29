@@ -19,10 +19,12 @@
 //!
 //! These methods enable referencing Homie devices within the MQTT topic structure.
 
+use serde::{Deserialize, Serialize};
+
 use crate::{HomieDomain, HomieID, NodeRef, PropertyRef, ToTopic, TopicBuilder};
 
 /// Identifies a device via homie-domain and the device id
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DeviceRef {
     /// the homie_domain (e.g. homie) under which the device is published
     pub(crate) homie_domain: HomieDomain,
