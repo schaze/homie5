@@ -262,7 +262,7 @@ impl FromStr for HomieColorValue {
 ///
 /// The Homie protocol imposes specific rules on how these types should be represented in
 /// MQTT payloads, and this enum models those types.
-#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub enum HomieValue {
     /// Represents an empty value, often used for uninitialized states.
     #[default]
@@ -328,7 +328,7 @@ pub enum HomieValue {
     /// - Must use ISO 8601 duration format (`PTxHxMxS`).
     ///
     /// Example: `"PT12H5M46S"` (12 hours, 5 minutes, 46 seconds).
-    #[serde(deserialize_with = "deserialize_duration")]
+    #[serde(deserialize_with = "deserialize_duration", serialize_with = "serialize_duration")]
     Duration(chrono::Duration),
 
     /// Represents a complex JSON object or array.
@@ -337,6 +337,14 @@ pub enum HomieValue {
     ///
     /// Example: `{"temperature": 21.5, "humidity": 60}`.
     JSON(serde_json::Value),
+}
+
+fn serialize_duration<S>(duration: &chrono::Duration, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let iso_str = duration.to_string();
+    serializer.serialize_str(&iso_str)
 }
 
 fn deserialize_duration<'de, D>(deserializer: D) -> Result<chrono::Duration, D::Error>

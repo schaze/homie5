@@ -228,6 +228,7 @@ pub type HomieNodes = BTreeMap<HomieID, HomieNodeDescription>;
 /// | version   | integer      | yes      |         | no       | The version of the description document. Whenever the document changes, a new higher version must be assigned. This does not need to be sequential, eg. a timestamp could be used. |
 /// | nodes     |object        | no       | `{}`    | no       | The [Nodes](#nodes) the device exposes. An object containing the [Nodes](#nodes), indexed by their [ID](#topic-ids). Defaults to an empty object.|
 /// | name      |string        | no      |         | no       | Friendly name of the device. |
+/// | type      |string        | no      |         | no          |Type of Device. Please ensure proper namespacing to prevent naming collisions.
 /// | children  |array-strings | no       | `[]`    | no       | Array of [ID](#topic-ids)'s of child devices. Defaults to an empty array.|
 /// | root      |string        | yes/no   |         | no       | [ID](#topic-ids) of the root parent device. **Required** if the device is NOT the root device, MUST be omitted otherwise. |
 /// | parent    |string        | yes/no   | same as `root`| no | [ID](#topic-ids) of the parent device. **Required** if the parent is NOT the root device. Defaults to the value of the `root` property. |
@@ -256,6 +257,7 @@ pub struct HomieDeviceDescription {
     pub name: Option<String>,
     pub version: i64,
     pub homie: String,
+    pub r#type: Option<String>,
     #[serde(default = "serde_default_list", skip_serializing_if = "serde_skip_if_empty_list")]
     pub children: Vec<HomieID>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -274,6 +276,7 @@ impl Default for HomieDeviceDescription {
             name: None,
             version: 0,
             homie: "5.0".to_owned(),
+            r#type: None,
             children: Vec::new(),
             root: None,
             parent: None,
