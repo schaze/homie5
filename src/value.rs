@@ -502,7 +502,7 @@ impl HomieValue {
     ///
     /// - `raw`: The raw string value to be parsed.
     /// - `property_desc`: A reference to the property description that defines the expected data type
-    ///    and format of the property.
+    ///   and format of the property.
     ///
     /// # Returns
     ///
@@ -671,7 +671,7 @@ impl HomieValue {
         };
 
         // Check if the rounded value is within the min/max bounds
-        if range.min.map_or(true, |m| rounded >= m) && range.max.map_or(true, |m| rounded <= m) {
+        if range.min.is_none_or(|m| rounded >= m) && range.max.is_none_or(|m| rounded <= m) {
             Ok(rounded)
         } else {
             Err(Homie5ValueConversionError::FloatOutOfRange(value, range.clone()))
@@ -693,7 +693,7 @@ impl HomieValue {
         };
 
         // Check if the rounded value is within the min/max bounds
-        if range.min.map_or(true, |m| rounded >= m) && range.max.map_or(true, |m| rounded <= m) {
+        if range.min.is_none_or(|m| rounded >= m) && range.max.is_none_or(|m| rounded <= m) {
             Ok(rounded)
         } else {
             Err(Homie5ValueConversionError::IntegerOutOfRange(value, range.clone()))

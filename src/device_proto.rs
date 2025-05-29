@@ -410,14 +410,15 @@ impl Homie5DeviceProtocol {
             return Err(Homie5ProtocolError::RootMismatch);
         }
 
-        Ok(description.iter().filter_map(move |(node_id, _, prop_id, prop)| {
-            prop.settable.then(|| Subscription {
+        Ok(description
+            .iter()
+            .filter(|&(_, _, _, prop)| prop.settable)
+            .map(|(node_id, _, prop_id, _)| Subscription {
                 topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
                     .add_attr(PROPERTY_SET_TOPIC)
                     .build(),
                 qos: QoS::ExactlyOnce,
-            })
-        }))
+            }))
     }
 
     /// Unsubscribes from all settable properties for the device.
@@ -446,11 +447,11 @@ impl Homie5DeviceProtocol {
             return Err(Homie5ProtocolError::RootMismatch);
         }
         let prop_iter = HomiePropertyIterator::new(description);
-        Ok(prop_iter.filter_map(move |(node_id, _, prop_id, prop)| {
-            prop.settable.then(|| Unsubscribe {
+        Ok(prop_iter
+            .filter(|&(_, _, _, prop)| prop.settable)
+            .map(|(node_id, _, prop_id, _)| Unsubscribe {
                 topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id).build(),
-            })
-        }))
+            }))
     }
 
     /// Removes the device by clearing all retained property values.
