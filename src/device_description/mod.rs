@@ -347,7 +347,7 @@ impl HomieDeviceDescription {
         }
     }
 
-    pub fn iter(&self) -> HomiePropertyIterator {
+    pub fn iter(&self) -> HomiePropertyIterator<'_> {
         HomiePropertyIterator::new(self)
     }
 }
