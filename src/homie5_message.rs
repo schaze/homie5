@@ -282,10 +282,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                             },
                             description,
                         }),
-                        Err(err) => {
-                            log::error!("{:#?}", err);
-                            Err(Homie5ProtocolError::InvalidPayload)
-                        }
+                        Err(_) => Err(Homie5ProtocolError::InvalidPayload),
                     }
                 }
                 _ => Err(Homie5ProtocolError::InvalidTopic),
