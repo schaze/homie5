@@ -1,10 +1,9 @@
 //! This module provides all types and tools to create (builders) and manage homie device, node and property
 //! descriptions.
+use core::hash::{BuildHasher, Hash, Hasher};
+use core::iter::Iterator;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
-use std::hash::BuildHasher;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::iter::Iterator;
 
 use foldhash::fast::FixedState;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -189,7 +188,7 @@ impl HomieNodeDescription {
     }
 }
 impl Hash for HomieNodeDescription {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
         self.r#type.hash(state);
 
@@ -354,7 +353,7 @@ impl HomieDeviceDescription {
 }
 
 impl Hash for HomieDeviceDescription {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
         self.homie.hash(state);
         self.children.hash(state);

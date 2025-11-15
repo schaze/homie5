@@ -1,5 +1,5 @@
+use core::iter;
 use std::collections::HashMap;
-use std::iter;
 
 use thiserror::Error;
 

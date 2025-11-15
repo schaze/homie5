@@ -23,7 +23,7 @@
 //!
 //! ```rust
 //! use homie5::*;
-//! use std::convert::TryFrom;
+//! use core::convert::TryFrom;
 //!
 //! let custom_domain = HomieDomain::try_from("my-brand").unwrap();
 //! assert_eq!(custom_domain.to_string(), "my-brand");
@@ -67,7 +67,7 @@ impl fmt::Display for InvalidHomieDomainError {
     }
 }
 
-impl std::error::Error for InvalidHomieDomainError {}
+impl core::error::Error for InvalidHomieDomainError {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, serde::Serialize)]
 pub struct CustomDomain(Cow<'static, str>);
@@ -104,7 +104,7 @@ impl TryFrom<&'static str> for CustomDomain {
     ///
     /// ```
     /// use homie5::CustomDomain;
-    /// use std::convert::TryFrom;
+    /// use core::convert::TryFrom;
     ///
     /// let id = CustomDomain::try_from("homie-dev").unwrap();
     /// ```
@@ -132,7 +132,7 @@ impl TryFrom<String> for CustomDomain {
     /// ```
     /// ```
     /// use homie5::CustomDomain;
-    /// use std::convert::TryFrom;
+    /// use core::convert::TryFrom;
     ///
     /// let id = CustomDomain::try_from("homie-dev".to_string()).unwrap();
     /// ```
@@ -235,7 +235,7 @@ impl TryFrom<&'static str> for HomieDomain {
     ///
     /// ```
     /// use homie5::HomieDomain;
-    /// use std::convert::TryFrom;
+    /// use core::convert::TryFrom;
     ///
     /// let id = HomieDomain::try_from("homie-dev").unwrap();
     /// ```
@@ -266,7 +266,7 @@ impl TryFrom<String> for HomieDomain {
     /// ```
     /// ```
     /// use homie5::HomieDomain;
-    /// use std::convert::TryFrom;
+    /// use core::convert::TryFrom;
     ///
     /// let id = HomieDomain::try_from("homie-dev".to_string()).unwrap();
     /// ```

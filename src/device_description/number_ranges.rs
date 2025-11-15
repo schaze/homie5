@@ -1,5 +1,5 @@
-use std::fmt::Display;
-use std::hash::Hash;
+use core::fmt::Display;
+use core::hash::Hash;
 
 use serde::{Deserialize, Serialize};
 
@@ -90,7 +90,7 @@ impl FloatRange {
 // negligeble. Worst case this will lead to an unstable version number generation for the device
 // description.
 impl Hash for FloatRange {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         if let Some(min) = self.min {
             min.to_bits().hash(state);
         }
@@ -104,9 +104,9 @@ impl Hash for FloatRange {
 }
 
 impl Display for FloatRange {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.is_empty() {
-            return Err(std::fmt::Error);
+            return Err(core::fmt::Error);
         }
         if let Some(min) = self.min {
             if self.max.is_none() && self.step.is_none() {
@@ -206,9 +206,9 @@ impl IntegerRange {
 }
 
 impl Display for IntegerRange {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.is_empty() {
-            return Err(std::fmt::Error);
+            return Err(core::fmt::Error);
         }
         if let Some(min) = self.min {
             if self.max.is_none() && self.step.is_none() {

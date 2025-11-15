@@ -42,9 +42,9 @@ pub use value::*;
 
 use serde::{Deserialize, Serialize};
 
-use std::fmt;
-use std::fmt::{Debug, Display};
-use std::str::FromStr;
+use core::fmt;
+use core::fmt::{Debug, Display};
+use core::str::FromStr;
 
 /// The default mqtt root topic: "homie"
 pub const DEFAULT_HOMIE_DOMAIN: &str = "homie";
@@ -146,7 +146,7 @@ impl Debug for HomieDataType {
 }
 
 impl Display for HomieDataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieDataType::Integer => write!(f, "integer"),
             HomieDataType::Float => write!(f, "float"),
@@ -215,7 +215,7 @@ impl Debug for HomieDeviceStatus {
 }
 
 impl Display for HomieDeviceStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieDeviceStatus::Init => write!(f, "init"),
             HomieDeviceStatus::Ready => write!(f, "ready"),
