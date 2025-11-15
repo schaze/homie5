@@ -1,6 +1,8 @@
 //! Defines all errors the homie 5 library recognizes
 //!
 
+use alloc::string::{FromUtf8Error, String};
+
 use thiserror::Error;
 
 use crate::{Homie5ValueConversionError, InvalidHomieDomainError, InvalidHomieIDError};
@@ -36,7 +38,7 @@ pub enum Homie5ProtocolError {
     ///
     /// This typically happens when the payload contains invalid UTF-8 bytes.
     #[error(transparent)]
-    PayloadConversionError(#[from] std::string::FromUtf8Error),
+    PayloadConversionError(#[from] FromUtf8Error),
 
     /// The device description received is invalid and could not be parsed.
     #[error("Cannot parse DeviceDescription. Invalid format.")]

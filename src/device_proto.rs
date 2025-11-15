@@ -7,6 +7,8 @@
 //! v5 protocol. Additionally, state machines for device publishing, reconfiguration,
 //! and disconnection are provided through the use of enumerated steps and transitions.
 
+use alloc::{string::String, vec::Vec};
+
 use crate::{
     client::{LastWill, Publish, QoS, Subscription, Unsubscribe},
     device_description::{HomieDeviceDescription, HomiePropertyIterator},

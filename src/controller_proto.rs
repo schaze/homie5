@@ -18,6 +18,8 @@
 
 use core::iter;
 
+use alloc::string::String;
+
 use crate::{
     client::{Publish, QoS, Subscription, Unsubscribe},
     device_description::{HomieDeviceDescription, HomiePropertyIterator},

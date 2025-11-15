@@ -31,7 +31,11 @@
 //!
 
 use core::fmt;
-use std::borrow::Cow;
+
+use alloc::{
+    borrow::Cow,
+    string::{String, ToString},
+};
 
 use crate::DEFAULT_HOMIE_DOMAIN;
 

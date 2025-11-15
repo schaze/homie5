@@ -1,4 +1,12 @@
 use core::iter;
+
+use alloc::{
+    borrow::ToOwned,
+    format,
+    string::{FromUtf8Error, String, ToString},
+    vec::Vec,
+};
+
 use std::collections::HashMap;
 
 use thiserror::Error;
@@ -25,7 +33,7 @@ pub enum MetaExtError {
     ///
     /// This typically happens when the payload contains invalid UTF-8 bytes.
     #[error(transparent)]
-    PayloadConversionError(#[from] std::string::FromUtf8Error),
+    PayloadConversionError(#[from] FromUtf8Error),
 
     /// An invalid message payload was received.
     #[error("Invalid message payload received.")]

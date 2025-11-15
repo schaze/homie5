@@ -18,6 +18,10 @@
 //! usage and in how to integrate the 2 libraries.
 //!
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 pub mod client;
 mod controller_proto;
 pub mod device_description;
@@ -45,6 +49,11 @@ use serde::{Deserialize, Serialize};
 use core::fmt;
 use core::fmt::{Debug, Display};
 use core::str::FromStr;
+
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+};
 
 /// The default mqtt root topic: "homie"
 pub const DEFAULT_HOMIE_DOMAIN: &str = "homie";

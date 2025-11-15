@@ -4,6 +4,12 @@ use core::iter::Iterator;
 use core::ops::{RangeFrom, RangeInclusive, RangeTo};
 use core::str::FromStr;
 
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

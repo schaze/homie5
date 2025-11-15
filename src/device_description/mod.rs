@@ -2,8 +2,14 @@
 //! descriptions.
 use core::hash::{BuildHasher, Hash, Hasher};
 use core::iter::Iterator;
-use std::collections::hash_map::DefaultHasher;
-use std::collections::BTreeMap;
+
+use alloc::{
+    borrow::ToOwned,
+    collections::{btree_map, BTreeMap},
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 
 use foldhash::fast::FixedState;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -386,9 +392,9 @@ pub fn serde_skip_if_empty_list<T>(children: &[T]) -> bool {
 
 pub struct HomiePropertyIterator<'a> {
     _device: &'a HomieDeviceDescription,
-    node_iter: std::collections::btree_map::Iter<'a, HomieID, HomieNodeDescription>,
+    node_iter: btree_map::Iter<'a, HomieID, HomieNodeDescription>,
     current_node: Option<(&'a HomieID, &'a HomieNodeDescription)>,
-    property_iter: Option<std::collections::btree_map::Iter<'a, HomieID, HomiePropertyDescription>>,
+    property_iter: Option<btree_map::Iter<'a, HomieID, HomiePropertyDescription>>,
 }
 
 impl<'a> HomiePropertyIterator<'a> {
@@ -445,6 +451,8 @@ impl<'a> Iterator for HomiePropertyIterator<'a> {
 
 #[cfg(test)]
 mod test {
+    extern crate std;
+    use std::println;
 
     use crate::device_description::number_ranges::FloatRange;
 

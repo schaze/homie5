@@ -33,7 +33,11 @@
 
 use core::convert::TryFrom;
 use core::fmt;
-use std::borrow::Cow;
+
+use alloc::{
+    borrow::Cow,
+    string::{String, ToString},
+};
 
 use serde::{de, Deserialize, Deserializer, Serialize};
 

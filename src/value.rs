@@ -6,6 +6,13 @@ use core::{
     str::FromStr,
 };
 
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+
 use serde::{de, Serialize, Serializer};
 use serde::{Deserialize, Deserializer};
 
