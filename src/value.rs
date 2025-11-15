@@ -21,6 +21,10 @@ use crate::{
     Homie5ProtocolError, HomieDataType,
 };
 
+#[cfg(not(feature = "std"))]
+#[allow(unused_imports)]
+use crate::CoreFloatMath;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Homie5ValueConversionError {
     InvalidColorFormat(String),

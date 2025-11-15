@@ -18,6 +18,7 @@
 //! usage and in how to integrate the 2 libraries.
 //!
 
+#![cfg_attr(not(feature = "std"), feature(core_float_math))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -54,6 +55,20 @@ use alloc::{
     borrow::ToOwned,
     string::{String, ToString},
 };
+
+// https://github.com/rust-lang/rust/issues/137578
+#[cfg(not(feature = "std"))]
+#[allow(dead_code)]
+trait CoreFloatMath {
+    fn floor(self: Self) -> Self;
+}
+
+#[cfg(not(feature = "std"))]
+impl CoreFloatMath for f64 {
+    fn floor(self: f64) -> f64 {
+        core::f64::math::floor(self)
+    }
+}
 
 /// The default mqtt root topic: "homie"
 pub const DEFAULT_HOMIE_DOMAIN: &str = "homie";
