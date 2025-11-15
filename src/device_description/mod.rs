@@ -1,11 +1,12 @@
 //! This module provides all types and tools to create (builders) and manage homie device, node and property
 //! descriptions.
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
+use std::hash::BuildHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::iter::Iterator;
 
+use foldhash::fast::FixedState;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::AsNodeId;
@@ -329,7 +330,7 @@ impl HomieDeviceDescription {
     }
 
     pub fn update_version(&mut self) {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = FixedState::default().build_hasher();
         self.hash(&mut hasher);
         let hash = hasher.finish();
         self.version = i64::from_ne_bytes(hash.to_ne_bytes());
