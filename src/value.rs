@@ -608,15 +608,15 @@ impl HomieValue {
     }
 
     pub fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
-        let re = regex::Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").unwrap();
-        if let Some(captures) = re.captures(s) {
-            let hours: i64 = captures.get(1).map_or(0, |m| m.as_str().parse().unwrap());
-            let minutes: i64 = captures.get(2).map_or(0, |m| m.as_str().parse().unwrap());
-            let seconds: i64 = captures.get(3).map_or(0, |m| m.as_str().parse().unwrap());
+        let time_config = speedate::TimeConfig {
+            microseconds_precision_overflow_behavior: speedate::MicrosecondsPrecisionOverflowBehavior::Truncate,
+            unix_timestamp_offset: None,
+        };
 
-            return Ok(chrono::Duration::seconds(hours * 3600 + minutes * 60 + seconds));
+        match speedate::Duration::parse_bytes_with_config(s.as_bytes(), &time_config) {
+            Ok(duration) => Ok(chrono::Duration::milliseconds(duration.signed_total_ms())),
+            Err(_) => Err(Homie5ValueConversionError::InvalidDurationFormat(s.to_string())),
         }
-        Err(Homie5ValueConversionError::InvalidDurationFormat(s.to_string()))
     }
 
     // flexible deserialization approach as timestamps are hard and we want to keep compatibility
