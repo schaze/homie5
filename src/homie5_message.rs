@@ -69,6 +69,12 @@
 //! The `parse_mqtt_message` function successfully parses the message, and the resulting `Homie5Message` enum variant
 //! is used to handle the message.
 
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use crate::{
     client::mqtt_payload_to_string, device_description::HomieDeviceDescription, error::Homie5ProtocolError,
     DeviceLogLevel, DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, PropertyRef, HOMIE_VERSION,
@@ -282,10 +288,7 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                             },
                             description,
                         }),
-                        Err(err) => {
-                            log::error!("{:#?}", err);
-                            Err(Homie5ProtocolError::InvalidPayload)
-                        }
+                        Err(_) => Err(Homie5ProtocolError::InvalidPayload),
                     }
                 }
                 _ => Err(Homie5ProtocolError::InvalidTopic),

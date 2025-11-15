@@ -9,12 +9,19 @@
 //! based on runtime conditions.
 //!
 //! ```
+
+use alloc::{
+    borrow::ToOwned,
+    collections::{btree_map, BTreeMap},
+    string::String,
+    vec::Vec,
+};
+
 use super::property_format::HomiePropertyFormat;
 use super::{
     HomieDeviceDescription, HomieNodeDescription, HomiePropertyDescription, RETAINTED_DEFAULT, SETTABLE_DEFAULT,
 };
 use crate::{HomieDataType, HomieID, HOMIE_VERSION_FULL};
-use std::collections::{btree_map, BTreeMap};
 
 /// Builder for constructing `HomieDeviceDescription` objects.
 ///

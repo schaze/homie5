@@ -1,6 +1,6 @@
+use core::str::FromStr;
 use homie5::*;
 use std::collections::HashSet;
-use std::str::FromStr;
 
 #[test]
 fn test_homie_data_type_serialize() {

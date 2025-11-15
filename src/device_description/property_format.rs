@@ -1,8 +1,14 @@
-use std::hash::Hash;
-use std::iter::Iterator;
-use std::ops::{RangeFrom, RangeTo};
-use std::str::FromStr;
-use std::{fmt::Display, ops::RangeInclusive};
+use core::fmt::Display;
+use core::hash::Hash;
+use core::iter::Iterator;
+use core::ops::{RangeFrom, RangeInclusive, RangeTo};
+use core::str::FromStr;
+
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -43,7 +49,7 @@ impl HomiePropertyFormat {
 
 // Implement string representation of HomiePropertyFormat for serialization
 impl Display for HomiePropertyFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomiePropertyFormat::FloatRange(fr) => fr.fmt(f),
             HomiePropertyFormat::IntegerRange(ir) => ir.fmt(f),
@@ -78,7 +84,7 @@ impl BooleanFormat {
 }
 
 impl Display for BooleanFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{},{}", self.false_val, self.true_val)
     }
 }
@@ -121,7 +127,7 @@ impl FromStr for ColorFormat {
 }
 
 impl Display for ColorFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ColorFormat::Rgb => write!(f, "rgb"),
             ColorFormat::Hsv => write!(f, "hsv"),

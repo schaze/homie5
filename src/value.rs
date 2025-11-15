@@ -1,9 +1,16 @@
 //! Provides all types and functions for parsing and creating homie property values
 //!
-use std::{
+use core::{
     cmp::Ordering,
     fmt::{self, Display},
     str::FromStr,
+};
+
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
 };
 
 use serde::{de, Serialize, Serializer};
@@ -13,6 +20,10 @@ use crate::{
     device_description::{ColorFormat, FloatRange, HomiePropertyDescription, HomiePropertyFormat, IntegerRange},
     Homie5ProtocolError, HomieDataType,
 };
+
+#[cfg(not(feature = "std"))]
+#[allow(unused_imports)]
+use crate::CoreFloatMath;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Homie5ValueConversionError {
@@ -83,9 +94,9 @@ impl fmt::Display for Homie5ValueConversionError {
     }
 }
 
-// Implement the std::error::Error trait
-impl std::error::Error for Homie5ValueConversionError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+// Implement the core::error::Error trait
+impl core::error::Error for Homie5ValueConversionError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         // This error type doesn't wrap any other errors
         None
     }
@@ -208,7 +219,7 @@ impl From<HomieColorValue> for String {
 }
 
 impl Display for HomieColorValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieColorValue::RGB(r, g, b) => write!(f, "rgb,{},{},{}", r, g, b),
             HomieColorValue::HSV(h, s, v) => write!(f, "hsv,{},{},{}", h, s, v),
@@ -364,7 +375,7 @@ where
 }
 
 impl Display for HomieValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieValue::Empty => write!(f, ""),
             HomieValue::String(value) => write!(f, "{}", value),
@@ -608,15 +619,15 @@ impl HomieValue {
     }
 
     pub fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
-        let re = regex::Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").unwrap();
-        if let Some(captures) = re.captures(s) {
-            let hours: i64 = captures.get(1).map_or(0, |m| m.as_str().parse().unwrap());
-            let minutes: i64 = captures.get(2).map_or(0, |m| m.as_str().parse().unwrap());
-            let seconds: i64 = captures.get(3).map_or(0, |m| m.as_str().parse().unwrap());
+        let time_config = speedate::TimeConfig {
+            microseconds_precision_overflow_behavior: speedate::MicrosecondsPrecisionOverflowBehavior::Truncate,
+            unix_timestamp_offset: None,
+        };
 
-            return Ok(chrono::Duration::seconds(hours * 3600 + minutes * 60 + seconds));
+        match speedate::Duration::parse_bytes_with_config(s.as_bytes(), &time_config) {
+            Ok(duration) => Ok(chrono::Duration::milliseconds(duration.signed_total_ms())),
+            Err(_) => Err(Homie5ValueConversionError::InvalidDurationFormat(s.to_string())),
         }
-        Err(Homie5ValueConversionError::InvalidDurationFormat(s.to_string()))
     }
 
     // flexible deserialization approach as timestamps are hard and we want to keep compatibility

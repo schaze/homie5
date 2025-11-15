@@ -22,7 +22,7 @@
 //!
 //! ```rust
 //! use homie5::*;
-//! use std::convert::TryFrom;
+//! use core::convert::TryFrom;
 //!
 //! let valid_id = HomieID::try_from("device-01").unwrap();
 //! assert_eq!(valid_id.as_str(), "device-01");
@@ -31,8 +31,13 @@
 //! assert!(invalid_id.is_err());
 //! ```
 
-use std::fmt;
-use std::{borrow::Cow, convert::TryFrom};
+use core::convert::TryFrom;
+use core::fmt;
+
+use alloc::{
+    borrow::Cow,
+    string::{String, ToString},
+};
 
 use serde::{de, Deserialize, Deserializer, Serialize};
 
@@ -68,7 +73,7 @@ impl fmt::Display for InvalidHomieIDError {
     }
 }
 
-impl std::error::Error for InvalidHomieIDError {}
+impl core::error::Error for InvalidHomieIDError {}
 
 /// Represents a validated Homie ID.
 ///
@@ -145,7 +150,7 @@ impl TryFrom<&'static str> for HomieID {
     ///
     /// ```
     /// use homie5::HomieID;
-    /// use std::convert::TryFrom;
+    /// use core::convert::TryFrom;
     ///
     /// let id = HomieID::try_from("sensor-01").unwrap();
     /// ```
@@ -172,7 +177,7 @@ impl TryFrom<String> for HomieID {
     ///
     /// ```
     /// use homie5::HomieID;
-    /// use std::convert::TryFrom;
+    /// use core::convert::TryFrom;
     ///
     /// let id = HomieID::try_from("sensor-01").unwrap();
     /// ```
@@ -182,7 +187,7 @@ impl TryFrom<String> for HomieID {
     }
 }
 
-impl std::str::FromStr for HomieID {
+impl core::str::FromStr for HomieID {
     type Err = InvalidHomieIDError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

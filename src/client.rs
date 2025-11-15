@@ -26,7 +26,10 @@
 //! These primitives form the backbone of MQTT communication and can be converted to their equivalents in
 //! various MQTT libraries, making this module a flexible foundation for MQTT client implementations.
 
-use std::string::FromUtf8Error;
+use alloc::{
+    string::{FromUtf8Error, String},
+    vec::Vec,
+};
 
 use serde::{Deserialize, Serialize};
 

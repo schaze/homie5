@@ -1,11 +1,17 @@
 //! This module provides all types and tools to create (builders) and manage homie device, node and property
 //! descriptions.
-use std::collections::hash_map::DefaultHasher;
-use std::collections::BTreeMap;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::iter::Iterator;
+use core::hash::{BuildHasher, Hash, Hasher};
+use core::iter::Iterator;
 
+use alloc::{
+    borrow::ToOwned,
+    collections::{btree_map, BTreeMap},
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+
+use foldhash::fast::FixedState;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::AsNodeId;
@@ -188,7 +194,7 @@ impl HomieNodeDescription {
     }
 }
 impl Hash for HomieNodeDescription {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
         self.r#type.hash(state);
 
@@ -329,7 +335,7 @@ impl HomieDeviceDescription {
     }
 
     pub fn update_version(&mut self) {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = FixedState::default().build_hasher();
         self.hash(&mut hasher);
         let hash = hasher.finish();
         self.version = i64::from_ne_bytes(hash.to_ne_bytes());
@@ -353,7 +359,7 @@ impl HomieDeviceDescription {
 }
 
 impl Hash for HomieDeviceDescription {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
         self.homie.hash(state);
         self.children.hash(state);
@@ -386,9 +392,9 @@ pub fn serde_skip_if_empty_list<T>(children: &[T]) -> bool {
 
 pub struct HomiePropertyIterator<'a> {
     _device: &'a HomieDeviceDescription,
-    node_iter: std::collections::btree_map::Iter<'a, HomieID, HomieNodeDescription>,
+    node_iter: btree_map::Iter<'a, HomieID, HomieNodeDescription>,
     current_node: Option<(&'a HomieID, &'a HomieNodeDescription)>,
-    property_iter: Option<std::collections::btree_map::Iter<'a, HomieID, HomiePropertyDescription>>,
+    property_iter: Option<btree_map::Iter<'a, HomieID, HomiePropertyDescription>>,
 }
 
 impl<'a> HomiePropertyIterator<'a> {
@@ -445,6 +451,8 @@ impl<'a> Iterator for HomiePropertyIterator<'a> {
 
 #[cfg(test)]
 mod test {
+    extern crate std;
+    use std::println;
 
     use crate::device_description::number_ranges::FloatRange;
 

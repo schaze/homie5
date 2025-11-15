@@ -18,6 +18,11 @@
 //! usage and in how to integrate the 2 libraries.
 //!
 
+#![cfg_attr(not(feature = "std"), feature(core_float_math))]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 pub mod client;
 mod controller_proto;
 pub mod device_description;
@@ -42,9 +47,28 @@ pub use value::*;
 
 use serde::{Deserialize, Serialize};
 
-use std::fmt;
-use std::fmt::{Debug, Display};
-use std::str::FromStr;
+use core::fmt;
+use core::fmt::{Debug, Display};
+use core::str::FromStr;
+
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+};
+
+// https://github.com/rust-lang/rust/issues/137578
+#[cfg(not(feature = "std"))]
+#[allow(dead_code)]
+trait CoreFloatMath {
+    fn floor(self: Self) -> Self;
+}
+
+#[cfg(not(feature = "std"))]
+impl CoreFloatMath for f64 {
+    fn floor(self: f64) -> f64 {
+        core::f64::math::floor(self)
+    }
+}
 
 /// The default mqtt root topic: "homie"
 pub const DEFAULT_HOMIE_DOMAIN: &str = "homie";
@@ -146,7 +170,7 @@ impl Debug for HomieDataType {
 }
 
 impl Display for HomieDataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieDataType::Integer => write!(f, "integer"),
             HomieDataType::Float => write!(f, "float"),
@@ -215,7 +239,7 @@ impl Debug for HomieDeviceStatus {
 }
 
 impl Display for HomieDeviceStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieDeviceStatus::Init => write!(f, "init"),
             HomieDeviceStatus::Ready => write!(f, "ready"),
