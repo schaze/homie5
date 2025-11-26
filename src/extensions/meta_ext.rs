@@ -4,7 +4,8 @@ use std::iter;
 use thiserror::Error;
 
 use crate::{
-    client::{mqtt_payload_to_string, Publish, QoS, Subscription},
+    client::{mqtt_payload_to_string, Publish, QoS, Subscription, Unsubscribe},
+    device_description::HomieDeviceDescription,
     DeviceRef, Homie5DeviceProtocol, HomieDomain, HomieID, InvalidHomieDomainError, InvalidHomieIDError, NodeRef,
     PropertyRef, TopicBuilder, HOMIE_VERSION,
 };
@@ -174,17 +175,91 @@ impl From<&Homie5DeviceProtocol> for MetaDeviceProtocol {
 }
 
 /// ...
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MetaControllerProtocol {}
 
 impl MetaControllerProtocol {
+    pub fn new() -> Self {
+        Default::default()
+    }
     pub fn subscribe_for_device<'a>(&'a self, device: &'a DeviceRef) -> impl Iterator<Item = Subscription> + 'a {
-        iter::once(Subscription {
-            topic: format!(
-                "{}/{}/{}/{}",
-                device.homie_domain, HOMIE_VERSION, device.id, EXT_META_ATTRIBUTE
-            ),
-            qos: QoS::ExactlyOnce,
+        [
+            Subscription {
+                topic: format!(
+                    "{}/{}/{}/{}",
+                    device.homie_domain, HOMIE_VERSION, device.id, EXT_META_ATTRIBUTE
+                ),
+                qos: QoS::ExactlyOnce,
+            },
+            Subscription {
+                topic: format!(
+                    "{}/{}/{}/{}",
+                    device.homie_domain, HOMIE_VERSION, device.id, EXT_TAGS_ATTRIBUTE
+                ),
+                qos: QoS::ExactlyOnce,
+            },
+        ]
+        .into_iter()
+    }
+    pub fn subscribe_for_nodes_props<'a>(
+        &'a self,
+        device: &'a DeviceRef,
+        desc: &'a HomieDeviceDescription,
+    ) -> impl Iterator<Item = Subscription> + 'a {
+        desc.nodes.iter().flat_map(move |(node_id, node_desc)| {
+            let node_sub = Subscription {
+                topic: format!(
+                    "{}/{}/{}/{}/{}",
+                    device.homie_domain, HOMIE_VERSION, device.id, node_id, EXT_META_ATTRIBUTE
+                ),
+                qos: QoS::ExactlyOnce,
+            };
+            let prop_subs = node_desc.properties.keys().map(move |prop_id| Subscription {
+                topic: format!(
+                    "{}/{}/{}/{}/{}/{}",
+                    device.homie_domain, HOMIE_VERSION, device.id, node_id, prop_id, EXT_META_ATTRIBUTE
+                ),
+                qos: QoS::ExactlyOnce,
+            });
+            iter::once(node_sub).chain(prop_subs)
+        })
+    }
+    pub fn unsubscribe_for_device<'a>(&'a self, device: &'a DeviceRef) -> impl Iterator<Item = Unsubscribe> + 'a {
+        [
+            Unsubscribe {
+                topic: format!(
+                    "{}/{}/{}/{}",
+                    device.homie_domain, HOMIE_VERSION, device.id, EXT_META_ATTRIBUTE
+                ),
+            },
+            Unsubscribe {
+                topic: format!(
+                    "{}/{}/{}/{}",
+                    device.homie_domain, HOMIE_VERSION, device.id, EXT_TAGS_ATTRIBUTE
+                ),
+            },
+        ]
+        .into_iter()
+    }
+    pub fn unsubscribe_for_nodes_props<'a>(
+        &'a self,
+        device: &'a DeviceRef,
+        desc: &'a HomieDeviceDescription,
+    ) -> impl Iterator<Item = Unsubscribe> + 'a {
+        desc.nodes.iter().flat_map(move |(node_id, node_desc)| {
+            let node_sub = Unsubscribe {
+                topic: format!(
+                    "{}/{}/{}/{}/{}",
+                    device.homie_domain, HOMIE_VERSION, device.id, node_id, EXT_META_ATTRIBUTE
+                ),
+            };
+            let prop_subs = node_desc.properties.keys().map(move |prop_id| Unsubscribe {
+                topic: format!(
+                    "{}/{}/{}/{}/{}/{}",
+                    device.homie_domain, HOMIE_VERSION, device.id, node_id, prop_id, EXT_META_ATTRIBUTE
+                ),
+            });
+            iter::once(node_sub).chain(prop_subs)
         })
     }
 }
