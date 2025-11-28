@@ -264,6 +264,7 @@ impl MetaControllerProtocol {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum MetaExtMessage {
     DeviceMeta {
         device: DeviceRef,
@@ -297,7 +298,7 @@ impl MetaExtMessage {
         let tokens: Vec<&str> = topic.split('/').collect();
 
         // Ensure the topic contains at least 4 tokens and the last one is named $meta (e.g. "homie/5/device-id/$meta")
-        if tokens.last() != Some(&EXT_META_ATTRIBUTE) || tokens.last() != Some(&EXT_TAGS_ATTRIBUTE) {
+        if tokens.last() != Some(&EXT_META_ATTRIBUTE) && tokens.last() != Some(&EXT_TAGS_ATTRIBUTE) {
             return Err(MetaExtError::InvalidTopic);
         }
 
