@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use crate::HomieID;
 
 use super::AsPropPointer;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PropertyPointer {
     pub(crate) node_id: HomieID,
     pub(crate) prop_id: HomieID,

@@ -27,13 +27,15 @@
 //!
 //! These methods allow precise identification and referencing of Homie properties in MQTT topics.
 
+use serde::{Deserialize, Serialize};
+
 use crate::AsPropPointer;
 use crate::{AsNodeId, DeviceRef, HomieDomain, HomieID, NodeRef, ToTopic, TopicBuilder};
 
 use super::PropertyPointer;
 
 /// Identifies a property of a node via its NodeRef and the property id
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PropertyRef {
     /// Identifier of the node the property belongs to
     pub(crate) device: DeviceRef,
