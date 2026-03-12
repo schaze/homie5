@@ -11,7 +11,7 @@
 //! ```
 use super::property_format::HomiePropertyFormat;
 use super::{
-    HomieDeviceDescription, HomieNodeDescription, HomiePropertyDescription, RETAINTED_DEFAULT, SETTABLE_DEFAULT,
+    HomieDeviceDescription, HomieNodeDescription, HomiePropertyDescription, RETAINED_DEFAULT, SETTABLE_DEFAULT,
 };
 use crate::{HomieDataType, HomieID, HOMIE_VERSION_FULL};
 use std::collections::{btree_map, BTreeMap};
@@ -107,7 +107,7 @@ impl DeviceDescriptionBuilder {
     }
 
     pub fn r#type<S: Into<String>>(mut self, r#type: impl Into<Option<S>>) -> Self {
-        self.description.name = r#type.into().map(Into::into);
+        self.description.r#type = r#type.into().map(Into::into);
         self
     }
 
@@ -287,7 +287,7 @@ impl PropertyDescriptionBuilder {
                 datatype,
                 format: HomiePropertyFormat::Empty,
                 settable: SETTABLE_DEFAULT,
-                retained: RETAINTED_DEFAULT,
+                retained: RETAINED_DEFAULT,
                 unit: None,
             },
         }
