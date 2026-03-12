@@ -228,7 +228,9 @@ impl FromStr for HomieColorValue {
                     tokens.next().map(|g| g.parse::<i64>()),
                     tokens.next().map(|b| b.parse::<i64>()),
                 ) {
-                    return Ok(Self::RGB(r, g, b));
+                    if (0..=255).contains(&r) && (0..=255).contains(&g) && (0..=255).contains(&b) {
+                        return Ok(Self::RGB(r, g, b));
+                    }
                 }
             }
             Some("hsv") => {
@@ -237,7 +239,9 @@ impl FromStr for HomieColorValue {
                     tokens.next().map(|s| s.parse::<i64>()),
                     tokens.next().map(|v| v.parse::<i64>()),
                 ) {
-                    return Ok(Self::HSV(h, s, v));
+                    if (0..=360).contains(&h) && (0..=100).contains(&s) && (0..=100).contains(&v) {
+                        return Ok(Self::HSV(h, s, v));
+                    }
                 }
             }
             Some("xyz") => {
@@ -245,7 +249,9 @@ impl FromStr for HomieColorValue {
                     tokens.next().map(|x| x.parse::<f64>()),
                     tokens.next().map(|y| y.parse::<f64>()),
                 ) {
-                    return Ok(Self::XYZ(x, y, 1.0 - x - y));
+                    if (0.0..=1.0).contains(&x) && (0.0..=1.0).contains(&y) && (x + y) <= 1.0 {
+                        return Ok(Self::XYZ(x, y, 1.0 - x - y));
+                    }
                 }
             }
             _ => {}
@@ -601,18 +607,32 @@ impl HomieValue {
             HomieDataType::Datetime => Self::flexible_datetime_parser(raw).map(HomieValue::DateTime),
             HomieDataType::Duration => Self::parse_duration(raw).map(HomieValue::Duration),
             HomieDataType::JSON => serde_json::from_str::<serde_json::Value>(raw)
-                .map(HomieValue::JSON)
-                .map_err(|e| Homie5ValueConversionError::JsonParseError(e.to_string())),
+                .map_err(|e| Homie5ValueConversionError::JsonParseError(e.to_string()))
+                .and_then(|v| {
+                    if v.is_object() || v.is_array() {
+                        Ok(HomieValue::JSON(v))
+                    } else {
+                        Err(Homie5ValueConversionError::JsonParseError(
+                            "JSON payload must be an object or array".to_string(),
+                        ))
+                    }
+                }),
         }
         .map_err(Homie5ProtocolError::InvalidHomieValue)
     }
 
     pub fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
-        let re = regex::Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").unwrap();
-        if let Some(captures) = re.captures(s) {
+        static RE: std::sync::LazyLock<regex::Regex> =
+            std::sync::LazyLock::new(|| regex::Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").unwrap());
+        if let Some(captures) = RE.captures(s) {
             let hours: i64 = captures.get(1).map_or(0, |m| m.as_str().parse().unwrap());
             let minutes: i64 = captures.get(2).map_or(0, |m| m.as_str().parse().unwrap());
             let seconds: i64 = captures.get(3).map_or(0, |m| m.as_str().parse().unwrap());
+
+            // Require at least one component (reject bare "PT")
+            if captures.get(1).is_none() && captures.get(2).is_none() && captures.get(3).is_none() {
+                return Err(Homie5ValueConversionError::InvalidDurationFormat(s.to_string()));
+            }
 
             return Ok(chrono::Duration::seconds(hours * 3600 + minutes * 60 + seconds));
         }
@@ -707,9 +727,12 @@ impl HomieValue {
             (HomieValue::Integer(value), HomieDataType::Integer) => Self::validate_int(*value, property_desc)
                 .map(|v| v == *value)
                 .unwrap_or(false),
-            (HomieValue::Float(value), HomieDataType::Float) => Self::validate_float(*value, property_desc)
-                .map(|v| v == *value)
-                .unwrap_or(false),
+            (HomieValue::Float(value), HomieDataType::Float) => {
+                value.is_finite()
+                    && Self::validate_float(*value, property_desc)
+                        .map(|v| v == *value)
+                        .unwrap_or(false)
+            }
             (HomieValue::Bool(_), HomieDataType::Boolean) => true,
             (HomieValue::Enum(value), HomieDataType::Enum) => {
                 let HomiePropertyFormat::Enum(variants) = &property_desc.format else {
@@ -729,8 +752,7 @@ impl HomieValue {
             }
             (HomieValue::DateTime(_), HomieDataType::Datetime) => true,
             (HomieValue::Duration(_), HomieDataType::Duration) => true,
-            (HomieValue::JSON(_), HomieDataType::JSON) => true, // No JSON Schema validation
-            // implemented yet
+            (HomieValue::JSON(v), HomieDataType::JSON) => v.is_object() || v.is_array(),
             _ => false,
         }
     }

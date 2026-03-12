@@ -34,6 +34,7 @@
 use std::fmt;
 use std::{borrow::Cow, convert::TryFrom};
 
+use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize};
 
 use crate::AsNodeId;
@@ -88,7 +89,7 @@ impl std::error::Error for InvalidHomieIDError {}
 /// let id = HomieID::try_from("sensor-01").unwrap();
 /// assert_eq!(id.as_str(), "sensor-01");
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, JsonSchema)]
 pub struct HomieID(Cow<'static, str>);
 
 impl HomieID {

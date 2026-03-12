@@ -162,7 +162,7 @@ impl Homie5DeviceProtocol {
                 .add_attr(DEVICE_ATTRIBUTE_STATE)
                 .build(),
             message: HomieDeviceStatus::Lost.as_str().bytes().collect(),
-            qos: crate::client::QoS::AtLeastOnce,
+            qos: crate::client::QoS::ExactlyOnce,
             retain: true,
         };
 
@@ -248,7 +248,7 @@ impl Homie5DeviceProtocol {
                 .add_attr(level.as_str())
                 .build(),
             qos: QoS::AtLeastOnce,
-            retain: true,
+            retain: false,
             payload: log_msg.into(),
         }
     }
@@ -450,7 +450,9 @@ impl Homie5DeviceProtocol {
         Ok(prop_iter
             .filter(|&(_, _, _, prop)| prop.settable)
             .map(|(node_id, _, prop_id, _)| Unsubscribe {
-                topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id).build(),
+                topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
+                    .add_attr(PROPERTY_SET_TOPIC)
+                    .build(),
             }))
     }
 
@@ -498,7 +500,6 @@ impl Homie5DeviceProtocol {
                 [
                     Publish {
                         topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
-                            .add_attr(PROPERTY_SET_TOPIC)
                             .build(),
                         qos: QoS::ExactlyOnce,
                         retain: true,

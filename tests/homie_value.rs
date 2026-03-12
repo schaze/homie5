@@ -487,8 +487,8 @@ fn test_color_ok() {
         Some(HomieValue::Color(HomieColorValue::RGB(12, 55, 14)))
     );
     assert_eq!(
-        HomieValue::parse("hsv,112,155,55", &desc).ok(),
-        Some(HomieValue::Color(HomieColorValue::HSV(112, 155, 55)))
+        HomieValue::parse("hsv,112,85,55", &desc).ok(),
+        Some(HomieValue::Color(HomieColorValue::HSV(112, 85, 55)))
     );
     assert_eq!(
         HomieValue::parse("xyz,0.33453,0.123456", &desc).ok(),

@@ -31,6 +31,7 @@
 //!
 
 use core::fmt;
+use schemars::JsonSchema;
 use std::borrow::Cow;
 
 use crate::DEFAULT_HOMIE_DOMAIN;
@@ -69,7 +70,7 @@ impl fmt::Display for InvalidHomieDomainError {
 
 impl std::error::Error for InvalidHomieDomainError {}
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, serde::Serialize, JsonSchema)]
 pub struct CustomDomain(Cow<'static, str>);
 
 impl CustomDomain {
@@ -163,7 +164,7 @@ impl<'de> serde::Deserialize<'de> for CustomDomain {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, JsonSchema)]
 pub enum HomieDomain {
     #[default]
     Default,

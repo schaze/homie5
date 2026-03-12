@@ -22,7 +22,7 @@ pub use number_ranges::*;
 pub use property_format::*;
 
 pub const SETTABLE_DEFAULT: bool = false;
-pub const RETAINTED_DEFAULT: bool = true;
+pub const RETAINED_DEFAULT: bool = true;
 
 /// PropertyDescription
 ///
@@ -73,7 +73,7 @@ pub fn serde_default_settable() -> bool {
 }
 
 pub fn serde_default_retained() -> bool {
-    RETAINTED_DEFAULT
+    RETAINED_DEFAULT
 }
 
 fn serialize_format<S>(item: &HomiePropertyFormat, serializer: S) -> Result<S::Ok, S::Error>
@@ -192,12 +192,10 @@ impl Hash for HomieNodeDescription {
         self.name.hash(state);
         self.r#type.hash(state);
 
-        // Hashing HashMap contents in a deterministic order
-        let mut keys: Vec<_> = self.properties.keys().collect();
-        keys.sort();
-        for key in keys {
+        // BTreeMap already iterates in sorted order
+        for (key, value) in &self.properties {
             key.hash(state);
-            self.properties.get(key).unwrap().hash(state);
+            value.hash(state);
         }
     }
 }
@@ -355,18 +353,17 @@ impl HomieDeviceDescription {
 impl Hash for HomieDeviceDescription {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
+        self.r#type.hash(state);
         self.homie.hash(state);
         self.children.hash(state);
         self.root.hash(state);
         self.parent.hash(state);
         self.extensions.hash(state);
 
-        // Hashing HashMap contents in a deterministic order
-        let mut keys: Vec<_> = self.nodes.keys().collect();
-        keys.sort();
-        for key in keys {
+        // BTreeMap already iterates in sorted order
+        for (key, value) in &self.nodes {
             key.hash(state);
-            self.nodes.get(key).unwrap().hash(state);
+            value.hash(state);
         }
     }
 }
@@ -472,7 +469,7 @@ mod test {
                     step: Some(0.45)
                 }),
                 settable: SETTABLE_DEFAULT,
-                retained: RETAINTED_DEFAULT,
+                retained: RETAINED_DEFAULT,
                 unit: None,
             }
         );

@@ -170,8 +170,20 @@ impl Homie5ControllerProtocol {
         description: &'a HomieDeviceDescription,
     ) -> impl Iterator<Item = Unsubscribe> + 'a {
         let prop_iter = HomiePropertyIterator::new(description);
-        prop_iter.map(move |(node_id, _, prop_id, _)| Unsubscribe {
-            topic: device.to_topic().add_id(node_id).add_id(prop_id).build(),
+        prop_iter.flat_map(move |(node_id, _, prop_id, _)| {
+            [
+                Unsubscribe {
+                    topic: device.to_topic().add_id(node_id).add_id(prop_id).build(),
+                },
+                Unsubscribe {
+                    topic: device
+                        .to_topic()
+                        .add_id(node_id)
+                        .add_id(prop_id)
+                        .add_attr(PROPERTY_ATTRIBUTE_TARGET)
+                        .build(),
+                },
+            ]
         })
     }
 

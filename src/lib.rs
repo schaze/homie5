@@ -40,6 +40,7 @@ pub use homie_id::*;
 pub use homie_ref::*;
 pub use value::*;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use std::fmt;
@@ -61,7 +62,7 @@ pub const DEVICE_ATTRIBUTE_STATE: &str = "$state";
 pub const DEVICE_ATTRIBUTE_LOG: &str = "$log";
 /// Device description attribute topic: "$description"
 pub const DEVICE_ATTRIBUTE_DESCRIPTION: &str = "$description";
-/// Device alert attribute topic: "$state"
+/// Device alert attribute topic: "$alert"
 pub const DEVICE_ATTRIBUTE_ALERT: &str = "$alert";
 /// A list of all the device attributes to be published or subscribed to
 pub const DEVICE_ATTRIBUTES: [&str; 4] = [
@@ -77,7 +78,7 @@ pub const PROPERTY_SET_TOPIC: &str = "set";
 pub const PROPERTY_ATTRIBUTE_TARGET: &str = "$target";
 
 /// Datatypes in the homie protocol
-#[derive(Serialize, Deserialize, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Copy)]
+#[derive(Serialize, Deserialize, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Copy, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum HomieDataType {
     /// - Integer types are string literal representations of 64-bit signed whole numbers
