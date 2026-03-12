@@ -4,10 +4,10 @@ use rumqttc::AsyncClient;
 
 use homie5::{
     device_description::{
-        BooleanFormat, DeviceDescriptionBuilder, HomieDeviceDescription, HomiePropertyFormat, IntegerRange,
-        NodeDescriptionBuilder, PropertyDescriptionBuilder,
+        DeviceDescriptionBuilder, HomieDeviceDescription, IntegerRange, NodeDescriptionBuilder,
+        PropertyDescriptionBuilder,
     },
-    Homie5DeviceProtocol, HomieDataType, HomieDeviceStatus, HomieDomain, HomieID, HomieValue, NodeRef, PropertyRef,
+    Homie5DeviceProtocol, HomieDeviceStatus, HomieDomain, HomieID, HomieValue, NodeRef, PropertyRef,
     HOMIE_UNIT_PERCENT,
 };
 
@@ -59,25 +59,22 @@ impl LightDevice {
                     .name("Light node")
                     .add_property(
                         prop_light_state.prop_id().clone(),
-                        PropertyDescriptionBuilder::new(HomieDataType::Boolean)
+                        PropertyDescriptionBuilder::boolean()
                             .name("Light state")
-                            .format(HomiePropertyFormat::Boolean(BooleanFormat {
-                                false_val: "off".to_string(),
-                                true_val: "on".to_string(),
-                            }))
+                            .boolean_labels("off", "on")
                             .retained(true)
                             .settable(true)
                             .build(),
                     )
                     .add_property(
                         prop_light_brightness.prop_id().clone(),
-                        PropertyDescriptionBuilder::new(HomieDataType::Integer)
+                        PropertyDescriptionBuilder::integer()
                             .name("Brightness")
-                            .format(HomiePropertyFormat::IntegerRange(IntegerRange {
+                            .integer_range(IntegerRange {
                                 min: Some(0),
                                 max: Some(100),
                                 step: None,
-                            }))
+                            })
                             .unit(HOMIE_UNIT_PERCENT)
                             .retained(true)
                             .settable(true)
