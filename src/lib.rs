@@ -28,7 +28,7 @@ mod homie5_message;
 mod homie_domain;
 mod homie_id;
 mod homie_ref;
-mod statemachine;
+pub mod statemachine;
 mod value;
 
 pub use controller_proto::*;
@@ -38,6 +38,7 @@ pub use homie5_message::*;
 pub use homie_domain::*;
 pub use homie_id::*;
 pub use homie_ref::*;
+pub use statemachine::*;
 pub use value::*;
 
 use schemars::JsonSchema;
@@ -364,6 +365,12 @@ impl TopicBuilder {
     ) -> Self {
         Self::new_for_node(homie_domain, device_id, node_id).add_id(property_id)
     }
+    /// Creates a TopicBuilder for an extension namespace (e.g. `homie/5/$meta`).
+    /// The `ext_name` should include the `$` prefix (e.g. `"$meta"`).
+    pub fn new_for_extension(homie_domain: &HomieDomain, ext_name: &str) -> Self {
+        Self::new(homie_domain).add_attr(ext_name)
+    }
+
     pub fn add_attr(mut self, attr: &str) -> Self {
         self.topic.push('/');
         self.topic.push_str(attr);

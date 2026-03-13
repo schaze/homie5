@@ -1,4 +1,4 @@
-pub(crate) trait Transition<T>
+pub trait Transition<T>
 where
     T: Copy,
 {
@@ -6,7 +6,7 @@ where
 }
 
 /// A simple Finite State Machine structure
-pub(crate) struct HomieStateMachine<T>
+pub struct HomieStateMachine<T>
 where
     T: Transition<T> + Copy,
 {
