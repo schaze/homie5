@@ -420,9 +420,13 @@ impl<State> PropertyDescriptionBuilder<State> {
 }
 
 impl PropertyDescriptionBuilder<IntegerProperty> {
-    pub fn integer_range(mut self, range: IntegerRange) -> Self {
-        self.description.format = HomiePropertyFormat::IntegerRange(range);
+    pub fn range<R: Into<IntegerRange>>(mut self, range: R) -> Self {
+        self.description.format = HomiePropertyFormat::IntegerRange(range.into());
         self
+    }
+
+    pub fn integer_range(self, range: IntegerRange) -> Self {
+        self.range(range)
     }
 
     pub fn build(self) -> HomiePropertyDescription {
@@ -431,9 +435,13 @@ impl PropertyDescriptionBuilder<IntegerProperty> {
 }
 
 impl PropertyDescriptionBuilder<FloatProperty> {
-    pub fn float_range(mut self, range: FloatRange) -> Self {
-        self.description.format = HomiePropertyFormat::FloatRange(range);
+    pub fn range<R: Into<FloatRange>>(mut self, range: R) -> Self {
+        self.description.format = HomiePropertyFormat::FloatRange(range.into());
         self
+    }
+
+    pub fn float_range(self, range: FloatRange) -> Self {
+        self.range(range)
     }
 
     pub fn build(self) -> HomiePropertyDescription {
