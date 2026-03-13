@@ -365,10 +365,14 @@ impl TopicBuilder {
     ) -> Self {
         Self::new_for_node(homie_domain, device_id, node_id).add_id(property_id)
     }
-    /// Creates a TopicBuilder for an extension namespace (e.g. `homie/5/$meta`).
-    /// The `ext_name` should include the `$` prefix (e.g. `"$meta"`).
-    pub fn new_for_extension(homie_domain: &HomieDomain, ext_name: &str) -> Self {
-        Self::new(homie_domain).add_attr(ext_name)
+    /// Creates a TopicBuilder for a domain-level namespace (e.g. `homie/5/$meta`).
+    ///
+    /// Use this for out-of-tree namespaces that sit alongside the device tree
+    /// at the domain root
+    ///
+    /// The `namespace` should include the `$` prefix (e.g. `"$meta"`).
+    pub fn new_for_namespace(homie_domain: &HomieDomain, namespace: &str) -> Self {
+        Self::new(homie_domain).add_attr(namespace)
     }
 
     pub fn add_attr(mut self, attr: &str) -> Self {

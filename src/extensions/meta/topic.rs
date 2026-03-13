@@ -8,7 +8,7 @@ pub const META_INFO_ATTRIBUTE: &str = "$info";
 
 /// Build the `$meta` namespace root: `{domain}/5/$meta`
 pub fn meta_topic_root(homie_domain: &HomieDomain) -> TopicBuilder {
-    TopicBuilder::new_for_extension(homie_domain, META_TOPIC_SEGMENT)
+    TopicBuilder::new_for_namespace(homie_domain, META_TOPIC_SEGMENT)
 }
 
 /// Build the provider info topic: `{domain}/5/$meta/{provider_id}/$info`
