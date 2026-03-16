@@ -109,7 +109,14 @@ fn test_homie_color_value_from_str_invalid() {
 }
 
 fn create_prop_desc(dt: HomieDataType, pf: HomiePropertyFormat) -> HomiePropertyDescription {
-    PropertyDescriptionBuilder::new(dt).format(pf).build()
+    HomiePropertyDescription {
+        name: None,
+        datatype: dt,
+        format: pf,
+        settable: false,
+        retained: true,
+        unit: None,
+    }
 }
 
 #[test]
@@ -359,17 +366,13 @@ fn test_integer_value_with_step_rounding_2() {
 
 #[test]
 fn test_integer_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
-        .name("test")
-        .build();
+    let desc = PropertyDescriptionBuilder::integer().name("test").build();
     assert!(matches!(HomieValue::parse("122", &desc), Ok(HomieValue::Integer(122))));
 }
 
 #[test]
 fn test_integer_nok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
-        .name("test")
-        .build();
+    let desc = PropertyDescriptionBuilder::integer().name("test").build();
     assert!(matches!(
         HomieValue::parse("bla2", &desc),
         Err(Homie5ProtocolError::InvalidHomieValue(
@@ -398,7 +401,7 @@ fn test_integer_nok() {
 
 #[test]
 fn test_float_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Float).build();
+    let desc = PropertyDescriptionBuilder::float().build();
     assert!(matches!(HomieValue::parse("122", &desc), Ok(HomieValue::Float(122.0))));
     assert!(matches!(
         HomieValue::parse("122.12", &desc),
@@ -408,7 +411,7 @@ fn test_float_ok() {
 
 #[test]
 fn test_float_nok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Float).build();
+    let desc = PropertyDescriptionBuilder::float().build();
     assert!(matches!(
         HomieValue::parse("bla2", &desc),
         Err(Homie5ProtocolError::InvalidHomieValue(
@@ -431,14 +434,14 @@ fn test_float_nok() {
 
 #[test]
 fn test_bool_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Boolean).build();
+    let desc = PropertyDescriptionBuilder::boolean().build();
     assert!(matches!(HomieValue::parse("true", &desc), Ok(HomieValue::Bool(true))));
     assert!(matches!(HomieValue::parse("false", &desc), Ok(HomieValue::Bool(false))));
 }
 
 #[test]
 fn test_bool_nok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Boolean).build();
+    let desc = PropertyDescriptionBuilder::boolean().build();
     assert!(matches!(
         HomieValue::parse("bla2", &desc),
         Err(Homie5ProtocolError::InvalidHomieValue(
@@ -461,7 +464,7 @@ fn test_bool_nok() {
 
 #[test]
 fn test_string_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::String).build();
+    let desc = PropertyDescriptionBuilder::string().build();
     assert_eq!(
         HomieValue::parse("blah", &desc).ok(),
         Some(HomieValue::String("blah".to_owned()))
@@ -470,9 +473,7 @@ fn test_string_ok() {
 
 #[test]
 fn test_enum_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Enum)
-        .format(HomiePropertyFormat::Enum(vec!["blah".to_owned()]))
-        .build();
+    let desc = PropertyDescriptionBuilder::enumeration(["blah"]).unwrap().build();
     assert_eq!(
         HomieValue::parse("blah", &desc).ok(),
         Some(HomieValue::Enum("blah".to_owned()))
@@ -481,7 +482,9 @@ fn test_enum_ok() {
 
 #[test]
 fn test_color_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Color).build();
+    let desc = PropertyDescriptionBuilder::color([ColorFormat::Rgb, ColorFormat::Hsv, ColorFormat::Xyz])
+        .unwrap()
+        .build();
     assert_eq!(
         HomieValue::parse("rgb,12,55,14", &desc).ok(),
         Some(HomieValue::Color(HomieColorValue::RGB(12, 55, 14)))
@@ -502,16 +505,77 @@ fn test_color_ok() {
 
 #[test]
 fn test_color_nok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Color).build();
+    let desc = PropertyDescriptionBuilder::color([ColorFormat::Rgb]).unwrap().build();
     assert!(HomieValue::parse("rgb,12,55", &desc).is_err());
+    assert!(HomieValue::parse("hsv,12,55,14", &desc).is_err());
     assert!(HomieValue::parse("HSV,12,55,14", &desc).is_err());
     assert!(HomieValue::parse("rgb ,12,55,14", &desc).is_err());
     assert!(HomieValue::parse("xyz/12,55", &desc).is_err());
 }
 
 #[test]
+fn test_color_without_format_is_invalid_description() {
+    let desc = HomiePropertyDescription {
+        name: None,
+        datatype: HomieDataType::Color,
+        format: HomiePropertyFormat::Empty,
+        settable: false,
+        retained: true,
+        unit: None,
+    };
+    assert!(matches!(
+        desc.validate_strict(),
+        Err(PropertyDescriptionValidationError::MissingColorFormat)
+    ));
+}
+
+#[test]
+fn test_enum_without_format_is_invalid_description() {
+    let desc = HomiePropertyDescription {
+        name: None,
+        datatype: HomieDataType::Enum,
+        format: HomiePropertyFormat::Empty,
+        settable: false,
+        retained: true,
+        unit: None,
+    };
+    assert!(matches!(
+        desc.validate_strict(),
+        Err(PropertyDescriptionValidationError::MissingEnumFormat)
+    ));
+}
+
+#[test]
+fn test_parse_enum_rejects_missing_format() {
+    let desc = HomiePropertyDescription {
+        name: None,
+        datatype: HomieDataType::Enum,
+        format: HomiePropertyFormat::Empty,
+        settable: false,
+        retained: true,
+        unit: None,
+    };
+
+    assert!(HomieValue::parse("option1", &desc).is_err());
+}
+
+#[test]
+fn test_parse_color_rejects_missing_format() {
+    let desc = HomiePropertyDescription {
+        name: None,
+        datatype: HomieDataType::Color,
+        format: HomiePropertyFormat::Empty,
+        settable: false,
+        retained: true,
+        unit: None,
+    };
+
+    assert!(HomieValue::parse("rgb,12,55,14", &desc).is_err());
+}
+
+#[test]
 fn test_datetime_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Datetime).build();
+    let desc = PropertyDescriptionBuilder::datetime().build();
     assert_eq!(
         HomieValue::parse("2023-09-26T10:54:59+00:00", &desc).ok(),
         Some(HomieValue::DateTime(
@@ -545,7 +609,7 @@ fn test_datetime_ok() {
 }
 #[test]
 fn test_duration_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Duration).build();
+    let desc = PropertyDescriptionBuilder::duration().build();
     assert_eq!(
         HomieValue::parse("PT12H4M2S", &desc).ok(),
         Some(HomieValue::Duration(
@@ -562,7 +626,7 @@ fn test_duration_ok() {
 
 #[test]
 fn test_json_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::JSON).build();
+    let desc = PropertyDescriptionBuilder::json().build();
     let json = HomieValue::parse("{ \"test\": \"test\" }", &desc);
     assert!(json.is_ok());
     assert_eq!(
@@ -576,22 +640,19 @@ fn test_json_ok() {
 
 #[test]
 fn test_json_nok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::JSON).build();
+    let desc = PropertyDescriptionBuilder::json().build();
     let json = HomieValue::parse("{ \"test\": failure }", &desc);
     assert!(json.is_err());
 }
 
 #[test]
 fn test_validation_float_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Float)
-        .format(
-            // Test cases for FloatRange
-            HomiePropertyFormat::FloatRange(FloatRange {
-                min: Some(-6.0),
-                max: Some(6.0),
-                step: Some(3.0),
-            }),
-        )
+    let desc = PropertyDescriptionBuilder::float()
+        .float_range(FloatRange {
+            min: Some(-6.0),
+            max: Some(6.0),
+            step: Some(3.0),
+        })
         .build();
 
     let float_values = vec![
@@ -612,15 +673,12 @@ fn test_validation_float_ok() {
 
 #[test]
 fn test_validation_integer_ok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
-        .format(
-            // Test cases for IntegerRange
-            HomiePropertyFormat::IntegerRange(IntegerRange {
-                min: None,
-                max: Some(10),
-                step: Some(2),
-            }),
-        )
+    let desc = PropertyDescriptionBuilder::integer()
+        .integer_range(IntegerRange {
+            min: None,
+            max: Some(10),
+            step: Some(2),
+        })
         .build();
 
     let _float_values = vec![
@@ -640,7 +698,7 @@ fn test_validation_integer_ok() {
 }
 #[test]
 fn test_validation_integer_nok() {
-    let desc = PropertyDescriptionBuilder::new(HomieDataType::Integer).build();
+    let desc = PropertyDescriptionBuilder::integer().build();
     let json = HomieValue::parse("{ \"test\": failure }", &desc);
     assert!(json.is_err());
 }

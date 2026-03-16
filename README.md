@@ -289,24 +289,21 @@ To create a device description use the provided builders from homie5::device_des
                 .name(Some("Light node".to_owned()))
                 .add_property(
                     prop_light_state.id.clone(),
-                    PropertyDescriptionBuilder::new(HomieDataType::Boolean)
+                    PropertyDescriptionBuilder::boolean()
                         .name(Some("Light state".to_owned()))
-                        .format(HomiePropertyFormat::Boolean {
-                            false_val: "off".to_string(),
-                            true_val: "on".to_string(),
-                        })
+                        .boolean_labels("off", "on")
                         .settable(true)
                         .build(),
                 )
                 .add_property(
                     prop_light_brightness.id.clone(),
-                    PropertyDescriptionBuilder::new(HomieDataType::Integer)
+                    PropertyDescriptionBuilder::integer()
                         .name(Some("Brightness".to_owned()))
-                        .format(HomiePropertyFormat::IntegerRange(IntegerRange {
+                        .integer_range(IntegerRange {
                             min: Some(0),
                             max: Some(100),
                             step: None,
-                        }))
+                        })
                         .unit(Some(HOMIE_UNIT_PERCENT.to_string()))
                         .settable(true)
                         .build(),

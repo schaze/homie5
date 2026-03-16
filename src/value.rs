@@ -529,11 +529,9 @@ impl HomieValue {
     /// use homie5::device_description::*;
     /// use homie5::{HomieValue, HomieDataType};
     ///
-    /// let property_desc = PropertyDescriptionBuilder::new(HomieDataType::Integer)
-    /// .format(
-    ///     HomiePropertyFormat::IntegerRange(
-    ///         IntegerRange { min: Some(0), max: Some(100), step: None })
-    /// ).build();
+    /// let property_desc = PropertyDescriptionBuilder::integer()
+    ///     .integer_range(IntegerRange { min: Some(0), max: Some(100), step: None })
+    ///     .build();
     ///
     /// let value = HomieValue::parse("42", &property_desc);
     /// assert_eq!(value.ok(), Some(HomieValue::Integer(42)));
@@ -564,6 +562,12 @@ impl HomieValue {
             HomieDataType::String => Ok(HomieValue::String(raw.to_owned())),
             HomieDataType::Enum => {
                 if let HomiePropertyFormat::Enum(values) = &property_desc.format {
+                    if values.is_empty() || values.iter().any(|v| v.is_empty()) {
+                        return Err(
+                            Homie5ValueConversionError::InvalidEnumFormat(raw.to_string(), values.clone()).into(),
+                        );
+                    }
+
                     let string_val = raw.to_owned();
                     values
                         .contains(&string_val)
@@ -573,34 +577,34 @@ impl HomieValue {
                             values.clone(),
                         ))
                 } else {
-                    // not sure if this can happen per spec
-                    Ok(HomieValue::Enum(raw.to_string()))
+                    Err(Homie5ValueConversionError::InvalidEnumFormat(raw.to_string(), vec![]))
                 }
             }
             HomieDataType::Color => raw
                 .parse::<HomieColorValue>()
                 .and_then(|color_value| {
-                    if !property_desc.format.is_empty() {
-                        // if supported formats are specified, check if the provided value is
-                        // compatible
-                        if let HomiePropertyFormat::Color(formats) = &property_desc.format {
-                            match color_value {
-                                HomieColorValue::RGB(_, _, _) if formats.contains(&ColorFormat::Rgb) => Ok(color_value),
-                                HomieColorValue::HSV(_, _, _) if formats.contains(&ColorFormat::Hsv) => Ok(color_value),
-                                HomieColorValue::XYZ(_, _, _) if formats.contains(&ColorFormat::Xyz) => Ok(color_value),
-                                color => Err(Homie5ValueConversionError::UnsupportedColorFormat(
-                                    color.color_format(),
-                                    formats.clone(),
-                                )),
-                            }
-                        } else {
-                            // if no color format is supplied no check is needed (this should
-                            // never happen actually)
-                            Ok(color_value)
+                    if let HomiePropertyFormat::Color(formats) = &property_desc.format {
+                        if formats.is_empty() {
+                            return Err(Homie5ValueConversionError::UnsupportedColorFormat(
+                                color_value.color_format(),
+                                vec![],
+                            ));
+                        }
+
+                        match color_value {
+                            HomieColorValue::RGB(_, _, _) if formats.contains(&ColorFormat::Rgb) => Ok(color_value),
+                            HomieColorValue::HSV(_, _, _) if formats.contains(&ColorFormat::Hsv) => Ok(color_value),
+                            HomieColorValue::XYZ(_, _, _) if formats.contains(&ColorFormat::Xyz) => Ok(color_value),
+                            color => Err(Homie5ValueConversionError::UnsupportedColorFormat(
+                                color.color_format(),
+                                formats.clone(),
+                            )),
                         }
                     } else {
-                        // if no format at all is provided, no further checks are needed
-                        Ok(color_value)
+                        Err(Homie5ValueConversionError::UnsupportedColorFormat(
+                            color_value.color_format(),
+                            vec![],
+                        ))
                     }
                 })
                 .map(HomieValue::Color),
@@ -738,12 +742,15 @@ impl HomieValue {
                 let HomiePropertyFormat::Enum(variants) = &property_desc.format else {
                     return false;
                 };
-                variants.contains(value)
+                !variants.is_empty() && variants.iter().all(|v| !v.is_empty()) && variants.contains(value)
             }
             (HomieValue::Color(value), HomieDataType::Color) => {
                 let HomiePropertyFormat::Color(color_formats) = &property_desc.format else {
                     return false;
                 };
+                if color_formats.is_empty() {
+                    return false;
+                }
                 match value {
                     HomieColorValue::RGB(_, _, _) => color_formats.contains(&ColorFormat::Rgb),
                     HomieColorValue::HSV(_, _, _) => color_formats.contains(&ColorFormat::Hsv),

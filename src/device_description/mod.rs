@@ -2,11 +2,13 @@
 //! descriptions.
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::iter::Iterator;
 
 use serde::{Deserialize, Deserializer, Serialize};
+use thiserror::Error;
 
 use crate::AsNodeId;
 use crate::AsPropPointer;
@@ -66,6 +68,110 @@ pub struct HomiePropertyDescription {
     pub retained: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unit: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum PropertyDescriptionValidationError {
+    #[error("enum property requires a non-empty enum format")]
+    MissingEnumFormat,
+    #[error("enum format must not contain empty values")]
+    EnumContainsEmptyValue,
+    #[error("enum format must not contain duplicate values")]
+    DuplicateEnumValues,
+    #[error("color property requires a non-empty color format")]
+    MissingColorFormat,
+    #[error("color format must not contain duplicate values")]
+    DuplicateColorFormats,
+    #[error("integer property format must be empty or IntegerRange")]
+    InvalidIntegerFormat,
+    #[error("float property format must be empty or FloatRange")]
+    InvalidFloatFormat,
+    #[error("boolean property format must be empty or Boolean")]
+    InvalidBooleanFormat,
+    #[error("json property format must be empty or Json")]
+    InvalidJsonFormat,
+    #[error("{0} property format must be empty")]
+    FormatNotAllowed(&'static str),
+}
+
+impl HomiePropertyDescription {
+    pub fn validate_strict(&self) -> Result<(), PropertyDescriptionValidationError> {
+        match self.datatype {
+            HomieDataType::Integer => match &self.format {
+                HomiePropertyFormat::Empty | HomiePropertyFormat::IntegerRange(_) => Ok(()),
+                _ => Err(PropertyDescriptionValidationError::InvalidIntegerFormat),
+            },
+            HomieDataType::Float => match &self.format {
+                HomiePropertyFormat::Empty | HomiePropertyFormat::FloatRange(_) => Ok(()),
+                _ => Err(PropertyDescriptionValidationError::InvalidFloatFormat),
+            },
+            HomieDataType::Boolean => match &self.format {
+                HomiePropertyFormat::Empty | HomiePropertyFormat::Boolean(_) => Ok(()),
+                _ => Err(PropertyDescriptionValidationError::InvalidBooleanFormat),
+            },
+            HomieDataType::String => {
+                if self.format.is_empty() {
+                    Ok(())
+                } else {
+                    Err(PropertyDescriptionValidationError::FormatNotAllowed("string"))
+                }
+            }
+            HomieDataType::Enum => {
+                let HomiePropertyFormat::Enum(values) = &self.format else {
+                    return Err(PropertyDescriptionValidationError::MissingEnumFormat);
+                };
+
+                if values.is_empty() {
+                    return Err(PropertyDescriptionValidationError::MissingEnumFormat);
+                }
+
+                if values.iter().any(|v| v.is_empty()) {
+                    return Err(PropertyDescriptionValidationError::EnumContainsEmptyValue);
+                }
+
+                let unique_len = values.iter().collect::<HashSet<_>>().len();
+                if unique_len != values.len() {
+                    return Err(PropertyDescriptionValidationError::DuplicateEnumValues);
+                }
+
+                Ok(())
+            }
+            HomieDataType::Color => {
+                let HomiePropertyFormat::Color(formats) = &self.format else {
+                    return Err(PropertyDescriptionValidationError::MissingColorFormat);
+                };
+
+                if formats.is_empty() {
+                    return Err(PropertyDescriptionValidationError::MissingColorFormat);
+                }
+
+                let unique_len = formats.iter().collect::<HashSet<_>>().len();
+                if unique_len != formats.len() {
+                    return Err(PropertyDescriptionValidationError::DuplicateColorFormats);
+                }
+
+                Ok(())
+            }
+            HomieDataType::Datetime => {
+                if self.format.is_empty() {
+                    Ok(())
+                } else {
+                    Err(PropertyDescriptionValidationError::FormatNotAllowed("datetime"))
+                }
+            }
+            HomieDataType::Duration => {
+                if self.format.is_empty() {
+                    Ok(())
+                } else {
+                    Err(PropertyDescriptionValidationError::FormatNotAllowed("duration"))
+                }
+            }
+            HomieDataType::JSON => match &self.format {
+                HomiePropertyFormat::Empty | HomiePropertyFormat::Json(_) => Ok(()),
+                _ => Err(PropertyDescriptionValidationError::InvalidJsonFormat),
+            },
+        }
+    }
 }
 
 pub fn serde_default_settable() -> bool {

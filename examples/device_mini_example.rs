@@ -216,24 +216,21 @@ fn make_device_description(
                 .name("Light node")
                 .add_property(
                     prop_light_state.prop_id().clone(),
-                    PropertyDescriptionBuilder::new(HomieDataType::Boolean)
+                    PropertyDescriptionBuilder::boolean()
                         .name("Light state")
-                        .format(HomiePropertyFormat::Boolean(BooleanFormat {
-                            false_val: "off".to_string(),
-                            true_val: "on".to_string(),
-                        }))
+                        .boolean_labels("off", "on")
                         .settable(true)
                         .build(),
                 )
                 .add_property(
                     prop_light_brightness.prop_id().clone(),
-                    PropertyDescriptionBuilder::new(HomieDataType::Integer)
+                    PropertyDescriptionBuilder::integer()
                         .name("Brightness")
-                        .format(HomiePropertyFormat::IntegerRange(IntegerRange {
+                        .integer_range(IntegerRange {
                             min: Some(0),
                             max: Some(100),
                             step: None,
-                        }))
+                        })
                         .unit(HOMIE_UNIT_PERCENT)
                         .settable(true)
                         .build(),
