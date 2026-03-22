@@ -350,7 +350,8 @@ To create a device description use the provided builders from homie5::device_des
                             max: Some(100),
                             step: None,
                         })
-                        .unit(Some(HOMIE_UNIT_PERCENT.to_string()))
+                        // or using a native Rust range: .integer_range((0..=100_i64).into())
+                        .unit(HOMIE_UNIT_PERCENT)
                         .settable(true)
                         .build(),
                 )
