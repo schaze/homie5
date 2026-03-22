@@ -14,10 +14,13 @@ Due to this, the usage of the library is a bit more involved as with a completly
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [Installation and usage](#installation-and-usage)
+- [Feature Flags](#feature-flags)
 - [Examples](#examples)
 - [Documentation](#documentation)
   - [TLDR;](#tldr)
+  - [Reference Types](#reference-types)
   - [MQTT "bindings"](#mqtt-bindings)
+  - [Create device description](#create-device-description)
   - [Parsing MQTT messages](#parsing-mqtt-messages)
   - [Parsing HomieValues](#parsing-homievalues)
   - [Homie device protocol implementation](#homie-device-protocol)
@@ -32,8 +35,28 @@ Due to this, the usage of the library is a bit more involved as with a completly
 
 # Installation and usage
 
-Some details...
-`cargo add homie5`
+Add homie5 to your project:
+
+```sh
+cargo add homie5
+```
+
+The library has no MQTT client dependency — you bring your own. See [MQTT "bindings"](#mqtt-bindings)
+for how to integrate with your MQTT client of choice.
+
+<!-- TOC --><a name="feature-flags"></a>
+
+# Feature Flags
+
+| Feature    | Description |
+|------------|-------------|
+| `ext-meta` | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support |
+
+Enable features in your `Cargo.toml`:
+```toml
+[dependencies]
+homie5 = { version = "0.8", features = ["ext-meta"] }
+```
 
 <!-- TOC --><a name="examples"></a>
 
@@ -45,6 +68,8 @@ You can find working examples for both device and controller use case in the `ex
   Implements a homie5 controller that will discover all homie5 devices on a mqtt broker and print out the devices and their property updates ([more information](./examples/README_controller.md)).
 - device_example.rs
   Implements a simple LightDevice with state and brightness control properties ([more information](./examples/README_device.md)).
+- device_mini_example.rs
+  A minimal device example that demonstrates the simplest possible homie5 device setup.
 
 Both examples use rumqttc as a mqtt client implementation and provide a best practice in homie5 usage and in how to integrate the 2 libraries.
 
@@ -68,6 +93,27 @@ In the future there might be features added to homie5 that will implement a Devi
 
 Even though the initial effort to get an application started is higher with this approach in the end the addtional code is negligable compared to the finished program.
 Please check the [examples](./examples/) folder for reusable code blocks and traits that can get you started quickly with a reasonable well designed HomieDevice trait and bindings for rumqttc.
+
+<!-- TOC --><a name="reference-types"></a>
+
+## Reference Types
+
+homie5 provides validated reference types for addressing entities in the Homie topic hierarchy:
+
+- **`HomieID`** — A validated identifier (lowercase a-z, 0-9, hyphens only, non-empty). Created via
+  `HomieID::try_from("my-device")` or `HomieID::new_const("my-device")` (panics on invalid).
+- **`HomieDomain`** — The MQTT root topic. Variants: `Default` ("homie"), `All` ("+"), or
+  `Custom(...)` for custom domains.
+- **`DeviceRef`** — Identifies a device (domain + device ID).
+- **`NodeRef`** — Identifies a node (device ref + node ID).
+- **`PropertyRef`** — Identifies a property (device ref + node ID + property ID).
+- **`PropertyPointer`** — Lightweight property identifier (node ID + property ID, without device context).
+
+All reference types implement the `ToTopic` trait for generating MQTT topic strings.
+
+The library also provides predefined unit constants for common measurement units:
+`HOMIE_UNIT_DEGREE_CELSIUS` ("°C"), `HOMIE_UNIT_PERCENT` ("%"), `HOMIE_UNIT_VOLT` ("V"),
+`HOMIE_UNIT_WATT` ("W"), `HOMIE_UNIT_LUX` ("lx"), and many more. See the `HOMIE_UNIT_*` constants.
 
 <!-- TOC --><a name="mqtt-bindings"></a>
 
@@ -282,23 +328,23 @@ To create a device description use the provided builders from homie5::device_des
 
     // Build the device description
     let desc = DeviceDescriptionBuilder::new()
-        .name(Some("homie5client test-device-1".to_owned()))
+        .name("homie5client test-device-1")
         .add_node(
-            light_node.id.clone(),
+            light_node.node_id().clone(),
             NodeDescriptionBuilder::new()
-                .name(Some("Light node".to_owned()))
+                .name("Light node")
                 .add_property(
-                    prop_light_state.id.clone(),
+                    prop_light_state.prop_id().clone(),
                     PropertyDescriptionBuilder::boolean()
-                        .name(Some("Light state".to_owned()))
+                        .name("Light state")
                         .boolean_labels("off", "on")
                         .settable(true)
                         .build(),
                 )
                 .add_property(
-                    prop_light_brightness.id.clone(),
+                    prop_light_brightness.prop_id().clone(),
                     PropertyDescriptionBuilder::integer()
-                        .name(Some("Brightness".to_owned()))
+                        .name("Brightness")
                         .integer_range(IntegerRange {
                             min: Some(0),
                             max: Some(100),
@@ -359,8 +405,9 @@ rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) => {
                     log::debug!("light state: {}", prop_light_state_value);
                     publish(
                         &mqtt_client,
-                        protocol.publish_value_prop(
-                            &prop_light_state,
+                        protocol.publish_value(
+                            prop_light_state.node_id(),
+                            prop_light_state.prop_id(),
                             prop_light_state_value.to_string(),
                             true,
                         ),
@@ -375,8 +422,9 @@ rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) => {
                     log::debug!("light brightness: {}", prop_light_brightness_value);
                     publish(
                         &mqtt_client,
-                        protocol.publish_value_prop(
-                            &prop_light_brightness,
+                        protocol.publish_value(
+                            prop_light_brightness.node_id(),
+                            prop_light_brightness.prop_id(),
                             prop_light_brightness_value.to_string(),
                             true,
                         ),
@@ -479,7 +527,7 @@ The function returns `Err(Homie5ValueConversionError)` in the following cases:
 
 ## Homie device protocol implementation
 
-Use the `HomieDeviceProtocol` struct and its functions to run the protocol for a (or several) homie device(s).
+Use the `Homie5DeviceProtocol` struct and its functions to run the protocol for a (or several) homie device(s).
 
 The steps are pretty simple:
 
@@ -507,13 +555,15 @@ rumqttc::Event::Incoming(rumqttc::Incoming::ConnAck(_)) => {
                 publish(&mqtt_client, protocol.publish_description(&device_desc)?).await?;
             }
             DevicePublishStep::PropertyValues => {
-                publish(&mqtt_client, protocol.publish_value_prop(
-                        &prop_light_state,
+                publish(&mqtt_client, protocol.publish_value(
+                        prop_light_state.node_id(),
+                        prop_light_state.prop_id(),
                         prop_light_state_value.to_string(),
                         true,
                     )).await?;
-                publish( &mqtt_client, protocol.publish_value_prop(
-                        &prop_light_brightness,
+                publish(&mqtt_client, protocol.publish_value(
+                        prop_light_brightness.node_id(),
+                        prop_light_brightness.prop_id(),
                         prop_light_brightness_value.to_string(),
                         true,
                     )).await?;
@@ -533,17 +583,83 @@ rumqttc::Event::Incoming(rumqttc::Incoming::ConnAck(_)) => {
 
 </details>
 
+### Device Reconfiguration
+
+When a device needs to change its configuration (e.g. adding/removing nodes or properties), use the
+`homie_device_reconfigure_steps()` helper which provides the correct step sequence:
+
+1. `DeviceStateInit` — Set state back to "init"
+2. `UnsubscribeProperties` — Unsubscribe from old property /set topics
+3. `Reconfigure` — Apply changes to the device description
+4. `DeviceDescription` — Publish updated description
+5. `PropertyValues` — Publish new property values
+6. `SubscribeProperties` — Subscribe to new settable property /set topics
+7. `DeviceStateReady` — Set state to "ready"
+
+### Device Disconnection
+
+For a graceful disconnect, use `homie_device_disconnect_steps()`:
+
+1. `DeviceStateDisconnect` — Publish "disconnected" state
+2. `UnsubscribeProperties` — Unsubscribe from all property /set topics
+
+### Device Removal
+
+To permanently remove a device from the broker, use `protocol.remove_device(&description)`.
+This clears all retained messages (`$state`, `$description`, `$alert`, and all retained property values).
+Controllers will receive a `Homie5Message::DeviceRemoval` when the `$state` topic is cleared.
+
+### Property Target
+
+Devices can publish a target value for properties using
+`protocol.publish_target(node_id, prop_id, value, retain)`. This represents the intended/desired
+state of a property (e.g. a thermostat set-point) and is published under `<property>/$target`.
+
+### Device Alerts & Logging
+
+Devices can publish log messages and alerts:
+
+- **Logging**: `protocol.publish_log(DeviceLogLevel::Info, "sensor calibrated")` — publishes to
+  `homie/5/<device-id>/$log/<level>`. Log levels: `Debug`, `Info`, `Warn`, `Error`, `Fatal`.
+- **Alerts**: `protocol.publish_alert(&alert_id, "Sensor malfunction")` — publishes a retained alert.
+  Clear with `protocol.publish_clear_alert(&alert_id)`.
+
+Controllers receive these as `Homie5Message::DeviceLog` and `Homie5Message::DeviceAlert`.
+
+### Child Devices
+
+The Homie protocol supports device hierarchies. A root device can declare child devices
+via the `children` field in its description, and child devices reference back via `root`
+(and optionally `parent`):
+
+```rust
+// Root device description with a child
+let root_desc = DeviceDescriptionBuilder::new()
+    .name("Gateway")
+    .add_child("sensor-1".try_into().unwrap())
+    .build();
+
+// Create protocol for child device
+let child_protocol = root_protocol.clone_for_child("sensor-1".try_into().unwrap());
+
+// Child device description must set `root`
+let child_desc = DeviceDescriptionBuilder::new()
+    .name("Temperature Sensor")
+    .root("gateway".try_into().unwrap())
+    .build();
+```
+
 <!-- TOC --><a name="homie-controller-protocol"></a>
 
 ## Homie controller protocol implementation
 
-Use the `HomeiControllerProtocol` struct and its functions to run the protocol for a homie controller.
+Use the `Homie5ControllerProtocol` struct and its functions to run the protocol for a homie controller.
 
 ##### The general order for discovering devices is as follows:
 
 Connect to mqtt, run the event loop and then proceed with the following steps:
 
-1. Start with the Subscriptions returned by `Homie5ControllerProtocol::discover_devices`
+1. Start with the Subscriptions returned by `Homie5ControllerProtocol::subscribe_device_discovery`
    This will subscribe to the $state attribute of all devices.
 2. When receiving a `Homie5Message::DeviceState` message, check if the device is already
    known, if not subscribe to the device using `Homie5ControllerProtocol::subscribe_device`.
@@ -552,15 +668,21 @@ Connect to mqtt, run the event loop and then proceed with the following steps:
    device and subscibe to all the property values using
    `Homie5ControllerProtocol::subscribe_props`
 4. after this you will start receiving `Homie5Message::PropertyValue` and
-   'Homie5Message::PropertyTarget` messages for the properties of the device
+   `Homie5Message::PropertyTarget` messages for the properties of the device
 
 <!-- TOC --><a name="references"></a>
 
 # References
 
+- [Homie Convention v5.0](https://homieiot.github.io/)
+- [API Documentation on docs.rs](https://docs.rs/homie5)
+
 <!-- TOC --><a name="contributing"></a>
 
 # Contributing
+
+Contributions are welcome! Please open an issue or pull request on
+[GitHub](https://github.com/schaze/homie5).
 
 <!-- TOC --><a name="license"></a>
 
