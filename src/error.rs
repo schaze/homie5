@@ -85,4 +85,8 @@ pub enum Homie5ProtocolError {
     /// Invalid Device log level
     #[error("Invalid device log level: {0}")]
     InvalidDeviceLogLevel(String),
+
+    /// Invalid reference format (wrong number of segments or invalid content)
+    #[error("Invalid reference format: {0}")]
+    InvalidRefFormat(String),
 }
