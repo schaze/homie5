@@ -48,14 +48,15 @@ for how to integrate with your MQTT client of choice.
 
 # Feature Flags
 
-| Feature    | Description |
-|------------|-------------|
-| `ext-meta` | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support |
+| Feature      | Description |
+|--------------|-------------|
+| `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support |
+| `legacy-cow` | Uses `Cow<'static, str>` instead of `Arc<str>` for `HomieID`/`CustomDomain` internals. Gives zero-cost construction from `&'static str` but O(n) cloning for owned strings. |
 
 Enable features in your `Cargo.toml`:
 ```toml
 [dependencies]
-homie5 = { version = "0.8", features = ["ext-meta"] }
+homie5 = { version = "0.10", features = ["ext-meta"] }
 ```
 
 <!-- TOC --><a name="examples"></a>
@@ -102,14 +103,45 @@ homie5 provides validated reference types for addressing entities in the Homie t
 
 - **`HomieID`** — A validated identifier (lowercase a-z, 0-9, hyphens only, non-empty). Created via
   `HomieID::try_from("my-device")` or `HomieID::new_const("my-device")` (panics on invalid).
+  Internally uses `Arc<str>` for O(1) cloning (or `Cow<'static, str>` with the `legacy-cow` feature).
 - **`HomieDomain`** — The MQTT root topic. Variants: `Default` ("homie"), `All` ("+"), or
   `Custom(...)` for custom domains.
 - **`DeviceRef`** — Identifies a device (domain + device ID).
 - **`NodeRef`** — Identifies a node (device ref + node ID).
 - **`PropertyRef`** — Identifies a property (device ref + node ID + property ID).
 - **`PropertyPointer`** — Lightweight property identifier (node ID + property ID, without device context).
+- **`NodePointer`** — Type alias for `HomieID`, used to identify a node relative to its device.
 
-All reference types implement the `ToTopic` trait for generating MQTT topic strings.
+### Topic generation
+
+All reference types implement the `ToTopic` trait for generating MQTT topic strings with the full
+wire-protocol format (`{domain}/5/{device_id}/...`).
+
+### Display / FromStr
+
+All reference types implement `Display` and `FromStr` for human-readable round-tripping using
+their semantic identity format (without the protocol version segment):
+
+| Type | Display format | FromStr (default domain) |
+|---|---|---|
+| `DeviceRef` | `homie/device1` | `device1` |
+| `NodeRef` | `homie/device1/node1` | `device1/node1` |
+| `PropertyRef` | `homie/device1/node1/prop1` | `device1/node1/prop1` |
+| `PropertyPointer` | `node1/prop1` | `node1/prop1` |
+
+Custom domains are preserved in both directions: `custom-domain/device1/node1/prop1`.
+
+### Serialization
+
+All reference types serialize to and deserialize from their `Display` string representation via
+serde, making them compact and readable in JSON, YAML, and other formats.
+
+### Relationship helpers
+
+- `NodeRef::belongs_to(&DeviceRef) -> bool` — check if a node belongs to a device.
+- `PropertyRef::belongs_to_device(&DeviceRef) -> bool` — check if a property belongs to a device.
+- `PropertyRef::belongs_to_node(&NodeRef) -> bool` — check if a property belongs to a node.
+- `PropertyRef::to_node_ref() -> NodeRef` — construct the parent `NodeRef` for a property.
 
 The library also provides predefined unit constants for common measurement units:
 `HOMIE_UNIT_DEGREE_CELSIUS` ("°C"), `HOMIE_UNIT_PERCENT` ("%"), `HOMIE_UNIT_VOLT` ("V"),

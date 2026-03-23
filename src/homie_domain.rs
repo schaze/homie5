@@ -31,10 +31,63 @@
 //!
 
 use core::fmt;
+use std::hash::{Hash, Hasher};
+
 use schemars::JsonSchema;
-use std::borrow::Cow;
 
 use crate::DEFAULT_HOMIE_DOMAIN;
+
+// ---- Feature-gated inner representation ----
+
+#[cfg(not(feature = "legacy-cow"))]
+mod domain_inner {
+    use std::sync::Arc;
+
+    #[derive(Debug, Clone)]
+    pub(super) enum CustomDomainInner {
+        Static(&'static str),
+        Shared(Arc<str>),
+    }
+
+    impl CustomDomainInner {
+        pub(super) fn new_static(s: &'static str) -> Self {
+            Self::Static(s)
+        }
+        pub(super) fn new_owned(s: String) -> Self {
+            Self::Shared(Arc::from(s.as_str()))
+        }
+        pub(super) fn as_str(&self) -> &str {
+            match self {
+                Self::Static(s) => s,
+                Self::Shared(s) => s,
+            }
+        }
+    }
+}
+
+#[cfg(feature = "legacy-cow")]
+mod domain_inner {
+    use std::borrow::Cow;
+
+    #[derive(Debug, Clone)]
+    pub(super) struct CustomDomainInner(Cow<'static, str>);
+
+    impl CustomDomainInner {
+        pub(super) fn new_static(s: &'static str) -> Self {
+            Self(Cow::Borrowed(s))
+        }
+        pub(super) fn new_owned(s: String) -> Self {
+            Self(Cow::Owned(s))
+        }
+        pub(super) fn as_str(&self) -> &str {
+            &self.0
+        }
+    }
+}
+
+use domain_inner::CustomDomainInner;
+
+// ---- Error type ----
 
 /// Error type returned when a string fails to validate as a custom homie-domain.
 ///
@@ -46,10 +99,6 @@ pub struct InvalidHomieDomainError {
 
 impl InvalidHomieDomainError {
     /// Creates a new `InvalidHomieDomainError` with a specific message.
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - A string slice that holds the error message.
     fn new(msg: &str) -> Self {
         Self {
             details: msg.to_string(),
@@ -58,11 +107,6 @@ impl InvalidHomieDomainError {
 }
 
 impl fmt::Display for InvalidHomieDomainError {
-    /// Formats the error message for display purposes.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.details)
     }
@@ -70,8 +114,10 @@ impl fmt::Display for InvalidHomieDomainError {
 
 impl std::error::Error for InvalidHomieDomainError {}
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, serde::Serialize, JsonSchema)]
-pub struct CustomDomain(Cow<'static, str>);
+// ---- CustomDomain ----
+
+#[derive(Debug, Clone)]
+pub struct CustomDomain(CustomDomainInner);
 
 impl CustomDomain {
     pub fn validate(id: &str) -> Result<(), InvalidHomieDomainError> {
@@ -86,71 +132,75 @@ impl CustomDomain {
 
         Ok(())
     }
+
+    /// Allows borrowing the inner string slice of the `CustomDomain`.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl PartialEq for CustomDomain {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl Eq for CustomDomain {}
+
+impl Hash for CustomDomain {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state);
+    }
+}
+
+impl PartialOrd for CustomDomain {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CustomDomain {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
+
+impl Default for CustomDomain {
+    fn default() -> Self {
+        Self(CustomDomainInner::new_static(""))
+    }
 }
 
 impl TryFrom<&'static str> for CustomDomain {
     type Error = InvalidHomieDomainError;
 
-    /// Attempts to create a `CustomDomain` from a `&str`, returning an error if validation fails.
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - A string slice that holds the custom homie-domain to be validated.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `InvalidHomieDomainError` if the input string does not conform to the homie5 specifications.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use homie5::CustomDomain;
-    /// use std::convert::TryFrom;
-    ///
-    /// let id = CustomDomain::try_from("homie-dev").unwrap();
-    /// ```
     fn try_from(value: &'static str) -> Result<Self, Self::Error> {
         CustomDomain::validate(value)?;
-        Ok(CustomDomain(Cow::Borrowed(value)))
+        Ok(CustomDomain(CustomDomainInner::new_static(value)))
     }
 }
 
 impl TryFrom<String> for CustomDomain {
     type Error = InvalidHomieDomainError;
 
-    /// Attempts to create a `CustomDomain` from an owned `string`, returning an error if validation fails.
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - A string that holds the custom homie-domain to be validated.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `InvalidHomieDomainError` if the input string does not conform to the homie5 specifications.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// ```
-    /// use homie5::CustomDomain;
-    /// use std::convert::TryFrom;
-    ///
-    /// let id = CustomDomain::try_from("homie-dev".to_string()).unwrap();
-    /// ```
     fn try_from(value: String) -> Result<Self, Self::Error> {
         CustomDomain::validate(&value)?;
-        Ok(CustomDomain(Cow::Owned(value)))
+        Ok(CustomDomain(CustomDomainInner::new_owned(value)))
     }
 }
 
 impl fmt::Display for CustomDomain {
-    /// Formats the `CustomDomain` as a string for display purposes.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(self.as_str())
+    }
+}
+
+impl serde::Serialize for CustomDomain {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
     }
 }
 
@@ -164,6 +214,18 @@ impl<'de> serde::Deserialize<'de> for CustomDomain {
     }
 }
 
+impl JsonSchema for CustomDomain {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("CustomDomain")
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        <String as JsonSchema>::json_schema(generator)
+    }
+}
+
+// ---- HomieDomain ----
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, JsonSchema)]
 pub enum HomieDomain {
     #[default]
@@ -173,12 +235,12 @@ pub enum HomieDomain {
 }
 
 impl HomieDomain {
-    /// Allows borrowing the inner string slice of the `HomieID`.
+    /// Allows borrowing the inner string slice of the `HomieDomain`.
     pub fn as_str(&self) -> &str {
         match self {
             HomieDomain::Default => DEFAULT_HOMIE_DOMAIN,
             HomieDomain::All => "+",
-            HomieDomain::Custom(custom) => &custom.0,
+            HomieDomain::Custom(custom) => custom.as_str(),
         }
     }
 }
@@ -198,7 +260,7 @@ impl<'de> serde::Deserialize<'de> for HomieDomain {
     where
         D: serde::Deserializer<'de>,
     {
-        let s: Cow<'de, str> = serde::Deserialize::deserialize(deserializer)?;
+        let s: std::borrow::Cow<'de, str> = serde::Deserialize::deserialize(deserializer)?;
         match s.as_ref() {
             DEFAULT_HOMIE_DOMAIN => Ok(HomieDomain::Default),
             "+" => Ok(HomieDomain::All),
@@ -222,24 +284,6 @@ impl fmt::Display for HomieDomain {
 impl TryFrom<&'static str> for HomieDomain {
     type Error = InvalidHomieDomainError;
 
-    /// Attempts to create a `HomieDomain` from a `&str`, returning an error if validation fails.
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - A string slice that holds the custom homie-domain to be validated.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `InvalidHomieDomainError` if the input string does not conform to the homie5 specifications.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use homie5::HomieDomain;
-    /// use std::convert::TryFrom;
-    ///
-    /// let id = HomieDomain::try_from("homie-dev").unwrap();
-    /// ```
     fn try_from(value: &'static str) -> Result<Self, Self::Error> {
         match value {
             DEFAULT_HOMIE_DOMAIN => Ok(HomieDomain::Default),
@@ -252,25 +296,6 @@ impl TryFrom<&'static str> for HomieDomain {
 impl TryFrom<String> for HomieDomain {
     type Error = InvalidHomieDomainError;
 
-    /// Attempts to create a `HomieDomain` from an owned `string`, returning an error if validation fails.
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - A string that holds the custom homie-domain to be validated.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `InvalidHomieDomainError` if the input string does not conform to the homie5 specifications.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// ```
-    /// use homie5::HomieDomain;
-    /// use std::convert::TryFrom;
-    ///
-    /// let id = HomieDomain::try_from("homie-dev".to_string()).unwrap();
-    /// ```
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
             DEFAULT_HOMIE_DOMAIN => Ok(HomieDomain::Default),
@@ -280,18 +305,18 @@ impl TryFrom<String> for HomieDomain {
     }
 }
 
-// impl FromStr for HomieDomain {
-//     type Err = InvalidHomieDomainError;
-//
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         match s {
-//             DEFAULT_HOMIE_DOMAIN => Ok(HomieDomain::Default),
-//             "+" => Ok(HomieDomain::All),
-//             _ => Ok(HomieDomain::Custom(s.to_owned().try_into()?)),
-//         }
-//     }
-// }
-//
+impl std::str::FromStr for HomieDomain {
+    type Err = InvalidHomieDomainError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            DEFAULT_HOMIE_DOMAIN => Ok(HomieDomain::Default),
+            "+" => Ok(HomieDomain::All),
+            _ => Ok(HomieDomain::Custom(s.to_owned().try_into()?)),
+        }
+    }
+}
+
 #[test]
 fn test_homie_domain() {
     assert_eq!(HomieDomain::try_from("hello").unwrap().to_string(), "hello");

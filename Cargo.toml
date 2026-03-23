@@ -1,6 +1,6 @@
 [package]
 name = "homie5"
-version = "0.9.0"
+version = "0.10.0"
 edition = "2021"
 publish = true
 description = "Low level implemenation of the homie v5 protocol"
@@ -14,6 +14,7 @@ keywords = ["homie", "iot", "mqtt"]
 
 [features]
 ext-meta = []
+legacy-cow = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

@@ -6,13 +6,16 @@
 //! - IDs must only include lowercase letters (`a-z`), digits (`0-9`), and hyphens (`-`).
 //! - IDs must not be empty or contain any other characters.
 //!
-//! A `HomieID` can be created via `TryFrom<&'static str>` or `TryFrom<String>`. The `'static` lifetime is used for string slices to ensure the ID can be safely sent across threads or through channels, where the ownership or lifetime of the data must be guaranteed for the duration of the program if needed.
+//! A `HomieID` can be created via `TryFrom<&'static str>` or `TryFrom<String>`.
 //!
-//! # Why Only `&'static str`?
+//! # Storage Backend
 //!
-//! The use of `&'static str` ensures that any string slice used to create a `HomieID` has a lifetime that is valid for the entire runtime of the program. This is particularly important because IDs will be passed between different threads (e.g., through channels), and allowing a non-`'static` lifetime would risk referencing invalid or deallocated memory.
+//! By default, `HomieID` uses an `Arc<str>`-based inner representation that makes cloning O(1)
+//! (atomic reference count increment instead of string copy). This is ideal when IDs are cloned
+//! frequently (e.g., as HashMap keys in reference types).
 //!
-//! By using `Cow<'static, str>`, `HomieID` can either hold an owned `String` or a borrowed `&'static str`, providing flexibility while ensuring thread safety when the ID is shared or sent across channels.
+//! Enable the `legacy-cow` feature to use the original `Cow<'static, str>` backend, which offers
+//! zero-cost construction from `&'static str` but O(n) cloning for owned strings.
 //!
 //! # Errors
 //!
@@ -31,13 +34,66 @@
 //! assert!(invalid_id.is_err());
 //! ```
 
+use std::convert::TryFrom;
 use std::fmt;
-use std::{borrow::Cow, convert::TryFrom};
+use std::hash::{Hash, Hasher};
 
 use schemars::JsonSchema;
-use serde::{de, Deserialize, Deserializer, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::AsNodeId;
+
+// ---- Feature-gated inner representation ----
+
+#[cfg(not(feature = "legacy-cow"))]
+mod id_inner {
+    use std::sync::Arc;
+
+    #[derive(Debug, Clone)]
+    pub(super) enum HomieIDInner {
+        Static(&'static str),
+        Shared(Arc<str>),
+    }
+
+    impl HomieIDInner {
+        pub(super) const fn new_static(s: &'static str) -> Self {
+            Self::Static(s)
+        }
+        pub(super) fn new_owned(s: String) -> Self {
+            Self::Shared(Arc::from(s.as_str()))
+        }
+        pub(super) fn as_str(&self) -> &str {
+            match self {
+                Self::Static(s) => s,
+                Self::Shared(s) => s,
+            }
+        }
+    }
+}
+
+#[cfg(feature = "legacy-cow")]
+mod id_inner {
+    use std::borrow::Cow;
+
+    #[derive(Debug, Clone)]
+    pub(super) struct HomieIDInner(Cow<'static, str>);
+
+    impl HomieIDInner {
+        pub(super) const fn new_static(s: &'static str) -> Self {
+            Self(Cow::Borrowed(s))
+        }
+        pub(super) fn new_owned(s: String) -> Self {
+            Self(Cow::Owned(s))
+        }
+        pub(super) fn as_str(&self) -> &str {
+            &self.0
+        }
+    }
+}
+
+use id_inner::HomieIDInner;
+
+// ---- Error type ----
 
 /// Error type returned when a string fails to validate as a Homie ID.
 ///
@@ -49,27 +105,20 @@ pub struct InvalidHomieIDError {
 
 impl InvalidHomieIDError {
     /// Creates a new `InvalidHomieIDError` with a specific message.
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - A string slice that holds the error message.
     const fn new(msg: &'static str) -> Self {
         InvalidHomieIDError { details: msg }
     }
 }
 
 impl fmt::Display for InvalidHomieIDError {
-    /// Formats the error message for display purposes.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.details)
     }
 }
 
 impl std::error::Error for InvalidHomieIDError {}
+
+// ---- HomieID ----
 
 /// Represents a validated Homie ID.
 ///
@@ -89,8 +138,8 @@ impl std::error::Error for InvalidHomieIDError {}
 /// let id = HomieID::try_from("sensor-01").unwrap();
 /// assert_eq!(id.as_str(), "sensor-01");
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, JsonSchema)]
-pub struct HomieID(Cow<'static, str>);
+#[derive(Debug, Clone)]
+pub struct HomieID(HomieIDInner);
 
 impl HomieID {
     /// Wrap a statically known string into a `HomieID`.
@@ -100,21 +149,18 @@ impl HomieID {
         if let Err(e) = Self::validate(id) {
             panic!("{}", e.details);
         }
-        Self(Cow::Borrowed(id))
+        Self(HomieIDInner::new_static(id))
     }
 
     /// Allows borrowing the inner string slice of the `HomieID`.
     pub fn as_str(&self) -> &str {
-        &self.0
+        self.0.as_str()
     }
 
     pub const fn validate(id: &str) -> Result<(), InvalidHomieIDError> {
         if id.is_empty() {
             return Err(InvalidHomieIDError::new("Homie ID cannot be empty"));
         }
-        // Since IDs may only be ASCII it is fine to iterate over the bytes of this ID, rather than
-        // trying to decode full characters. Unfortunately the following code is the only thing we
-        // can do for const functions.
         let mut bytes = id.as_bytes();
         while !bytes.is_empty() {
             let [b'a'..=b'z' | b'0'..=b'9' | b'-', remainder @ ..] = bytes else {
@@ -129,57 +175,51 @@ impl HomieID {
     }
 }
 
+// ---- Trait implementations based on string content ----
+
+impl PartialEq for HomieID {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl Eq for HomieID {}
+
+impl Hash for HomieID {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state);
+    }
+}
+
+impl PartialOrd for HomieID {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for HomieID {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
+
+// ---- Conversion traits ----
+
 impl TryFrom<&'static str> for HomieID {
     type Error = InvalidHomieIDError;
 
-    /// Attempts to create a `HomieID` from a `&str`, returning an error if validation fails.
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - A string slice that holds the ID to be validated.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `InvalidHomieIDError` if the input string does not conform to the Homie ID specifications.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use homie5::HomieID;
-    /// use std::convert::TryFrom;
-    ///
-    /// let id = HomieID::try_from("sensor-01").unwrap();
-    /// ```
     fn try_from(value: &'static str) -> Result<Self, Self::Error> {
         HomieID::validate(value)?;
-        Ok(HomieID(Cow::Borrowed(value)))
+        Ok(HomieID(HomieIDInner::new_static(value)))
     }
 }
 
 impl TryFrom<String> for HomieID {
     type Error = InvalidHomieIDError;
 
-    /// Attempts to create a `HomieID` from a `&str`, returning an error if validation fails.
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - A string slice that holds the ID to be validated.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `InvalidHomieIDError` if the input string does not conform to the Homie ID specifications.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use homie5::HomieID;
-    /// use std::convert::TryFrom;
-    ///
-    /// let id = HomieID::try_from("sensor-01").unwrap();
-    /// ```
     fn try_from(value: String) -> Result<Self, Self::Error> {
         HomieID::validate(&value)?;
-        Ok(HomieID(Cow::Owned(value)))
+        Ok(HomieID(HomieIDInner::new_owned(value)))
     }
 }
 
@@ -191,14 +231,22 @@ impl std::str::FromStr for HomieID {
     }
 }
 
+// ---- Display ----
+
 impl fmt::Display for HomieID {
-    /// Formats the `HomieID` as a string for display purposes.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(self.as_str())
+    }
+}
+
+// ---- Serde ----
+
+impl Serialize for HomieID {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_str())
     }
 }
 
@@ -212,11 +260,26 @@ impl<'de> Deserialize<'de> for HomieID {
     }
 }
 
+// ---- JsonSchema ----
+
+impl JsonSchema for HomieID {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("HomieID")
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        <String as JsonSchema>::json_schema(generator)
+    }
+}
+
+// ---- AsNodeId ----
+
 impl AsNodeId for HomieID {
     fn as_node_id(&self) -> &HomieID {
         self
     }
 }
+
 impl AsNodeId for &HomieID {
     fn as_node_id(&self) -> &HomieID {
         self

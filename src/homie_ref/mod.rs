@@ -16,3 +16,9 @@ pub trait AsNodeId {
 pub trait AsPropPointer {
     fn as_prop_pointer(&self) -> &PropertyPointer;
 }
+
+/// A node identifier relative to its device.
+///
+/// This is a semantic alias for `HomieID` that communicates intent when used as
+/// a key in device-scoped collections (e.g., `HashMap<NodePointer, NodeData>`).
+pub type NodePointer = HomieID;
