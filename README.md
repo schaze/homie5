@@ -19,6 +19,7 @@ Due to this, the usage of the library is a bit more involved as with a completly
 - [Documentation](#documentation)
   - [TLDR;](#tldr)
   - [Reference Types](#reference-types)
+    - [Global fallback domain](#global-fallback-domain)
   - [MQTT "bindings"](#mqtt-bindings)
   - [Create device description](#create-device-description)
   - [Parsing MQTT messages](#parsing-mqtt-messages)
@@ -130,6 +131,33 @@ their semantic identity format (without the protocol version segment):
 | `PropertyPointer` | `node1/prop1` | `node1/prop1` |
 
 Custom domains are preserved in both directions: `custom-domain/device1/node1/prop1`.
+
+### Global fallback domain
+
+When `FromStr` encounters an input without an explicit domain segment (e.g. `"device1"` instead
+of `"custom/device1"`), it resolves the domain via the **global fallback**. Out of the box, the
+fallback is `HomieDomain::Default` (`"homie"`).
+
+Applications that operate under a custom domain can override this once at startup:
+
+```rust
+use homie5::homie_domain::{set_fallback_homie_domain, get_fallback_homie_domain};
+
+// At startup — set the fallback to a custom domain
+set_fallback_homie_domain("my-domain".try_into().unwrap());
+
+// Later — DeviceRef::from_str, NodeRef::from_str, PropertyRef::from_str
+// will all use "my-domain" when no domain segment is present
+let dev: DeviceRef = "device1".parse().unwrap();
+assert_eq!(dev.to_string(), "my-domain/device1");
+
+// Read back the current fallback at any time
+let current = get_fallback_homie_domain();
+```
+
+> **Note:** `HomieDomain::All` (the `"+"` wildcard) cannot be set as the fallback —
+> `set_fallback_homie_domain` will panic if called with `All`, since a wildcard is not a valid
+> concrete domain for resolving parsed references.
 
 ### Serialization
 

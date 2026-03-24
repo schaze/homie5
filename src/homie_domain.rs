@@ -32,10 +32,46 @@
 
 use core::fmt;
 use std::hash::{Hash, Hasher};
+use std::sync::RwLock;
 
 use schemars::JsonSchema;
 
 use crate::DEFAULT_HOMIE_DOMAIN;
+
+// ---- Global fallback domain ----
+
+/// Fallback `HomieDomain` used by `from_str` / `Deserialize` when a
+/// short-form path (without explicit domain) is encountered.
+///
+/// Initialised to `HomieDomain::Default` (`"homie"`).  Call
+/// [`set_fallback_homie_domain`] once at startup to override.
+static FALLBACK_HOMIE_DOMAIN: RwLock<HomieDomain> = RwLock::new(HomieDomain::Default);
+
+/// Override the fallback homie domain.
+///
+/// Typically called once during application startup. The value is used by
+/// `DeviceRef::from_str`, `NodeRef::from_str`, and `PropertyRef::from_str`
+/// when the input does not contain an explicit domain segment.
+///
+/// # Panics
+///
+/// Panics if `domain` is [`HomieDomain::All`] — a wildcard is not a valid
+/// concrete fallback domain.
+pub fn set_fallback_homie_domain(domain: HomieDomain) {
+    assert!(
+        domain != HomieDomain::All,
+        "HomieDomain::All cannot be used as the fallback domain"
+    );
+    *FALLBACK_HOMIE_DOMAIN.write().unwrap() = domain;
+}
+
+/// Read the current fallback homie domain.
+///
+/// Returns `HomieDomain::Default` if [`set_fallback_homie_domain`] has not
+/// been called.
+pub fn get_fallback_homie_domain() -> HomieDomain {
+    FALLBACK_HOMIE_DOMAIN.read().unwrap().clone()
+}
 
 // ---- Feature-gated inner representation ----
 
