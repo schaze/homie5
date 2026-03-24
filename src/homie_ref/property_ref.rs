@@ -31,7 +31,7 @@ use std::str::FromStr;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::AsPropPointer;
-use crate::{AsNodeId, DeviceRef, HomieDomain, Homie5ProtocolError, HomieID, NodeRef, ToTopic, TopicBuilder};
+use crate::{AsNodeId, DeviceRef, HomieDomain, Homie5ProtocolError, HomieID, NodeRef, ToTopic, TopicBuilder, get_fallback_homie_domain};
 
 use super::PropertyPointer;
 
@@ -167,7 +167,7 @@ impl FromStr for PropertyRef {
         let parts: Vec<&str> = s.split('/').collect();
         match parts.len() {
             3 => Ok(PropertyRef::new(
-                HomieDomain::Default,
+                get_fallback_homie_domain(),
                 parts[0].to_string().try_into()?,
                 parts[1].to_string().try_into()?,
                 parts[2].to_string().try_into()?,

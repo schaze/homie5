@@ -24,7 +24,7 @@ use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{HomieDomain, Homie5ProtocolError, HomieID, ToTopic, TopicBuilder};
+use crate::{HomieDomain, Homie5ProtocolError, HomieID, ToTopic, TopicBuilder, get_fallback_homie_domain};
 
 /// Identifies a device via homie-domain and the device id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -77,7 +77,7 @@ impl FromStr for DeviceRef {
         let parts: Vec<&str> = s.split('/').collect();
         match parts.len() {
             1 => Ok(DeviceRef::new(
-                HomieDomain::Default,
+                get_fallback_homie_domain(),
                 parts[0].to_string().try_into()?,
             )),
             2 => Ok(DeviceRef::new(
