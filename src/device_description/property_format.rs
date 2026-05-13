@@ -1,8 +1,7 @@
+use std::fmt::Display;
 use std::hash::Hash;
 use std::iter::Iterator;
-use std::ops::{RangeFrom, RangeTo};
 use std::str::FromStr;
-use std::{fmt::Display, ops::RangeInclusive};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -191,69 +190,9 @@ impl From<FloatRange> for HomiePropertyFormat {
     }
 }
 
-impl From<RangeInclusive<f64>> for HomiePropertyFormat {
-    fn from(value: RangeInclusive<f64>) -> Self {
-        HomiePropertyFormat::FloatRange(FloatRange {
-            min: Some(*value.start()),
-            max: Some(*value.end()),
-            step: None,
-        })
-    }
-}
-
-impl From<RangeTo<f64>> for HomiePropertyFormat {
-    fn from(value: RangeTo<f64>) -> Self {
-        HomiePropertyFormat::FloatRange(FloatRange {
-            min: None,
-            max: Some(value.end),
-            step: None,
-        })
-    }
-}
-
-impl From<RangeFrom<f64>> for HomiePropertyFormat {
-    fn from(value: RangeFrom<f64>) -> Self {
-        HomiePropertyFormat::FloatRange(FloatRange {
-            min: Some(value.start),
-            max: None,
-            step: None,
-        })
-    }
-}
-
 impl From<IntegerRange> for HomiePropertyFormat {
     fn from(value: IntegerRange) -> Self {
         HomiePropertyFormat::IntegerRange(value)
-    }
-}
-
-impl From<RangeInclusive<i64>> for HomiePropertyFormat {
-    fn from(value: RangeInclusive<i64>) -> Self {
-        HomiePropertyFormat::IntegerRange(IntegerRange {
-            min: Some(*value.start()),
-            max: Some(*value.end()),
-            step: None,
-        })
-    }
-}
-
-impl From<RangeTo<i64>> for HomiePropertyFormat {
-    fn from(value: RangeTo<i64>) -> Self {
-        HomiePropertyFormat::IntegerRange(IntegerRange {
-            min: None,
-            max: Some(value.end),
-            step: None,
-        })
-    }
-}
-
-impl From<RangeFrom<i64>> for HomiePropertyFormat {
-    fn from(value: RangeFrom<i64>) -> Self {
-        HomiePropertyFormat::IntegerRange(IntegerRange {
-            min: Some(value.start),
-            max: None,
-            step: None,
-        })
     }
 }
 
