@@ -81,6 +81,32 @@ fn test_homie_color_value_new_xyz() {
     assert_eq!(color, HomieColorValue::XYZ(0.3, 0.4, 0.3));
 }
 
+fn assert_invalid_color_format(input: &str, expected_reason: &str) {
+    match input.parse::<HomieColorValue>().unwrap_err() {
+        Homie5ValueConversionError::InvalidColorFormat { value, reason } => {
+            assert_eq!(value, input);
+            assert!(
+                reason.contains(expected_reason),
+                "reason {reason:?} did not contain {expected_reason:?}"
+            );
+        }
+        err => panic!("expected InvalidColorFormat, got {err:?}"),
+    }
+}
+
+fn assert_invalid_color_value(input: &str, expected_value: HomieColorValue, expected_reason: &str) {
+    match input.parse::<HomieColorValue>().unwrap_err() {
+        Homie5ValueConversionError::InvalidColorValue { value, reason } => {
+            assert_eq!(value, expected_value);
+            assert!(
+                reason.contains(expected_reason),
+                "reason {reason:?} did not contain {expected_reason:?}"
+            );
+        }
+        err => panic!("expected InvalidColorValue, got {err:?}"),
+    }
+}
+
 #[test]
 fn test_homie_color_value_from_str_rgb() {
     let color_str = "rgb,255,100,50";
@@ -104,8 +130,46 @@ fn test_homie_color_value_from_str_xyz() {
 
 #[test]
 fn test_homie_color_value_from_str_invalid() {
-    let color_str = "invalid,255,100,50";
-    assert!(color_str.parse::<HomieColorValue>().is_err());
+    assert_invalid_color_format("", "expected color format");
+    assert_invalid_color_format("invalid,255,100,50", "expected color format");
+    assert_invalid_color_format("rgb,red,100,50", "RGB requires three whole numbers");
+    assert_invalid_color_value(
+        "rgb,300,100,50",
+        HomieColorValue::RGB(300, 100, 50),
+        "RGB requires three whole numbers",
+    );
+    assert_invalid_color_value(
+        "hsv,120,101,50",
+        HomieColorValue::HSV(120, 101, 50),
+        "HSV requires three whole numbers",
+    );
+    assert_invalid_color_value(
+        "xyz,0.9961,0.9961",
+        HomieColorValue::XYZ(0.9961, 0.9961, 1.0 - 0.9961 - 0.9961),
+        "XYZ requires numbers between 0.0 and 1.0",
+    );
+}
+
+#[test]
+fn test_homie_color_value_from_str_rejects_extra_components() {
+    assert_invalid_color_format("rgb,255,100,50,0", "RGB requires three whole numbers");
+    assert_invalid_color_format("hsv,120,100,100,0", "HSV requires three whole numbers");
+    assert_invalid_color_format("xyz,0.3,0.4,0.3", "XYZ requires numbers between 0.0 and 1.0");
+}
+
+#[test]
+fn test_homie_color_value_validate_rejects_invalid_direct_values() {
+    assert!(HomieColorValue::RGB(256, 0, 0).validate().is_err());
+    assert!(HomieColorValue::HSV(0, 101, 0).validate().is_err());
+
+    let err = HomieColorValue::XYZ(0.3, 0.4, 0.4).validate().unwrap_err();
+    assert!(matches!(
+        err,
+        Homie5ValueConversionError::InvalidColorValue {
+            value: HomieColorValue::XYZ(0.3, 0.4, 0.4),
+            reason
+        } if reason.contains("z must equal 1.0 - x - y")
+    ));
 }
 
 fn create_prop_desc(dt: HomieDataType, pf: HomiePropertyFormat) -> HomiePropertyDescription {
@@ -511,6 +575,13 @@ fn test_color_nok() {
     assert!(HomieValue::parse("HSV,12,55,14", &desc).is_err());
     assert!(HomieValue::parse("rgb ,12,55,14", &desc).is_err());
     assert!(HomieValue::parse("xyz/12,55", &desc).is_err());
+}
+
+#[test]
+fn test_color_validate_rejects_invalid_direct_value() {
+    let desc = PropertyDescriptionBuilder::color([ColorFormat::Rgb]).unwrap().build();
+
+    assert!(!HomieValue::Color(HomieColorValue::RGB(256, 0, 0)).validate(&desc));
 }
 
 #[test]
