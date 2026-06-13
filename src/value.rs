@@ -150,10 +150,13 @@ pub enum HomieColorValue {
 }
 
 impl HomieColorValue {
-    const RGB_RULES: &'static str = "RGB requires exactly three integer values: red/green/blue 0..=255";
-    const HSV_RULES: &'static str = "HSV requires exactly three integer values: hue 0..=360, saturation/value 0..=100";
-    const XYZ_RULES: &'static str = "XYZ requires finite x/y/z values 0.0..=1.0 with x + y <= 1.0 and z = 1 - x - y";
-    const COLOR_RULES: &'static str = "expected rgb,R,G,B, hsv,H,S,V, or xyz,X,Y";
+    const RGB_RULES: &'static str =
+        "RGB requires three whole numbers: red, green, and blue must each be between 0 and 255";
+    const HSV_RULES: &'static str =
+        "HSV requires three whole numbers: hue must be between 0 and 360, saturation and value between 0 and 100";
+    const XYZ_RULES: &'static str =
+        "XYZ requires numbers between 0.0 and 1.0; x + y must be at most 1.0, and z must equal 1.0 - x - y";
+    const COLOR_RULES: &'static str = "expected color format: rgb,R,G,B, hsv,H,S,V, or xyz,X,Y";
 
     pub fn color_format(&self) -> ColorFormat {
         match self {

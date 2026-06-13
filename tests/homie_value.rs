@@ -130,31 +130,31 @@ fn test_homie_color_value_from_str_xyz() {
 
 #[test]
 fn test_homie_color_value_from_str_invalid() {
-    assert_invalid_color_format("", "expected rgb,R,G,B");
-    assert_invalid_color_format("invalid,255,100,50", "expected rgb,R,G,B");
-    assert_invalid_color_format("rgb,red,100,50", "RGB requires exactly three integer values");
+    assert_invalid_color_format("", "expected color format");
+    assert_invalid_color_format("invalid,255,100,50", "expected color format");
+    assert_invalid_color_format("rgb,red,100,50", "RGB requires three whole numbers");
     assert_invalid_color_value(
         "rgb,300,100,50",
         HomieColorValue::RGB(300, 100, 50),
-        "RGB requires exactly three integer values",
+        "RGB requires three whole numbers",
     );
     assert_invalid_color_value(
         "hsv,120,101,50",
         HomieColorValue::HSV(120, 101, 50),
-        "HSV requires exactly three integer values",
+        "HSV requires three whole numbers",
     );
     assert_invalid_color_value(
         "xyz,0.9961,0.9961",
         HomieColorValue::XYZ(0.9961, 0.9961, 1.0 - 0.9961 - 0.9961),
-        "XYZ requires finite x/y/z values",
+        "XYZ requires numbers between 0.0 and 1.0",
     );
 }
 
 #[test]
 fn test_homie_color_value_from_str_rejects_extra_components() {
-    assert_invalid_color_format("rgb,255,100,50,0", "RGB requires exactly three integer values");
-    assert_invalid_color_format("hsv,120,100,100,0", "HSV requires exactly three integer values");
-    assert_invalid_color_format("xyz,0.3,0.4,0.3", "XYZ requires finite x/y/z values");
+    assert_invalid_color_format("rgb,255,100,50,0", "RGB requires three whole numbers");
+    assert_invalid_color_format("hsv,120,100,100,0", "HSV requires three whole numbers");
+    assert_invalid_color_format("xyz,0.3,0.4,0.3", "XYZ requires numbers between 0.0 and 1.0");
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn test_homie_color_value_validate_rejects_invalid_direct_values() {
         Homie5ValueConversionError::InvalidColorValue {
             value: HomieColorValue::XYZ(0.3, 0.4, 0.4),
             reason
-        } if reason.contains("z = 1 - x - y")
+        } if reason.contains("z must equal 1.0 - x - y")
     ));
 }
 
