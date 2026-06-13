@@ -16,7 +16,14 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Homie5ValueConversionError {
-    InvalidColorFormat(String),
+    InvalidColorFormat {
+        value: String,
+        reason: &'static str,
+    },
+    InvalidColorValue {
+        value: HomieColorValue,
+        reason: &'static str,
+    },
     InvalidIntegerFormat(String),
     IntegerOutOfRange(i64, IntegerRange),
     InvalidFloatFormat(String),
@@ -28,6 +35,16 @@ pub enum Homie5ValueConversionError {
     InvalidBooleanFormat(String),
     JsonParseError(String),
 }
+
+impl Homie5ValueConversionError {
+    fn invalid_color_format(value: impl Into<String>, reason: &'static str) -> Self {
+        Self::InvalidColorFormat {
+            value: value.into(),
+            reason,
+        }
+    }
+}
+
 impl fmt::Display for Homie5ValueConversionError {
     /// Formats the error message for display purposes.
     ///
@@ -36,8 +53,8 @@ impl fmt::Display for Homie5ValueConversionError {
     /// * `f` - The formatter.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Homie5ValueConversionError::InvalidColorFormat(value) => {
-                write!(f, "'{}' is not a valid color value", value)
+            Homie5ValueConversionError::InvalidColorFormat { value, reason } => {
+                write!(f, "'{}' is not a valid color format: {}", value, reason)
             }
             Homie5ValueConversionError::InvalidIntegerFormat(value) => {
                 write!(f, "'{}' is not a valid integer value", value)
@@ -58,6 +75,9 @@ impl fmt::Display for Homie5ValueConversionError {
             }
             Homie5ValueConversionError::FloatOutOfRange(value, range) => {
                 write!(f, "Float '{}' is out of allowed range: {}", value, range)
+            }
+            Homie5ValueConversionError::InvalidColorValue { value, reason } => {
+                write!(f, "'{:?}' is not a valid color value: {}", value, reason)
             }
             Homie5ValueConversionError::InvalidDateTimeFormat(value) => {
                 write!(f, "'{}' is not a valid date/time value", value)
@@ -122,13 +142,19 @@ pub enum HomieColorValue {
     /// Hue ranges from 0 to 360, while saturation and value range from 0 to 100.
     ///   - Example: `"hsv,120,100,100"` for bright green.
     HSV(i64, i64, i64),
-    /// Represents a color in the XYZ color space, using two floating-point values for X and Y.
-    /// The Z value is calculated as `1 - X - Y`, and all values range from 0.0 to 1.0.
+    /// Represents Homie's historical `xyz` color format, using two CIE 1931 chromaticity
+    /// coordinates. The third coordinate is calculated as `z = 1 - x - y`, and all values
+    /// range from 0.0 to 1.0.
     ///   - Example: `"xyz,0.25,0.34"`.
     XYZ(f64, f64, f64),
 }
 
 impl HomieColorValue {
+    const RGB_RULES: &'static str = "RGB requires exactly three integer values: red/green/blue 0..=255";
+    const HSV_RULES: &'static str = "HSV requires exactly three integer values: hue 0..=360, saturation/value 0..=100";
+    const XYZ_RULES: &'static str = "XYZ requires finite x/y/z values 0.0..=1.0 with x + y <= 1.0 and z = 1 - x - y";
+    const COLOR_RULES: &'static str = "expected rgb,R,G,B, hsv,H,S,V, or xyz,X,Y";
+
     pub fn color_format(&self) -> ColorFormat {
         match self {
             HomieColorValue::RGB(_, _, _) => ColorFormat::Rgb,
@@ -196,8 +222,54 @@ impl PartialOrd<HomieColorValue> for HomieColorValue {
 }
 
 impl HomieColorValue {
+    /// Constructs a Homie `xyz` color by deriving the internal `z` chromaticity coordinate.
+    ///
+    /// This is a convenience constructor for trusted coordinates and intentionally does not
+    /// validate. Use [`Self::validate`] before publishing values derived from external sources.
     pub fn new_xyz(x: f64, y: f64) -> Self {
         HomieColorValue::XYZ(x, y, 1.0 - x - y)
+    }
+
+    /// Validates that the color components satisfy the intrinsic Homie color constraints.
+    ///
+    /// This only checks the value itself. Whether the color format is allowed for a specific
+    /// property is still checked against the property description by [`HomieValue::validate`].
+    pub fn validate(&self) -> Result<(), Homie5ValueConversionError> {
+        const XYZ_EPSILON: f64 = 1e-6;
+        let invalid = |reason| Homie5ValueConversionError::InvalidColorValue { value: *self, reason };
+
+        match self {
+            HomieColorValue::RGB(r, g, b) => {
+                if (0..=255).contains(r) && (0..=255).contains(g) && (0..=255).contains(b) {
+                    Ok(())
+                } else {
+                    Err(invalid(Self::RGB_RULES))
+                }
+            }
+            HomieColorValue::HSV(h, s, v) => {
+                if (0..=360).contains(h) && (0..=100).contains(s) && (0..=100).contains(v) {
+                    Ok(())
+                } else {
+                    Err(invalid(Self::HSV_RULES))
+                }
+            }
+            HomieColorValue::XYZ(x, y, z) => {
+                let expected_z = 1.0 - x - y;
+                if x.is_finite()
+                    && y.is_finite()
+                    && z.is_finite()
+                    && (0.0..=1.0).contains(x)
+                    && (0.0..=1.0).contains(y)
+                    && (0.0..=1.0).contains(z)
+                    && x + y <= 1.0
+                    && (z - expected_z).abs() <= XYZ_EPSILON
+                {
+                    Ok(())
+                } else {
+                    Err(invalid(Self::XYZ_RULES))
+                }
+            }
+        }
     }
 }
 
@@ -221,42 +293,52 @@ impl FromStr for HomieColorValue {
     type Err = Homie5ValueConversionError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut tokens = s.split(',');
+        let invalid = |reason| Homie5ValueConversionError::invalid_color_format(s, reason);
+
         match tokens.next() {
             Some("rgb") => {
-                if let (Some(Ok(r)), Some(Ok(g)), Some(Ok(b))) = (
-                    tokens.next().map(|r| r.parse::<i64>()),
-                    tokens.next().map(|g| g.parse::<i64>()),
-                    tokens.next().map(|b| b.parse::<i64>()),
-                ) {
-                    if (0..=255).contains(&r) && (0..=255).contains(&g) && (0..=255).contains(&b) {
-                        return Ok(Self::RGB(r, g, b));
-                    }
-                }
+                let (Some(r), Some(g), Some(b), None) = (tokens.next(), tokens.next(), tokens.next(), tokens.next())
+                else {
+                    return Err(invalid(Self::RGB_RULES));
+                };
+
+                let color = Self::RGB(
+                    r.parse().map_err(|_| invalid(Self::RGB_RULES))?,
+                    g.parse().map_err(|_| invalid(Self::RGB_RULES))?,
+                    b.parse().map_err(|_| invalid(Self::RGB_RULES))?,
+                );
+                color.validate()?;
+                Ok(color)
             }
             Some("hsv") => {
-                if let (Some(Ok(h)), Some(Ok(s)), Some(Ok(v))) = (
-                    tokens.next().map(|h| h.parse::<i64>()),
-                    tokens.next().map(|s| s.parse::<i64>()),
-                    tokens.next().map(|v| v.parse::<i64>()),
-                ) {
-                    if (0..=360).contains(&h) && (0..=100).contains(&s) && (0..=100).contains(&v) {
-                        return Ok(Self::HSV(h, s, v));
-                    }
-                }
+                let (Some(h), Some(saturation), Some(value), None) =
+                    (tokens.next(), tokens.next(), tokens.next(), tokens.next())
+                else {
+                    return Err(invalid(Self::HSV_RULES));
+                };
+
+                let color = Self::HSV(
+                    h.parse().map_err(|_| invalid(Self::HSV_RULES))?,
+                    saturation.parse().map_err(|_| invalid(Self::HSV_RULES))?,
+                    value.parse().map_err(|_| invalid(Self::HSV_RULES))?,
+                );
+                color.validate()?;
+                Ok(color)
             }
             Some("xyz") => {
-                if let (Some(Ok(x)), Some(Ok(y))) = (
-                    tokens.next().map(|x| x.parse::<f64>()),
-                    tokens.next().map(|y| y.parse::<f64>()),
-                ) {
-                    if (0.0..=1.0).contains(&x) && (0.0..=1.0).contains(&y) && (x + y) <= 1.0 {
-                        return Ok(Self::XYZ(x, y, 1.0 - x - y));
-                    }
-                }
+                let (Some(x), Some(y), None) = (tokens.next(), tokens.next(), tokens.next()) else {
+                    return Err(invalid(Self::XYZ_RULES));
+                };
+
+                let color = Self::new_xyz(
+                    x.parse().map_err(|_| invalid(Self::XYZ_RULES))?,
+                    y.parse().map_err(|_| invalid(Self::XYZ_RULES))?,
+                );
+                color.validate()?;
+                Ok(color)
             }
-            _ => {}
+            _ => Err(invalid(Self::COLOR_RULES)),
         }
-        Err(Homie5ValueConversionError::InvalidColorFormat(s.to_owned()))
     }
 }
 
@@ -868,6 +950,9 @@ impl HomieValue {
                     return false;
                 };
                 if color_formats.is_empty() {
+                    return false;
+                }
+                if value.validate().is_err() {
                     return false;
                 }
                 match value {
