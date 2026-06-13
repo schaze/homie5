@@ -1,5 +1,6 @@
-use std::fmt::Display;
 use std::hash::Hash;
+use std::ops::{RangeFrom, RangeTo};
+use std::{fmt::Display, ops::RangeInclusive};
 
 use serde::{Deserialize, Serialize};
 
@@ -127,6 +128,36 @@ impl Display for FloatRange {
     }
 }
 
+impl From<RangeInclusive<f64>> for FloatRange {
+    fn from(value: RangeInclusive<f64>) -> Self {
+        FloatRange {
+            min: Some(*value.start()),
+            max: Some(*value.end()),
+            step: None,
+        }
+    }
+}
+
+impl From<RangeTo<f64>> for FloatRange {
+    fn from(value: RangeTo<f64>) -> Self {
+        FloatRange {
+            min: None,
+            max: Some(value.end),
+            step: None,
+        }
+    }
+}
+
+impl From<RangeFrom<f64>> for FloatRange {
+    fn from(value: RangeFrom<f64>) -> Self {
+        FloatRange {
+            min: Some(value.start),
+            max: None,
+            step: None,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
 pub struct IntegerRange {
     pub min: Option<i64>,
@@ -226,5 +257,35 @@ impl Display for IntegerRange {
             write!(f, ":{}", step)?;
         }
         Ok(())
+    }
+}
+
+impl From<RangeInclusive<i64>> for IntegerRange {
+    fn from(value: RangeInclusive<i64>) -> Self {
+        IntegerRange {
+            min: Some(*value.start()),
+            max: Some(*value.end()),
+            step: None,
+        }
+    }
+}
+
+impl From<RangeTo<i64>> for IntegerRange {
+    fn from(value: RangeTo<i64>) -> Self {
+        IntegerRange {
+            min: None,
+            max: Some(value.end),
+            step: None,
+        }
+    }
+}
+
+impl From<RangeFrom<i64>> for IntegerRange {
+    fn from(value: RangeFrom<i64>) -> Self {
+        IntegerRange {
+            min: Some(value.start),
+            max: None,
+            step: None,
+        }
     }
 }
