@@ -268,7 +268,7 @@ impl FromStr for HomieColorValue {
 ///
 /// The Homie protocol imposes specific rules on how these types should be represented in
 /// MQTT payloads, and this enum models those types.
-#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub enum HomieValue {
     /// Represents an empty value, often used for uninitialized states.
     #[default]
@@ -326,7 +326,6 @@ pub enum HomieValue {
     /// - Must adhere to ISO 8601 format.
     ///
     /// Example: `2024-10-08T10:15:30Z`.
-    #[serde(deserialize_with = "deserialize_datetime")]
     DateTime(chrono::DateTime<chrono::Utc>),
 
     /// Represents a duration value.
@@ -334,7 +333,7 @@ pub enum HomieValue {
     /// - Must use ISO 8601 duration format (`PTxHxMxS`).
     ///
     /// Example: `"PT12H5M46S"` (12 hours, 5 minutes, 46 seconds).
-    #[serde(deserialize_with = "deserialize_duration", serialize_with = "serialize_duration")]
+    #[serde(serialize_with = "serialize_duration")]
     Duration(chrono::Duration),
 
     /// Represents a complex JSON object or array.
@@ -353,20 +352,135 @@ where
     serializer.serialize_str(&iso_str)
 }
 
-fn deserialize_duration<'de, D>(deserializer: D) -> Result<chrono::Duration, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: &str = Deserialize::deserialize(deserializer)?;
-    HomieValue::parse_duration(s).map_err(de::Error::custom)
-}
+/// All `HomieValue` variant names, used for serde error reporting.
+const HOMIE_VALUE_VARIANTS: &[&str] = &[
+    "Empty", "String", "Integer", "Float", "Bool", "Enum", "Color", "DateTime", "Duration", "JSON",
+];
 
-fn deserialize_datetime<'de, D>(deserializer: D) -> Result<chrono::DateTime<chrono::Utc>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: &str = Deserialize::deserialize(deserializer)?;
-    HomieValue::flexible_datetime_parser(s).map_err(de::Error::custom)
+/// Custom `Deserialize` implementation for [`HomieValue`].
+///
+/// A derived (externally tagged) implementation behaves inconsistently across serde's two
+/// deserialization paths in YAML:
+///
+/// - On the *direct* path, `serde_yaml`-family crates require the YAML tag form (`!Bool true`)
+///   for externally tagged enums and reject the single-key map form (`{ Bool: true }`).
+/// - On the *buffered* path (inside `#[serde(untagged)]`, `#[serde(tag = "...")]` or
+///   `#[serde(flatten)]` containers), only the single-key map form works, because serde's
+///   internal `Content` buffer cannot hold enum values.
+///
+/// This implementation accepts **both** representations wherever the format provides them, so
+/// the documented map form (which is also the JSON representation) parses in every context:
+///
+/// - the single-key map form: `{ Bool: true }`, `{ Integer: 5 }`, `{ Empty: null }`, ...
+/// - the enum/tag form where the format supports it: `!Bool true` (YAML direct path)
+/// - the bare string `"Empty"` for the unit variant
+///
+/// `DateTime` and `Duration` payloads are parsed from owned strings via
+/// [`HomieValue::flexible_datetime_parser`] and [`HomieValue::parse_duration`], which also
+/// avoids "expected borrowed string" failures inside buffered contexts.
+impl<'de> Deserialize<'de> for HomieValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct HomieValueVisitor;
+
+        impl<'de> de::Visitor<'de> for HomieValueVisitor {
+            type Value = HomieValue;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str(
+                    "a HomieValue: a single-key map like { Bool: true }, an externally tagged enum, or the string \"Empty\"",
+                )
+            }
+
+            // Unit variant as bare string: "Empty"
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                if v == "Empty" {
+                    Ok(HomieValue::Empty)
+                } else {
+                    Err(de::Error::unknown_variant(v, HOMIE_VALUE_VARIANTS))
+                }
+            }
+
+            // Single-key map form: { Bool: true } — works on both direct and buffered paths.
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::MapAccess<'de>,
+            {
+                let Some(variant) = map.next_key::<String>()? else {
+                    return Err(de::Error::invalid_length(0, &"a map with exactly one HomieValue variant key"));
+                };
+                let value = match variant.as_str() {
+                    "Empty" => {
+                        map.next_value::<de::IgnoredAny>()?;
+                        HomieValue::Empty
+                    }
+                    "String" => HomieValue::String(map.next_value()?),
+                    "Integer" => HomieValue::Integer(map.next_value()?),
+                    "Float" => HomieValue::Float(map.next_value()?),
+                    "Bool" => HomieValue::Bool(map.next_value()?),
+                    "Enum" => HomieValue::Enum(map.next_value()?),
+                    "Color" => HomieValue::Color(map.next_value()?),
+                    "DateTime" => {
+                        let s: String = map.next_value()?;
+                        HomieValue::DateTime(HomieValue::flexible_datetime_parser(&s).map_err(de::Error::custom)?)
+                    }
+                    "Duration" => {
+                        let s: String = map.next_value()?;
+                        HomieValue::Duration(HomieValue::parse_duration(&s).map_err(de::Error::custom)?)
+                    }
+                    "JSON" => HomieValue::JSON(map.next_value()?),
+                    other => return Err(de::Error::unknown_variant(other, HOMIE_VALUE_VARIANTS)),
+                };
+                if map.next_key::<de::IgnoredAny>()?.is_some() {
+                    return Err(de::Error::custom("expected a map with exactly one HomieValue variant key"));
+                }
+                Ok(value)
+            }
+
+            // Enum/tag form: `!Bool true` on the serde_yaml direct path.
+            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::EnumAccess<'de>,
+            {
+                use serde::de::VariantAccess;
+
+                let (variant, access) = data.variant::<String>()?;
+                match variant.as_str() {
+                    "Empty" => {
+                        access.unit_variant()?;
+                        Ok(HomieValue::Empty)
+                    }
+                    "String" => Ok(HomieValue::String(access.newtype_variant()?)),
+                    "Integer" => Ok(HomieValue::Integer(access.newtype_variant()?)),
+                    "Float" => Ok(HomieValue::Float(access.newtype_variant()?)),
+                    "Bool" => Ok(HomieValue::Bool(access.newtype_variant()?)),
+                    "Enum" => Ok(HomieValue::Enum(access.newtype_variant()?)),
+                    "Color" => Ok(HomieValue::Color(access.newtype_variant()?)),
+                    "DateTime" => {
+                        let s: String = access.newtype_variant()?;
+                        Ok(HomieValue::DateTime(
+                            HomieValue::flexible_datetime_parser(&s).map_err(de::Error::custom)?,
+                        ))
+                    }
+                    "Duration" => {
+                        let s: String = access.newtype_variant()?;
+                        Ok(HomieValue::Duration(
+                            HomieValue::parse_duration(&s).map_err(de::Error::custom)?,
+                        ))
+                    }
+                    "JSON" => Ok(HomieValue::JSON(access.newtype_variant()?)),
+                    other => Err(de::Error::unknown_variant(other, HOMIE_VALUE_VARIANTS)),
+                }
+            }
+        }
+
+        deserializer.deserialize_any(HomieValueVisitor)
+    }
 }
 
 impl Display for HomieValue {
