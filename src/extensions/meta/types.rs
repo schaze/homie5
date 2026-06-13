@@ -157,25 +157,19 @@ pub fn merge_meta_entries<'a>(sources: impl IntoIterator<Item = &'a MetaEntries>
 ///
 /// Merges device-level annotations, then per-node annotations, then per-property
 /// annotations. The `schema` field is taken as the maximum across all overlays.
-pub fn merge_device_overlays<'a>(
-    overlays: impl IntoIterator<Item = &'a MetaDeviceOverlay>,
-) -> MetaDeviceOverlay {
+pub fn merge_device_overlays<'a>(overlays: impl IntoIterator<Item = &'a MetaDeviceOverlay>) -> MetaDeviceOverlay {
     let overlays: Vec<&MetaDeviceOverlay> = overlays.into_iter().collect();
 
     let schema = overlays.iter().map(|o| o.schema).max().unwrap_or(0);
 
-    let device_levels: Vec<&MetaDeviceLevel> =
-        overlays.iter().filter_map(|o| o.device.as_ref()).collect();
+    let device_levels: Vec<&MetaDeviceLevel> = overlays.iter().filter_map(|o| o.device.as_ref()).collect();
 
     if device_levels.is_empty() {
         return MetaDeviceOverlay { schema, device: None };
     }
 
     // Merge device-level annotations.
-    let ann_sources: Vec<&MetaEntries> = device_levels
-        .iter()
-        .filter_map(|d| d.annotations.as_ref())
-        .collect();
+    let ann_sources: Vec<&MetaEntries> = device_levels.iter().filter_map(|d| d.annotations.as_ref()).collect();
     let annotations = if ann_sources.is_empty() {
         None
     } else {
@@ -333,17 +327,11 @@ mod tests {
                 nodes: Some(HashMap::from([(
                     "sensor".into(),
                     MetaNodeLevel {
-                        annotations: Some(HashMap::from([(
-                            "name".into(),
-                            MetaValue::text("Temp Sensor"),
-                        )])),
+                        annotations: Some(HashMap::from([("name".into(), MetaValue::text("Temp Sensor"))])),
                         properties: Some(HashMap::from([(
                             "temp".into(),
                             MetaPropertyLevel {
-                                annotations: Some(HashMap::from([(
-                                    "icon".into(),
-                                    MetaValue::text("mdi:thermometer"),
-                                )])),
+                                annotations: Some(HashMap::from([("icon".into(), MetaValue::text("mdi:thermometer"))])),
                             },
                         )])),
                     },
@@ -482,10 +470,7 @@ mod tests {
         b.insert("tags".into(), MetaValue::list(["bluetooth", "zigbee"]));
 
         let merged = merge_meta_entries([&a, &b]);
-        assert_eq!(
-            merged.get("tags"),
-            Some(&MetaValue::list(["zigbee", "bluetooth"]))
-        );
+        assert_eq!(merged.get("tags"), Some(&MetaValue::list(["zigbee", "bluetooth"])));
     }
 
     #[test]
@@ -540,10 +525,7 @@ mod tests {
         assert_eq!(merged.schema, 2);
         let ann = merged.device.unwrap().annotations.unwrap();
         assert_eq!(ann.get("name"), Some(&MetaValue::text("Device A")));
-        assert_eq!(
-            ann.get("room"),
-            Some(&MetaValue::list(["kitchen", "dining"]))
-        );
+        assert_eq!(ann.get("room"), Some(&MetaValue::list(["kitchen", "dining"])));
         assert_eq!(ann.get("icon"), Some(&MetaValue::text("mdi:lamp")));
     }
 
@@ -556,17 +538,11 @@ mod tests {
                 nodes: Some(HashMap::from([(
                     "sensor".into(),
                     MetaNodeLevel {
-                        annotations: Some(HashMap::from([(
-                            "name".into(),
-                            MetaValue::text("Temp Sensor"),
-                        )])),
+                        annotations: Some(HashMap::from([("name".into(), MetaValue::text("Temp Sensor"))])),
                         properties: Some(HashMap::from([(
                             "temp".into(),
                             MetaPropertyLevel {
-                                annotations: Some(HashMap::from([(
-                                    "icon".into(),
-                                    MetaValue::text("mdi:thermometer"),
-                                )])),
+                                annotations: Some(HashMap::from([("icon".into(), MetaValue::text("mdi:thermometer"))])),
                             },
                         )])),
                     },
@@ -580,17 +556,11 @@ mod tests {
                 nodes: Some(HashMap::from([(
                     "sensor".into(),
                     MetaNodeLevel {
-                        annotations: Some(HashMap::from([(
-                            "room".into(),
-                            MetaValue::text("kitchen"),
-                        )])),
+                        annotations: Some(HashMap::from([("room".into(), MetaValue::text("kitchen"))])),
                         properties: Some(HashMap::from([(
                             "temp".into(),
                             MetaPropertyLevel {
-                                annotations: Some(HashMap::from([(
-                                    "name".into(),
-                                    MetaValue::text("Temperature"),
-                                )])),
+                                annotations: Some(HashMap::from([("name".into(), MetaValue::text("Temperature"))])),
                             },
                         )])),
                     },
@@ -608,13 +578,7 @@ mod tests {
         let props = sensor.properties.as_ref().unwrap();
         let temp = props.get("temp").unwrap();
         let prop_ann = temp.annotations.as_ref().unwrap();
-        assert_eq!(
-            prop_ann.get("icon"),
-            Some(&MetaValue::text("mdi:thermometer"))
-        );
-        assert_eq!(
-            prop_ann.get("name"),
-            Some(&MetaValue::text("Temperature"))
-        );
+        assert_eq!(prop_ann.get("icon"), Some(&MetaValue::text("mdi:thermometer")));
+        assert_eq!(prop_ann.get("name"), Some(&MetaValue::text("Temperature")));
     }
 }

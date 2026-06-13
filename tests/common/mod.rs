@@ -74,7 +74,7 @@ pub struct HomieTestDefinition<DEFINITION, INPUTDATA, OUTPUTDATA> {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "testtype", rename_all = "lowercase")]
 pub enum HomieTest {
-    PropertyDescription(HomieTestDefinition<serde_yaml::Value, Option<()>, Option<()>>),
+    PropertyDescription(HomieTestDefinition<serde_yaml_ng::Value, Option<()>, Option<()>>),
     PropertyValue(HomieTestDefinition<HomiePropertyDescription, String, Option<()>>),
     PropertyValueInteger(HomieTestDefinition<HomiePropertyDescription, String, Option<i64>>),
     PropertyValueFloat(HomieTestDefinition<HomiePropertyDescription, String, Option<f64>>),
@@ -118,7 +118,7 @@ pub fn load_test_set_from_file(filename: &str) -> anyhow::Result<HomieTestSet> {
     let contents = fs::read_to_string(test_file_path)?;
 
     // Deserialize the contents into the Config struct
-    let test_set: HomieTestSet = serde_yaml::from_str(&contents)?;
+    let test_set: HomieTestSet = serde_yaml_ng::from_str(&contents)?;
 
     Ok(test_set)
 }

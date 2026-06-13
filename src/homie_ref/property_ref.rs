@@ -31,7 +31,10 @@ use std::str::FromStr;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::AsPropPointer;
-use crate::{AsNodeId, DeviceRef, HomieDomain, Homie5ProtocolError, HomieID, NodeRef, ToTopic, TopicBuilder, get_fallback_homie_domain};
+use crate::{
+    get_fallback_homie_domain, AsNodeId, DeviceRef, Homie5ProtocolError, HomieDomain, HomieID, NodeRef, ToTopic,
+    TopicBuilder,
+};
 
 use super::PropertyPointer;
 

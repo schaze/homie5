@@ -412,7 +412,10 @@ impl<'de> Deserialize<'de> for HomieValue {
                 A: de::MapAccess<'de>,
             {
                 let Some(variant) = map.next_key::<String>()? else {
-                    return Err(de::Error::invalid_length(0, &"a map with exactly one HomieValue variant key"));
+                    return Err(de::Error::invalid_length(
+                        0,
+                        &"a map with exactly one HomieValue variant key",
+                    ));
                 };
                 let value = match variant.as_str() {
                     "Empty" => {
@@ -437,7 +440,9 @@ impl<'de> Deserialize<'de> for HomieValue {
                     other => return Err(de::Error::unknown_variant(other, HOMIE_VALUE_VARIANTS)),
                 };
                 if map.next_key::<de::IgnoredAny>()?.is_some() {
-                    return Err(de::Error::custom("expected a map with exactly one HomieValue variant key"));
+                    return Err(de::Error::custom(
+                        "expected a map with exactly one HomieValue variant key",
+                    ));
                 }
                 Ok(value)
             }

@@ -20,11 +20,7 @@ pub fn meta_provider_info_topic(homie_domain: &HomieDomain, provider_id: &HomieI
 }
 
 /// Build the device overlay topic: `{domain}/5/$meta/{provider_id}/{device_id}`
-pub fn meta_device_overlay_topic(
-    homie_domain: &HomieDomain,
-    provider_id: &HomieID,
-    device_id: &HomieID,
-) -> String {
+pub fn meta_device_overlay_topic(homie_domain: &HomieDomain, provider_id: &HomieID, device_id: &HomieID) -> String {
     meta_topic_root(homie_domain)
         .add_id(provider_id)
         .add_id(device_id)

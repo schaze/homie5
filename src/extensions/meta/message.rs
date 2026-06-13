@@ -72,8 +72,7 @@ pub fn parse_meta_message(topic: &str, payload: &[u8]) -> Result<Option<MetaMess
                     provider_id,
                 }))
             } else {
-                let info: MetaProviderInfo =
-                    serde_json::from_str(&mqtt_payload_to_string(payload)?)?;
+                let info: MetaProviderInfo = serde_json::from_str(&mqtt_payload_to_string(payload)?)?;
                 Ok(Some(MetaMessage::ProviderInfo {
                     homie_domain,
                     provider_id,
@@ -91,8 +90,7 @@ pub fn parse_meta_message(topic: &str, payload: &[u8]) -> Result<Option<MetaMess
                     device_id,
                 }))
             } else {
-                let overlay: MetaDeviceOverlay =
-                    serde_json::from_str(&mqtt_payload_to_string(payload)?)?;
+                let overlay: MetaDeviceOverlay = serde_json::from_str(&mqtt_payload_to_string(payload)?)?;
                 Ok(Some(MetaMessage::DeviceOverlay {
                     homie_domain,
                     provider_id,
@@ -119,9 +117,7 @@ mod tests {
 
         let msg = parse_meta_message(topic, payload).unwrap().unwrap();
         match msg {
-            MetaMessage::ProviderInfo {
-                provider_id, info, ..
-            } => {
+            MetaMessage::ProviderInfo { provider_id, info, .. } => {
                 assert_eq!(provider_id.as_str(), "my-provider");
                 assert_eq!(info.schema, 1);
                 assert_eq!(info.title.as_deref(), Some("My Provider"));
@@ -162,14 +158,8 @@ mod tests {
                 assert_eq!(device_id.as_str(), "device-01");
                 assert_eq!(overlay.schema, 2);
                 let ann = overlay.device.unwrap().annotations.unwrap();
-                assert_eq!(
-                    ann.get("name").and_then(MetaValue::as_text),
-                    Some("Living Room Light")
-                );
-                assert_eq!(
-                    ann.get("room").and_then(MetaValue::as_text),
-                    Some("living-room")
-                );
+                assert_eq!(ann.get("name").and_then(MetaValue::as_text), Some("Living Room Light"));
+                assert_eq!(ann.get("room").and_then(MetaValue::as_text), Some("living-room"));
                 assert_eq!(
                     ann.get("tags").and_then(MetaValue::as_list),
                     Some(&["zigbee".to_string()][..])
@@ -187,9 +177,7 @@ mod tests {
         let msg = parse_meta_message(topic, payload).unwrap().unwrap();
         match msg {
             MetaMessage::DeviceOverlayRemoval {
-                provider_id,
-                device_id,
-                ..
+                provider_id, device_id, ..
             } => {
                 assert_eq!(provider_id.as_str(), "my-provider");
                 assert_eq!(device_id.as_str(), "device-01");
@@ -254,10 +242,7 @@ mod tests {
             MetaMessage::DeviceOverlay { overlay, .. } => {
                 let device = overlay.device.unwrap();
                 let dev_ann = device.annotations.unwrap();
-                assert_eq!(
-                    dev_ann.get("name").and_then(MetaValue::as_text),
-                    Some("Window Sensor")
-                );
+                assert_eq!(dev_ann.get("name").and_then(MetaValue::as_text), Some("Window Sensor"));
                 let nodes = device.nodes.unwrap();
                 let contact = nodes.get("contact").unwrap();
                 let node_ann = contact.annotations.as_ref().unwrap();
@@ -268,10 +253,7 @@ mod tests {
                 let props = contact.properties.as_ref().unwrap();
                 let state = props.get("state").unwrap();
                 let prop_ann = state.annotations.as_ref().unwrap();
-                assert_eq!(
-                    prop_ann.get("name").and_then(MetaValue::as_text),
-                    Some("State")
-                );
+                assert_eq!(prop_ann.get("name").and_then(MetaValue::as_text), Some("State"));
                 assert_eq!(
                     prop_ann.get("icon").and_then(MetaValue::as_text),
                     Some("mdi:window-closed")

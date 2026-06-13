@@ -24,7 +24,7 @@ use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{HomieDomain, Homie5ProtocolError, HomieID, ToTopic, TopicBuilder, get_fallback_homie_domain};
+use crate::{get_fallback_homie_domain, Homie5ProtocolError, HomieDomain, HomieID, ToTopic, TopicBuilder};
 
 /// Identifies a device via homie-domain and the device id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

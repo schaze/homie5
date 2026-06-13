@@ -27,7 +27,7 @@ use std::str::FromStr;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::AsNodeId;
-use crate::{DeviceRef, HomieDomain, Homie5ProtocolError, HomieID, ToTopic, TopicBuilder, get_fallback_homie_domain};
+use crate::{get_fallback_homie_domain, DeviceRef, Homie5ProtocolError, HomieDomain, HomieID, ToTopic, TopicBuilder};
 
 /// Identifies a node of a device via its DeviceRef and its node id
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

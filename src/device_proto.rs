@@ -499,8 +499,7 @@ impl Homie5DeviceProtocol {
             .flat_map(move |(node_id, _, prop_id, _)| {
                 [
                     Publish {
-                        topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
-                            .build(),
+                        topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id).build(),
                         qos: QoS::ExactlyOnce,
                         retain: true,
                         payload: Vec::default(),
