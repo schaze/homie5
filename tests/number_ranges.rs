@@ -201,3 +201,54 @@ fn test_integer_range_display() {
     };
     assert_eq!(range.to_string(), "::3");
 }
+
+// ---------------------------------------------------------------------------
+// Regression tests: spec-compliance and robustness fixes
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_float_range_rejects_non_finite_bounds() {
+    // NaN/inf are not valid float payloads per the convention and must not be
+    // accepted as range bounds or step.
+    assert!(FloatRange::parse("NaN:10").is_err());
+    assert!(FloatRange::parse("0:NaN").is_err());
+    assert!(FloatRange::parse("inf:").is_err());
+    assert!(FloatRange::parse(":-inf").is_err());
+    assert!(FloatRange::parse("0:1:NaN").is_err());
+    assert!(FloatRange::parse("0:1:inf").is_err());
+    assert!(!FloatRange::validate_float_range(Some(f64::NAN), Some(10.0), None));
+    assert!(!FloatRange::validate_float_range(Some(0.0), Some(f64::INFINITY), None));
+}
+
+#[test]
+fn test_integer_range_full_i64_range_no_overflow() {
+    // The full i64 range is valid per the convention and must not overflow the
+    // step <= max - min check.
+    let range = IntegerRange::parse("-9223372036854775808:9223372036854775807:1").unwrap();
+    assert_eq!(range.min, Some(i64::MIN));
+    assert_eq!(range.max, Some(i64::MAX));
+    assert_eq!(range.step, Some(1));
+    assert!(IntegerRange::validate_integer_range(
+        Some(i64::MIN),
+        Some(i64::MAX),
+        Some(i64::MAX)
+    ));
+}
+
+#[test]
+fn test_empty_range_display_does_not_panic() {
+    // Display must never return Err (would panic in to_string()). An empty range
+    // renders as the convention's default unrestricted format ":".
+    let float_range = FloatRange {
+        min: None,
+        max: None,
+        step: None,
+    };
+    assert_eq!(float_range.to_string(), ":");
+    let integer_range = IntegerRange {
+        min: None,
+        max: None,
+        step: None,
+    };
+    assert_eq!(integer_range.to_string(), ":");
+}

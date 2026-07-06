@@ -119,11 +119,12 @@ impl std::error::Error for Homie5ValueConversionError {
 ///
 /// # Validity
 ///
-/// - The encoded string must contain whole numbers for `RGB` and `HSV` formats and floating-point values
-///   for `XYZ` format. These values are separated by commas, with no additional spaces allowed.
+/// - The encoded string contains comma-separated numbers conforming to the Homie float payload
+///   format, with no additional spaces allowed. For `RGB` and `HSV` the components are rounded
+///   to the nearest whole number when parsed; `XYZ` keeps full floating-point precision.
 /// - Only the specific values defined in the Homie property format for a device should be accepted.
-/// - An empty string or incorrectly formatted payloads (e.g., out-of-range values or invalid characters)
-///   are not valid and should result in an error.
+/// - An empty string or incorrectly formatted payloads (e.g., out-of-range values, non-finite
+///   numbers such as `NaN`/`inf`, or invalid characters) are not valid and result in an error.
 ///
 /// # Usage
 ///
@@ -135,11 +136,14 @@ impl std::error::Error for Homie5ValueConversionError {
 #[derive(Debug, Clone, Copy)]
 pub enum HomieColorValue {
     /// Represents a color in the RGB format, using three integers for red, green, and blue channels.
-    /// Each value must be an integer between 0 and 255.
+    /// Each value must be between 0 and 255. Payloads may contain float components (per the Homie
+    /// v5 convention), which are rounded to the nearest whole number when parsed.
     ///   - Example: `"rgb,255,0,0"` for red.
     RGB(i64, i64, i64),
     /// Represents a color in the HSV format, using three integers for hue, saturation, and value.
-    /// Hue ranges from 0 to 360, while saturation and value range from 0 to 100.
+    /// Hue ranges from 0 to 360, while saturation and value range from 0 to 100. Payloads may
+    /// contain float components (per the Homie v5 convention), which are rounded to the nearest
+    /// whole number when parsed.
     ///   - Example: `"hsv,120,100,100"` for bright green.
     HSV(i64, i64, i64),
     /// Represents Homie's historical `xyz` color format, using two CIE 1931 chromaticity
@@ -151,9 +155,9 @@ pub enum HomieColorValue {
 
 impl HomieColorValue {
     const RGB_RULES: &'static str =
-        "RGB requires three whole numbers: red, green, and blue must each be between 0 and 255";
+        "RGB requires three finite numbers: red, green, and blue must each be between 0 and 255 (rounded to the nearest whole number)";
     const HSV_RULES: &'static str =
-        "HSV requires three whole numbers: hue must be between 0 and 360, saturation and value between 0 and 100";
+        "HSV requires three finite numbers: hue must be between 0 and 360, saturation and value between 0 and 100 (rounded to the nearest whole number)";
     const XYZ_RULES: &'static str =
         "XYZ requires numbers between 0.0 and 1.0; x + y must be at most 1.0, and z must equal 1.0 - x - y";
     const COLOR_RULES: &'static str = "expected color format: rgb,R,G,B, hsv,H,S,V, or xyz,X,Y";
@@ -298,6 +302,23 @@ impl FromStr for HomieColorValue {
         let mut tokens = s.split(',');
         let invalid = |reason| Homie5ValueConversionError::invalid_color_format(s, reason);
 
+        // The Homie v5 convention specifies that all color components are transmitted in the
+        // float payload format. For `rgb` and `hsv` the components are rounded to the nearest
+        // whole number for internal storage. Non-finite values ("NaN", "inf") are not valid
+        // float payloads per the convention and are rejected.
+        let parse_component = |token: &str, reason: &'static str| -> Result<f64, Homie5ValueConversionError> {
+            let num: f64 = token
+                .parse()
+                .map_err(|_| Homie5ValueConversionError::invalid_color_format(s, reason))?;
+            if !num.is_finite() {
+                return Err(Homie5ValueConversionError::invalid_color_format(s, reason));
+            }
+            Ok(num)
+        };
+        let parse_rounded = |token: &str, reason: &'static str| -> Result<i64, Homie5ValueConversionError> {
+            Ok(parse_component(token, reason)?.round() as i64)
+        };
+
         match tokens.next() {
             Some("rgb") => {
                 let (Some(r), Some(g), Some(b), None) = (tokens.next(), tokens.next(), tokens.next(), tokens.next())
@@ -306,9 +327,9 @@ impl FromStr for HomieColorValue {
                 };
 
                 let color = Self::RGB(
-                    r.parse().map_err(|_| invalid(Self::RGB_RULES))?,
-                    g.parse().map_err(|_| invalid(Self::RGB_RULES))?,
-                    b.parse().map_err(|_| invalid(Self::RGB_RULES))?,
+                    parse_rounded(r, Self::RGB_RULES)?,
+                    parse_rounded(g, Self::RGB_RULES)?,
+                    parse_rounded(b, Self::RGB_RULES)?,
                 );
                 color.validate()?;
                 Ok(color)
@@ -321,9 +342,9 @@ impl FromStr for HomieColorValue {
                 };
 
                 let color = Self::HSV(
-                    h.parse().map_err(|_| invalid(Self::HSV_RULES))?,
-                    saturation.parse().map_err(|_| invalid(Self::HSV_RULES))?,
-                    value.parse().map_err(|_| invalid(Self::HSV_RULES))?,
+                    parse_rounded(h, Self::HSV_RULES)?,
+                    parse_rounded(saturation, Self::HSV_RULES)?,
+                    parse_rounded(value, Self::HSV_RULES)?,
                 );
                 color.validate()?;
                 Ok(color)
@@ -334,8 +355,8 @@ impl FromStr for HomieColorValue {
                 };
 
                 let color = Self::new_xyz(
-                    x.parse().map_err(|_| invalid(Self::XYZ_RULES))?,
-                    y.parse().map_err(|_| invalid(Self::XYZ_RULES))?,
+                    parse_component(x, Self::XYZ_RULES)?,
+                    parse_component(y, Self::XYZ_RULES)?,
                 );
                 color.validate()?;
                 Ok(color)
@@ -429,12 +450,35 @@ pub enum HomieValue {
     JSON(serde_json::Value),
 }
 
+/// Formats a [`chrono::Duration`] as a Homie v5 duration payload (`PTxHxMxS`).
+///
+/// The convention's duration format cannot express negative or sub-second durations:
+/// negative durations are clamped to `PT0S` and sub-second parts are truncated.
+fn format_duration_iso(duration: &chrono::Duration) -> String {
+    // num_seconds() truncates sub-second parts towards zero; negative durations clamp to 0.
+    let total_seconds = duration.num_seconds().max(0);
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+
+    let mut out = String::from("PT");
+    if hours > 0 {
+        out.push_str(&format!("{}H", hours));
+    }
+    if minutes > 0 {
+        out.push_str(&format!("{}M", minutes));
+    }
+    if seconds > 0 || (hours == 0 && minutes == 0) {
+        out.push_str(&format!("{}S", seconds));
+    }
+    out
+}
+
 fn serialize_duration<S>(duration: &chrono::Duration, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    let iso_str = duration.to_string();
-    serializer.serialize_str(&iso_str)
+    serializer.serialize_str(&format_duration_iso(duration))
 }
 
 /// All `HomieValue` variant names, used for serde error reporting.
@@ -584,7 +628,7 @@ impl Display for HomieValue {
             HomieValue::Enum(value) => write!(f, "{}", value),
             HomieValue::Color(value) => write!(f, "{}", value),
             HomieValue::DateTime(value) => write!(f, "{}", value.to_rfc3339()),
-            HomieValue::Duration(value) => write!(f, "{}", value),
+            HomieValue::Duration(value) => write!(f, "{}", format_duration_iso(value)),
             HomieValue::JSON(value) => {
                 if let Ok(val) = serde_json::to_string(value) {
                     write!(f, "{}", val)
@@ -757,6 +801,15 @@ impl HomieValue {
             HomieDataType::Float => raw
                 .parse::<f64>()
                 .map_err(|_| Homie5ValueConversionError::InvalidFloatFormat(raw.to_string()))
+                .and_then(|d| {
+                    // The convention explicitly forbids representations of numeric concepts
+                    // such as "NaN" and "Infinity" in float payloads.
+                    if d.is_finite() {
+                        Ok(d)
+                    } else {
+                        Err(Homie5ValueConversionError::InvalidFloatFormat(raw.to_string()))
+                    }
+                })
                 .and_then(|d| Self::validate_float(d, property_desc))
                 .map(HomieValue::Float),
             HomieDataType::Boolean => raw
@@ -832,19 +885,33 @@ impl HomieValue {
     pub fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
         static RE: std::sync::LazyLock<regex::Regex> =
             std::sync::LazyLock::new(|| regex::Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").unwrap());
+        let invalid = || Homie5ValueConversionError::InvalidDurationFormat(s.to_string());
         if let Some(captures) = RE.captures(s) {
-            let hours: i64 = captures.get(1).map_or(0, |m| m.as_str().parse().unwrap());
-            let minutes: i64 = captures.get(2).map_or(0, |m| m.as_str().parse().unwrap());
-            let seconds: i64 = captures.get(3).map_or(0, |m| m.as_str().parse().unwrap());
-
             // Require at least one component (reject bare "PT")
             if captures.get(1).is_none() && captures.get(2).is_none() && captures.get(3).is_none() {
-                return Err(Homie5ValueConversionError::InvalidDurationFormat(s.to_string()));
+                return Err(invalid());
             }
 
-            return Ok(chrono::Duration::seconds(hours * 3600 + minutes * 60 + seconds));
+            // The regex only guarantees digits; the component values can still overflow i64
+            // (e.g. "PT99999999999999999999H"), so every conversion must be checked.
+            let component = |i: usize| -> Result<i64, Homie5ValueConversionError> {
+                captures
+                    .get(i)
+                    .map_or(Ok(0), |m| m.as_str().parse().map_err(|_| invalid()))
+            };
+            let hours = component(1)?;
+            let minutes = component(2)?;
+            let seconds = component(3)?;
+
+            let total_seconds = hours
+                .checked_mul(3600)
+                .and_then(|h| minutes.checked_mul(60).and_then(|m| h.checked_add(m)))
+                .and_then(|hm| hm.checked_add(seconds))
+                .ok_or_else(invalid)?;
+
+            return chrono::Duration::try_seconds(total_seconds).ok_or_else(invalid);
         }
-        Err(Homie5ValueConversionError::InvalidDurationFormat(s.to_string()))
+        Err(invalid())
     }
 
     // flexible deserialization approach as timestamps are hard and we want to keep compatibility
@@ -892,9 +959,23 @@ impl HomieValue {
         // Use min as base, if not present, use max, otherwise use the current value
         let base = range.min.or(range.max).unwrap_or(value);
 
-        // Adjust rounding logic: floor((x + 0.5)) to always round up
+        // Adjust rounding logic: floor((x + 0.5)) to always round up (per the convention's
+        // recommended step-rounding algorithm)
         let rounded = match range.step {
-            Some(s) if s > 0.0 => ((value - base) / s + 0.5).floor() * s + base,
+            Some(s) if s > 0.0 => {
+                let candidate = ((value - base) / s + 0.5).floor() * s + base;
+                // Binary floating point cannot represent most decimal steps exactly (e.g. 0.1),
+                // so the snapped candidate may differ from a value that already lies exactly on
+                // the step grid by a few ULPs (e.g. 0.3 -> 0.30000000000000004). If the original
+                // value is within floating point tolerance of the candidate, keep the original
+                // value to avoid mutating already-valid values.
+                let tolerance = f64::EPSILON * value.abs().max(candidate.abs()).max(1.0) * 4.0;
+                if (candidate - value).abs() <= tolerance {
+                    value
+                } else {
+                    candidate
+                }
+            }
             _ => value,
         };
 
@@ -914,9 +995,19 @@ impl HomieValue {
         // Use min as base, if not present, use max, otherwise use the current value
         let base = range.min.or(range.max).unwrap_or(value);
 
-        // Adjust rounding logic: floor((x + 0.5)) to always round up
+        // Snap to the step grid using floor(x + 0.5) rounding (per the convention's recommended
+        // step-rounding algorithm). The computation is done in i128 integer arithmetic:
+        // converting to f64 would silently corrupt values above 2^53, and i64 arithmetic could
+        // overflow on `value - base`.
         let rounded = match range.step {
-            Some(s) if s > 0 => ((value - base) as f64 / s as f64 + 0.5).floor() as i64 * s + base,
+            Some(s) if s > 0 => {
+                let diff = value as i128 - base as i128;
+                let s = s as i128;
+                // floor(diff / s + 1/2) == floor((2 * diff + s) / (2 * s))
+                let snapped = (2 * diff + s).div_euclid(2 * s) * s + base as i128;
+                i64::try_from(snapped)
+                    .map_err(|_| Homie5ValueConversionError::IntegerOutOfRange(value, range.clone()))?
+            }
             _ => value,
         };
 

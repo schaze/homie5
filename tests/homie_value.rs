@@ -132,16 +132,16 @@ fn test_homie_color_value_from_str_xyz() {
 fn test_homie_color_value_from_str_invalid() {
     assert_invalid_color_format("", "expected color format");
     assert_invalid_color_format("invalid,255,100,50", "expected color format");
-    assert_invalid_color_format("rgb,red,100,50", "RGB requires three whole numbers");
+    assert_invalid_color_format("rgb,red,100,50", "RGB requires three finite numbers");
     assert_invalid_color_value(
         "rgb,300,100,50",
         HomieColorValue::RGB(300, 100, 50),
-        "RGB requires three whole numbers",
+        "RGB requires three finite numbers",
     );
     assert_invalid_color_value(
         "hsv,120,101,50",
         HomieColorValue::HSV(120, 101, 50),
-        "HSV requires three whole numbers",
+        "HSV requires three finite numbers",
     );
     assert_invalid_color_value(
         "xyz,0.9961,0.9961",
@@ -152,8 +152,8 @@ fn test_homie_color_value_from_str_invalid() {
 
 #[test]
 fn test_homie_color_value_from_str_rejects_extra_components() {
-    assert_invalid_color_format("rgb,255,100,50,0", "RGB requires three whole numbers");
-    assert_invalid_color_format("hsv,120,100,100,0", "HSV requires three whole numbers");
+    assert_invalid_color_format("rgb,255,100,50,0", "RGB requires three finite numbers");
+    assert_invalid_color_format("hsv,120,100,100,0", "HSV requires three finite numbers");
     assert_invalid_color_format("xyz,0.3,0.4,0.3", "XYZ requires numbers between 0.0 and 1.0");
 }
 
@@ -772,4 +772,189 @@ fn test_validation_integer_nok() {
     let desc = PropertyDescriptionBuilder::integer().build();
     let json = HomieValue::parse("{ \"test\": failure }", &desc);
     assert!(json.is_err());
+}
+
+// ---------------------------------------------------------------------------
+// Regression tests: spec-compliance and robustness fixes
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_color_parse_accepts_float_components_rounded() {
+    // Per Homie v5 the rgb/hsv payload numbers are floats; components are rounded
+    // to the nearest whole number for storage.
+    assert_eq!(
+        "rgb,100.5,50.4,50".parse::<HomieColorValue>().unwrap(),
+        HomieColorValue::RGB(101, 50, 50)
+    );
+    assert_eq!(
+        "hsv,300.4,50.5,75".parse::<HomieColorValue>().unwrap(),
+        HomieColorValue::HSV(300, 51, 75)
+    );
+    // Rounding may not push a component out of range
+    assert!("rgb,255.6,0,0".parse::<HomieColorValue>().is_err());
+}
+
+#[test]
+fn test_color_parse_rejects_non_finite_components() {
+    assert!("rgb,NaN,0,0".parse::<HomieColorValue>().is_err());
+    assert!("rgb,inf,0,0".parse::<HomieColorValue>().is_err());
+    assert!("hsv,120,-inf,50".parse::<HomieColorValue>().is_err());
+    assert!("xyz,NaN,0.4".parse::<HomieColorValue>().is_err());
+}
+
+#[test]
+fn test_float_parse_rejects_non_finite_payloads() {
+    // The convention: "Representations of numeric concepts such as NaN and Infinity
+    // are not a valid payload"
+    let desc = PropertyDescriptionBuilder::float().build();
+    assert!(HomieValue::parse("NaN", &desc).is_err());
+    assert!(HomieValue::parse("inf", &desc).is_err());
+    assert!(HomieValue::parse("-inf", &desc).is_err());
+    assert!(HomieValue::parse("infinity", &desc).is_err());
+
+    let desc_min_only = PropertyDescriptionBuilder::float().range(0.0..).build();
+    assert!(HomieValue::parse("inf", &desc_min_only).is_err());
+}
+
+#[test]
+fn test_float_step_keeps_values_already_on_grid() {
+    // 0.3 lies exactly on the 0:1:0.1 grid; parse must not mutate it into
+    // 0.30000000000000004 and validate must accept it.
+    let desc = PropertyDescriptionBuilder::float()
+        .float_range(FloatRange {
+            min: Some(0.0),
+            max: Some(1.0),
+            step: Some(0.1),
+        })
+        .build();
+    assert_eq!(HomieValue::parse("0.3", &desc).unwrap(), HomieValue::Float(0.3));
+    assert_eq!(HomieValue::parse("0.7", &desc).unwrap(), HomieValue::Float(0.7));
+    assert!(HomieValue::Float(0.3).validate(&desc));
+    assert!(HomieValue::Float(0.7).validate(&desc));
+}
+
+#[test]
+fn test_float_step_rounding_follows_convention() {
+    // Examples from the convention's step-rounding table
+    let desc = PropertyDescriptionBuilder::float()
+        .float_range(FloatRange {
+            min: Some(0.0),
+            max: Some(10.0),
+            step: Some(2.0),
+        })
+        .build();
+    assert_eq!(HomieValue::parse("5", &desc).unwrap(), HomieValue::Float(6.0));
+
+    let desc_max_base = PropertyDescriptionBuilder::float()
+        .float_range(FloatRange {
+            min: None,
+            max: Some(10.0),
+            step: Some(2.0),
+        })
+        .build();
+    assert_eq!(HomieValue::parse("5", &desc_max_base).unwrap(), HomieValue::Float(6.0));
+}
+
+#[test]
+fn test_integer_step_preserves_large_values() {
+    // Values above 2^53 must not be corrupted by float conversions.
+    let desc = PropertyDescriptionBuilder::integer()
+        .integer_range(IntegerRange {
+            min: Some(0),
+            max: None,
+            step: Some(1),
+        })
+        .build();
+    let big = (1i64 << 62) + 1;
+    assert_eq!(
+        HomieValue::parse(&big.to_string(), &desc).unwrap(),
+        HomieValue::Integer(big)
+    );
+    assert!(HomieValue::Integer(big).validate(&desc));
+}
+
+#[test]
+fn test_integer_step_no_overflow_at_extremes() {
+    // base = i64::MIN, value = i64::MAX must not panic on `value - base`.
+    let desc = PropertyDescriptionBuilder::integer()
+        .integer_range(IntegerRange {
+            min: Some(i64::MIN),
+            max: Some(i64::MAX),
+            step: Some(1),
+        })
+        .build();
+    assert_eq!(
+        HomieValue::parse(&i64::MAX.to_string(), &desc).unwrap(),
+        HomieValue::Integer(i64::MAX)
+    );
+    assert_eq!(
+        HomieValue::parse(&i64::MIN.to_string(), &desc).unwrap(),
+        HomieValue::Integer(i64::MIN)
+    );
+}
+
+#[test]
+fn test_integer_step_rounding_follows_convention() {
+    // Examples from the convention's step-rounding table
+    let desc = PropertyDescriptionBuilder::integer()
+        .integer_range(IntegerRange {
+            min: Some(0),
+            max: Some(10),
+            step: Some(2),
+        })
+        .build();
+    assert_eq!(HomieValue::parse("5", &desc).unwrap(), HomieValue::Integer(6));
+
+    let desc_max_base = PropertyDescriptionBuilder::integer()
+        .integer_range(IntegerRange {
+            min: None,
+            max: Some(10),
+            step: Some(2),
+        })
+        .build();
+    assert_eq!(HomieValue::parse("5", &desc_max_base).unwrap(), HomieValue::Integer(6));
+}
+
+#[test]
+fn test_parse_duration_rejects_overflow_without_panic() {
+    // i64 overflow in a single component
+    assert!(HomieValue::parse_duration("PT99999999999999999999H").is_err());
+    // arithmetic overflow when combining components
+    assert!(HomieValue::parse_duration("PT9223372036854775807H").is_err());
+    // out of range for chrono::Duration
+    assert!(HomieValue::parse_duration("PT9000000000000000000S").is_err());
+}
+
+#[test]
+fn test_duration_display_is_spec_compliant() {
+    // PTxHxMxS output that round-trips through parse_duration
+    let cases = [
+        (Duration::seconds(43546), "PT12H5M46S"),
+        (Duration::seconds(300), "PT5M"),
+        (Duration::seconds(3600), "PT1H"),
+        (Duration::seconds(0), "PT0S"),
+        // negative durations clamp to PT0S (not expressible in the convention format)
+        (Duration::seconds(-5), "PT0S"),
+        // sub-second parts are truncated
+        (Duration::milliseconds(1500), "PT1S"),
+    ];
+    for (duration, expected) in cases {
+        let displayed = HomieValue::Duration(duration).to_string();
+        assert_eq!(displayed, expected, "for duration {duration}");
+        assert!(
+            HomieValue::parse_duration(&displayed).is_ok(),
+            "displayed duration {displayed:?} must be parseable"
+        );
+    }
+}
+
+#[test]
+fn test_mqtt_payload_to_string_strict_empty_encoding() {
+    // Only the exact single-byte 0x00 payload is the Homie empty-string encoding.
+    assert_eq!(client::mqtt_payload_to_string(&[0]).unwrap(), "");
+    assert_eq!(client::mqtt_payload_to_string(b"abc").unwrap(), "abc");
+    // A longer payload starting with 0x00 must not be silently truncated to "".
+    assert_eq!(client::mqtt_payload_to_string(&[0, b'x']).unwrap(), "\0x");
+    // Round-trip with the encoder
+    assert_eq!(client::mqtt_payload_to_string(&homie_str_to_vecu8("")).unwrap(), "");
 }

@@ -176,12 +176,14 @@ pub struct Unsubscribe {
 
 /// Attempt to parse the payload as a UTF-8 string
 /// special case:
-/// accoring to the homie convention a string with a 0 value byte as first value constitues an
-/// empty string. This is only true for homie string value types. However since all input data
-/// for all other homie data types is a string we leave the handling of a valid input data to
-/// the parsing function of HomieValue
+/// according to the homie convention an empty string is represented by a payload consisting of
+/// exactly one single 0 value byte. This is only true for homie string value types. However since
+/// all input data for all other homie data types is a string we leave the handling of a valid
+/// input data to the parsing function of HomieValue.
+/// Note that only the exact single-byte `[0x00]` payload is treated as the empty string; any
+/// longer payload is decoded as regular UTF-8 data.
 pub fn mqtt_payload_to_string(payload: &[u8]) -> Result<String, FromUtf8Error> {
-    if payload.first() == Some(&0) {
+    if payload == [0] {
         Ok(String::new())
     } else {
         String::from_utf8(payload.to_vec())
