@@ -361,6 +361,7 @@ pub struct HomieDeviceDescription {
     pub name: Option<String>,
     pub version: i64,
     pub homie: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub r#type: Option<String>,
     #[serde(default = "serde_default_list", skip_serializing_if = "serde_skip_if_empty_list")]
     pub children: Vec<HomieID>,

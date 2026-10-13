@@ -201,9 +201,10 @@ impl Ord for CustomDomain {
     }
 }
 
+/// Defaults to the standard `homie` domain, the only domain valid without configuration.
 impl Default for CustomDomain {
     fn default() -> Self {
-        Self(CustomDomainInner::new_static(""))
+        Self(CustomDomainInner::new_static(DEFAULT_HOMIE_DOMAIN))
     }
 }
 

@@ -667,7 +667,9 @@ For a graceful disconnect, use `homie_device_disconnect_steps()`:
 ### Device Removal
 
 To permanently remove a device from the broker, use `protocol.remove_device(&description)`.
-This clears all retained messages (`$state`, `$description`, `$alert`, and all retained property values).
+This clears `$state` first, then `$description` and all retained property values and targets.
+Active alerts live under `$alert/<alert-id>` and are unknown to the protocol, so clear each one
+with `protocol.publish_clear_alert(&alert_id)` before removing the device.
 Controllers will receive a `Homie5Message::DeviceRemoval` when the `$state` topic is cleared.
 
 ### Property Target
@@ -703,7 +705,8 @@ let root_desc = DeviceDescriptionBuilder::new()
 // Create protocol for child device
 let child_protocol = root_protocol.clone_for_child("sensor-1".try_into().unwrap());
 
-// Child device description must set `root`
+// Child device description must set `root` to the root device's ID,
+// otherwise publishing it through `child_protocol` fails with `RootMismatch`
 let child_desc = DeviceDescriptionBuilder::new()
     .name("Temperature Sensor")
     .root("gateway".try_into().unwrap())

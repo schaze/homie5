@@ -108,7 +108,7 @@ pub enum QoS {
 ///
 /// - `topic`: The topic filter specifying which messages the client is interested in receiving.
 /// - `qos`: The Quality of Service level that dictates how the broker delivers messages to the client.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Subscription {
     /// The topic filter for the subscription.
     ///
@@ -133,7 +133,7 @@ pub struct Subscription {
 /// - `retain`: A flag indicating whether the message should be retained by the broker.
 /// - `payload`: The actual data being sent in the message, as a binary payload (vector of bytes).
 /// - `qos`: The Quality of Service level, which determines the reliability of the message delivery.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Publish {
     /// The topic for this publish message.
     ///
@@ -163,7 +163,7 @@ pub struct Publish {
 ///
 /// Unsubscribing from a topic stops the client from receiving messages that are published to that topic.
 /// Once unsubscribed, the client will no longer receive updates from the broker for the specified topic.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Unsubscribe {
     /// The MQTT topic the client wishes to unsubscribe from.
     ///

@@ -282,8 +282,10 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                             },
                             description,
                         }),
+                        // An empty payload is the topic deletion sent during device removal, so
+                        // failures are reported to the caller only and not logged as errors here.
                         Err(err) => {
-                            log::error!("{:#?}", err);
+                            log::debug!("Invalid $description payload on {}: {}", topic, err);
                             Err(Homie5ProtocolError::InvalidPayload)
                         }
                     }

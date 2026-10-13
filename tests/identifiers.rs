@@ -278,3 +278,10 @@ fn test_property_pointer_fromstr_wrong_segments() {
     assert!(PropertyPointer::from_str("single").is_err());
     assert!(PropertyPointer::from_str("a/b/c").is_err());
 }
+
+#[test]
+fn test_custom_domain_default_is_valid() {
+    let domain = CustomDomain::default();
+    assert!(CustomDomain::validate(domain.as_str()).is_ok());
+    assert_eq!(domain.as_str(), DEFAULT_HOMIE_DOMAIN);
+}

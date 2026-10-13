@@ -725,8 +725,6 @@ impl PartialOrd<HomieValue> for HomieValue {
             (HomieValue::Float(self_float), HomieValue::Float(other_float)) => self_float.partial_cmp(other_float),
             (HomieValue::Bool(self_bool), HomieValue::Bool(other_bool)) => self_bool.partial_cmp(other_bool),
             (HomieValue::Enum(self_enum), HomieValue::Enum(other_enum)) => self_enum.partial_cmp(other_enum),
-            (HomieValue::Enum(self_enum), HomieValue::String(other_string)) => self_enum.partial_cmp(other_string),
-            (HomieValue::String(self_string), HomieValue::Enum(other_enum)) => self_string.partial_cmp(other_enum),
             (HomieValue::Color(self_homie_color_value), HomieValue::Color(other_homie_color_value)) => {
                 self_homie_color_value.partial_cmp(other_homie_color_value)
             }
@@ -918,37 +916,19 @@ impl HomieValue {
     // high
     pub fn flexible_datetime_parser(s: &str) -> Result<chrono::DateTime<chrono::Utc>, Homie5ValueConversionError> {
         // try standard RFC3339 compliant parsing
-        chrono::DateTime::parse_from_rfc3339(s).map_or_else(
-            |_| {
-                // if it does not work we try parsing it from a string representation without
-                // seconds (we strip the last character as this is supposed to be a Z for UTC
-                // timezone
-                let s = if let Some(rest) = s.strip_suffix('Z') { rest } else { s };
-                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").map_or_else(
-                    |_| {
-                        // if this also does not work we try parsing it from a string representation with
-                        // fractional seconds
-                        chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f").map_or_else(
-                            |_| Err(Homie5ValueConversionError::InvalidDateTimeFormat(s.to_string())), // if this also does not work, we give
-                            // up
-                            |ndt| {
-                                Ok(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-                                    ndt,
-                                    chrono::Utc,
-                                ))
-                            },
-                        )
-                    },
-                    |ndt| {
-                        Ok(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-                            ndt,
-                            chrono::Utc,
-                        ))
-                    },
-                )
-            },
-            |d| Ok(chrono::DateTime::<chrono::Utc>::from(d)),
-        )
+        if let Ok(d) = chrono::DateTime::parse_from_rfc3339(s) {
+            return Ok(d.into());
+        }
+
+        // Fall back to ISO 8601 local times without offset (optionally with a trailing `Z`),
+        // with or without fractional seconds, or without seconds. These are treated as UTC.
+        const FALLBACK_FORMATS: [&str; 3] = ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M"];
+        let naive = s.strip_suffix('Z').unwrap_or(s);
+        FALLBACK_FORMATS
+            .iter()
+            .find_map(|format| chrono::NaiveDateTime::parse_from_str(naive, format).ok())
+            .map(|ndt| ndt.and_utc())
+            .ok_or_else(|| Homie5ValueConversionError::InvalidDateTimeFormat(s.to_string()))
     }
 
     fn validate_float(value: f64, property_desc: &HomiePropertyDescription) -> Result<f64, Homie5ValueConversionError> {
@@ -1056,7 +1036,10 @@ impl HomieValue {
                 }
             }
             (HomieValue::DateTime(_), HomieDataType::Datetime) => true,
-            (HomieValue::Duration(_), HomieDataType::Duration) => true,
+            // The wire format cannot express negative or sub-second durations.
+            (HomieValue::Duration(d), HomieDataType::Duration) => {
+                *d >= chrono::Duration::zero() && d.subsec_nanos() == 0
+            }
             (HomieValue::JSON(v), HomieDataType::JSON) => v.is_object() || v.is_array(),
             _ => false,
         }
