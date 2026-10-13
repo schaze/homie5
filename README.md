@@ -52,13 +52,15 @@ for how to integrate with your MQTT client of choice.
 | Feature      | Description |
 |--------------|-------------|
 | `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support |
-| `legacy-cow` | Uses `Cow<'static, str>` instead of `Arc<str>` for `HomieID`/`CustomDomain` internals. Gives zero-cost construction from `&'static str` but O(n) cloning for owned strings. |
+| `schemars`   | Implements `schemars::JsonSchema` for `HomieID`, `HomieDomain`, `CustomDomain` and `HomieDataType` |
 
 Enable features in your `Cargo.toml`:
 ```toml
 [dependencies]
-homie5 = { version = "0.10", features = ["ext-meta"] }
+homie5 = { version = "0.12", features = ["ext-meta"] }
 ```
+
+The minimum supported Rust version (MSRV) is 1.82.
 
 <!-- TOC --><a name="examples"></a>
 
@@ -104,7 +106,8 @@ homie5 provides validated reference types for addressing entities in the Homie t
 
 - **`HomieID`** — A validated identifier (lowercase a-z, 0-9, hyphens only, non-empty). Created via
   `HomieID::try_from("my-device")` or `HomieID::new_const("my-device")` (panics on invalid).
-  Internally uses `Arc<str>` for O(1) cloning (or `Cow<'static, str>` with the `legacy-cow` feature).
+  Internally uses `Arc<str>` for O(1) cloning. Validation errors (`InvalidHomieIDError`) carry the
+  offending `value` and the `reason`.
 - **`HomieDomain`** — The MQTT root topic. Variants: `Default` ("homie"), `All` ("+"), or
   `Custom(...)` for custom domains.
 - **`DeviceRef`** — Identifies a device (domain + device ID).
@@ -670,7 +673,23 @@ To permanently remove a device from the broker, use `protocol.remove_device(&des
 This clears `$state` first, then `$description` and all retained property values and targets.
 Active alerts live under `$alert/<alert-id>` and are unknown to the protocol, so clear each one
 with `protocol.publish_clear_alert(&alert_id)` before removing the device.
-Controllers will receive a `Homie5Message::DeviceRemoval` when the `$state` topic is cleared.
+Controllers will receive a `Homie5Message::DeviceRemoval` when the `$state` topic is cleared,
+followed by `DeviceDescriptionCleared`, `PropertyValueCleared` and `PropertyTargetCleared`.
+
+### Deleted topics vs. empty strings
+
+A zero-length MQTT payload deletes a retained topic, while Homie encodes an empty string as a single
+`0x00` byte. `parse_mqtt_message` keeps the two apart: deletions are reported as
+`DeviceRemoval`, `DeviceDescriptionCleared`, `DeviceAlertCleared`, `PropertyValueCleared` and
+`PropertyTargetCleared`; a `""` value always means a real empty string.
+
+```rust
+match parse_mqtt_message(topic, payload)? {
+    Homie5Message::DeviceAlert { device, alert_id, alert_msg } => store_alert(device, alert_id, alert_msg),
+    Homie5Message::DeviceAlertCleared { device, alert_id } => remove_alert(device, alert_id),
+    _ => {}
+}
+```
 
 ### Property Target
 
@@ -687,7 +706,8 @@ Devices can publish log messages and alerts:
 - **Alerts**: `protocol.publish_alert(&alert_id, "Sensor malfunction")` — publishes a retained alert.
   Clear with `protocol.publish_clear_alert(&alert_id)`.
 
-Controllers receive these as `Homie5Message::DeviceLog` and `Homie5Message::DeviceAlert`.
+Controllers receive these as `Homie5Message::DeviceLog`, `Homie5Message::DeviceAlert` and
+`Homie5Message::DeviceAlertCleared`.
 
 ### Child Devices
 
@@ -730,7 +750,8 @@ Connect to mqtt, run the event loop and then proceed with the following steps:
    This will subscibe to all the other device attributes like $log/$description/$alert
 3. When receiving a `Homie5Message::DeviceDescription` message, store the description for the
    device and subscibe to all the property values using
-   `Homie5ControllerProtocol::subscribe_props`
+   `Homie5ControllerProtocol::subscribe_props`. Invalid nodes and properties are dropped from the
+   description and reported in the message's `issues` field instead of rejecting the whole device.
 4. after this you will start receiving `Homie5Message::PropertyValue` and
    `Homie5Message::PropertyTarget` messages for the properties of the device
 

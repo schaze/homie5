@@ -209,7 +209,13 @@ fn test_device_description_msg() {
 
     let event = parse_mqtt_message(&p.topic, &p.payload);
     assert!(event.is_ok());
-    if let Ok(Homie5Message::DeviceDescription { device, description }) = event {
+    if let Ok(Homie5Message::DeviceDescription {
+        device,
+        description,
+        issues,
+    }) = event
+    {
+        assert!(issues.is_empty());
         assert_eq!(device.homie_domain(), &HomieDomain::Default);
         assert_eq!(device.device_id().as_str(), "test-device-1");
         assert_eq!(description.name.unwrap(), "Test Device");

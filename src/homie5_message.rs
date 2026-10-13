@@ -23,14 +23,24 @@
 //! a command like setting a property's value or processing a broadcast message.
 //!
 //! - `DeviceState`: Indicates a device's current state.
+//! - `DeviceRemoval`: Represents the removal of a device from the network (empty `$state`).
 //! - `DeviceDescription`: Provides metadata about the device.
+//! - `DeviceDescriptionCleared`: The device description was deleted (empty `$description`).
 //! - `DeviceLog`: Contains log messages for debugging purposes.
 //! - `DeviceAlert`: Represents critical alerts from the device.
+//! - `DeviceAlertCleared`: An alert was cleared (empty `$alert/<alert-id>`).
 //! - `PropertyValue`: Contains the current value of a property.
+//! - `PropertyValueCleared`: A retained property value was deleted.
 //! - `PropertyTarget`: Represents the desired state of a property.
+//! - `PropertyTargetCleared`: A retained property target was deleted.
 //! - `PropertySet`: A command to set a property to a specific value.
 //! - `Broadcast`: Represents general-purpose communication broadcast messages.
-//! - `DeviceRemoval`: Represents the removal of a device from the network.
+//!
+//! # Empty payloads
+//!
+//! MQTT distinguishes a zero-length payload, which deletes a retained topic, from the single
+//! `0x00` byte Homie uses for an empty string. Deletions are reported through the dedicated
+//! `*Cleared` / `DeviceRemoval` variants; a `""` value always means a real empty string.
 //!
 //! # Parsing MQTT Messages
 //!
@@ -70,12 +80,16 @@
 //! is used to handle the message.
 
 use crate::{
-    client::mqtt_payload_to_string, device_description::HomieDeviceDescription, error::Homie5ProtocolError,
-    DeviceLogLevel, DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, PropertyRef, HOMIE_VERSION,
+    client::mqtt_payload_to_string,
+    device_description::{DescriptionIssue, HomieDeviceDescription},
+    error::Homie5ProtocolError,
+    DeviceLogLevel, DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, NodeRef, PropertyRef, HOMIE_VERSION,
 };
+
 /// Represents all possible MQTT message types according to the Homie 5 protocol.
 /// These messages define the interactions between devices, their attributes, and the broker.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum Homie5Message {
     /// A device state message has been received.
     ///
@@ -88,21 +102,43 @@ pub enum Homie5Message {
         state: HomieDeviceStatus,
     },
 
+    /// A device removal message has been received, indicating the device has been permanently removed from the network.
+    ///
+    /// This message represents the process of clearing all retained messages for a device from the MQTT broker,
+    /// starting with a zero-length payload published to the `$state` topic. Afterward, other retained attributes
+    /// and property values must also be cleared. This effectively removes the device from the MQTT ecosystem.
+    DeviceRemoval {
+        /// The device identifier for the device that was removed.
+        device: DeviceRef,
+    },
+
     /// A message describing a device has been received.
     ///
     /// Device descriptions are sent when a device publishes its metadata (such as its name,
     /// version, and available nodes) under `homie/5/<device-id>/$description`.
+    ///
+    /// Invalid nodes and properties are dropped from the description and reported in `issues`.
     DeviceDescription {
         /// The device identifier for which the description was received.
         device: DeviceRef,
-        /// The full device description, including metadata like nodes and properties.
+        /// The device description, including metadata like nodes and properties.
         description: HomieDeviceDescription,
+        /// Nodes and properties that were dropped because they are invalid.
+        issues: Vec<DescriptionIssue>,
+    },
+
+    /// The device description was deleted (zero-length payload on `$description`).
+    ///
+    /// This is sent as part of a device removal, after the `$state` topic has been cleared.
+    DeviceDescriptionCleared {
+        /// The device identifier whose description was deleted.
+        device: DeviceRef,
     },
 
     /// A log message from the device.
     ///
     /// Devices can publish logs for debugging or informational purposes to the topic
-    /// `homie/5/<device-id>/$log`. These logs can help monitor device activity or identify issues.
+    /// `homie/5/<device-id>/$log/<level>`. These logs can help monitor device activity or identify issues.
     DeviceLog {
         /// The device identifier from which the log was received.
         device: DeviceRef,
@@ -114,7 +150,7 @@ pub enum Homie5Message {
 
     /// An alert message from the device.
     ///
-    /// Alerts are published under `homie/5/<device-id>/$alert` and represent critical
+    /// Alerts are published under `homie/5/<device-id>/$alert/<alert-id>` and represent critical
     /// notifications about the device’s state (e.g., sensor failures, errors that need human intervention).
     DeviceAlert {
         /// The device identifier from which the alert was received.
@@ -123,6 +159,14 @@ pub enum Homie5Message {
         alert_id: HomieID,
         /// The alert message providing details about the issue.
         alert_msg: String,
+    },
+
+    /// An alert was cleared (zero-length payload on `$alert/<alert-id>`).
+    DeviceAlertCleared {
+        /// The device identifier from which the alert was cleared.
+        device: DeviceRef,
+        /// The identifier of the cleared alert.
+        alert_id: HomieID,
     },
 
     /// A property value message has been received.
@@ -136,6 +180,12 @@ pub enum Homie5Message {
         value: String,
     },
 
+    /// A retained property value was deleted (zero-length payload).
+    PropertyValueCleared {
+        /// The property whose value was deleted.
+        property: PropertyRef,
+    },
+
     /// A property target message has been received.
     ///
     /// The `$target` attribute describes an intended state change for a property and is published
@@ -145,6 +195,12 @@ pub enum Homie5Message {
         property: PropertyRef,
         /// The intended target value for the property.
         target: String,
+    },
+
+    /// A retained property target was deleted (zero-length payload on `$target`).
+    PropertyTargetCleared {
+        /// The property whose target was deleted.
+        property: PropertyRef,
     },
 
     /// A property set message has been received.
@@ -170,16 +226,6 @@ pub enum Homie5Message {
         /// The broadcasted data.
         data: String,
     },
-
-    /// A device removal message has been received, indicating the device has been permanently removed from the network.
-    ///
-    /// This message represents the process of clearing all retained messages for a device from the MQTT broker,
-    /// starting with a zero-length payload published to the `$state` topic. Afterward, other retained attributes
-    /// and property values must also be cleared. This effectively removes the device from the MQTT ecosystem.
-    DeviceRemoval {
-        /// The device identifier for the device that was removed.
-        device: DeviceRef,
-    },
 }
 
 /// Parses an incoming MQTT message into a `Homie5Message`.
@@ -187,6 +233,10 @@ pub enum Homie5Message {
 /// This function analyzes the topic structure and payload of an MQTT message according
 /// to the Homie 5 protocol. It converts the raw MQTT message into the appropriate `Homie5Message`
 /// enum variant, such as `DeviceState`, `DeviceDescription`, `DeviceLog`, or others.
+///
+/// Zero-length payloads on retained topics are reported as the corresponding deletion variant
+/// (`DeviceRemoval`, `DeviceDescriptionCleared`, `DeviceAlertCleared`, `PropertyValueCleared`,
+/// `PropertyTargetCleared`).
 ///
 /// # Arguments
 ///
@@ -202,6 +252,8 @@ pub enum Homie5Message {
 ///
 /// - Returns `Homie5ProtocolError::InvalidTopic` if the topic format is incorrect.
 /// - Returns `Homie5ProtocolError::InvalidPayload` if the payload is malformed or unexpected for the given message type.
+/// - Returns `Homie5ProtocolError::InvalidDeviceDescription` if the device-level attributes of a
+///   `$description` are invalid.
 ///
 /// # Example
 /// ```rust
@@ -219,12 +271,12 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
         return Err(Homie5ProtocolError::InvalidTopic);
     }
 
-    let homie_domain: HomieDomain = tokens[0].to_owned().try_into()?;
-
     // Ensure homie version matches to supported version
     if tokens[1] != HOMIE_VERSION {
         return Err(Homie5ProtocolError::InvalidTopic);
     }
+
+    let homie_domain: HomieDomain = tokens[0].to_owned().try_into()?;
 
     // Handle broadcast messages (e.g. "homie/5/$broadcast")
     if tokens[2] == "$broadcast" {
@@ -236,7 +288,8 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
     }
 
     // check the homie id provided
-    let device_id = tokens[2].to_string().try_into()?;
+    let device = DeviceRef::new(homie_domain, tokens[2].to_string().try_into()?);
+    let deleted = payload.is_empty();
 
     // Match the topic length to identify the message type
     // len: 0    1  2     3        4       5       6
@@ -244,106 +297,79 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
     // topic: homie/5/device_id/$state
     // index:    0  1     2        3       4       5
     match tokens.len() {
-        4 => {
-            // Device attribute (e.g. "homie/5/device-id/$state")
-            let attr = tokens[3];
-            match attr {
-                // Handle the "$state" attribute
-                "$state" => {
-                    if !payload.is_empty() {
-                        if let Ok(state) = mqtt_payload_to_string(payload)?.try_into() {
-                            Ok(Homie5Message::DeviceState {
-                                device: DeviceRef {
-                                    homie_domain,
-                                    id: device_id,
-                                },
-                                state,
-                            })
-                        } else {
-                            Err(Homie5ProtocolError::InvalidPayload)
-                        }
-                    } else {
-                        // Empty payload signifies device removal
-                        Ok(Homie5Message::DeviceRemoval {
-                            device: DeviceRef {
-                                homie_domain,
-                                id: device_id,
-                            },
-                        })
-                    }
-                }
-                // Handle the "$description" attribute, parsing as JSON
-                "$description" => {
-                    match serde_json::from_str::<HomieDeviceDescription>(&mqtt_payload_to_string(payload)?) {
-                        Ok(description) => Ok(Homie5Message::DeviceDescription {
-                            device: DeviceRef {
-                                homie_domain,
-                                id: device_id,
-                            },
-                            description,
-                        }),
-                        // An empty payload is the topic deletion sent during device removal, so
-                        // failures are reported to the caller only and not logged as errors here.
-                        Err(err) => {
-                            log::debug!("Invalid $description payload on {}: {}", topic, err);
-                            Err(Homie5ProtocolError::InvalidPayload)
-                        }
-                    }
-                }
-                _ => Err(Homie5ProtocolError::InvalidTopic),
+        4 => match tokens[3] {
+            // Empty payload signifies device removal
+            "$state" if deleted => Ok(Homie5Message::DeviceRemoval { device }),
+            "$state" => {
+                let state = mqtt_payload_to_string(payload)?
+                    .try_into()
+                    .map_err(|_| Homie5ProtocolError::InvalidPayload)?;
+                Ok(Homie5Message::DeviceState { device, state })
             }
-        }
-        5 => {
-            match tokens[3] {
-                // Handle alert messages (e.g. "device-id/$alert/alert-id")
-                "$alert" => {
-                    let alert_id = HomieID::try_from(tokens[4].to_owned())?;
+            "$description" if deleted => Ok(Homie5Message::DeviceDescriptionCleared { device }),
+            "$description" => {
+                let (description, issues) =
+                    HomieDeviceDescription::from_json_lenient(&mqtt_payload_to_string(payload)?)?;
+                Ok(Homie5Message::DeviceDescription {
+                    device,
+                    description,
+                    issues,
+                })
+            }
+            _ => Err(Homie5ProtocolError::InvalidTopic),
+        },
+        5 => match tokens[3] {
+            // Handle alert messages (e.g. "device-id/$alert/alert-id")
+            "$alert" => {
+                let alert_id = HomieID::try_from(tokens[4].to_owned())?;
+                if deleted {
+                    Ok(Homie5Message::DeviceAlertCleared { device, alert_id })
+                } else {
                     Ok(Homie5Message::DeviceAlert {
-                        device: DeviceRef {
-                            homie_domain,
-                            id: device_id,
-                        },
+                        device,
                         alert_id,
                         alert_msg: mqtt_payload_to_string(payload)?,
                     })
                 }
-                // Handle the "$log" attribute
-                "$log" => {
-                    let level = DeviceLogLevel::try_from(tokens[4])?;
-                    Ok(Homie5Message::DeviceLog {
-                        device: DeviceRef {
-                            homie_domain,
-                            id: device_id,
-                        },
-                        level,
-                        log_msg: mqtt_payload_to_string(payload)?,
-                    })
-                }
-                // Handle property values (e.g. "device-id/node-id/prop-id")
-                _ => {
-                    let node_id = HomieID::try_from(tokens[3].to_string())?;
-                    let prop_id = HomieID::try_from(tokens[4].to_string())?;
+            }
+            // Handle the "$log" attribute
+            "$log" => Ok(Homie5Message::DeviceLog {
+                device,
+                level: DeviceLogLevel::try_from(tokens[4])?,
+                log_msg: mqtt_payload_to_string(payload)?,
+            }),
+            // Handle property values (e.g. "device-id/node-id/prop-id")
+            _ => {
+                let property = PropertyRef::from_node(
+                    NodeRef::from_device(device, HomieID::try_from(tokens[3].to_string())?),
+                    HomieID::try_from(tokens[4].to_string())?,
+                );
+                if deleted {
+                    Ok(Homie5Message::PropertyValueCleared { property })
+                } else {
                     Ok(Homie5Message::PropertyValue {
-                        property: PropertyRef::new(homie_domain, device_id, node_id, prop_id),
+                        property,
                         value: mqtt_payload_to_string(payload)?,
                     })
                 }
             }
-        }
+        },
         6 => {
             // Handle property attributes (e.g. "device-id/node-id/prop-id/$target")
-            let node_id = HomieID::try_from(tokens[3].to_string())?;
-            let prop_id = HomieID::try_from(tokens[4].to_string())?;
-            let attr = tokens[5];
-            match attr {
+            let property = PropertyRef::from_node(
+                NodeRef::from_device(device, HomieID::try_from(tokens[3].to_string())?),
+                HomieID::try_from(tokens[4].to_string())?,
+            );
+            match tokens[5] {
                 // Handle the "set" action
                 "set" => Ok(Homie5Message::PropertySet {
-                    property: PropertyRef::new(homie_domain, device_id, node_id.to_owned(), prop_id.to_owned()),
+                    property,
                     set_value: mqtt_payload_to_string(payload)?,
                 }),
                 // Handle the "$target" attribute
+                "$target" if deleted => Ok(Homie5Message::PropertyTargetCleared { property }),
                 "$target" => Ok(Homie5Message::PropertyTarget {
-                    property: PropertyRef::new(homie_domain, device_id, node_id, prop_id),
+                    property,
                     target: mqtt_payload_to_string(payload)?,
                 }),
                 _ => Err(Homie5ProtocolError::InvalidTopic),

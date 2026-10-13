@@ -1,10 +1,8 @@
 //! This module provides all types and tools to create (builders) and manage homie device, node and property
 //! descriptions.
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::hash::Hash;
-use std::hash::Hasher;
 use std::iter::Iterator;
 
 use serde::{Deserialize, Deserializer, Serialize};
@@ -13,7 +11,7 @@ use thiserror::Error;
 use crate::AsNodeId;
 use crate::AsPropPointer;
 use crate::PropertyPointer;
-use crate::{HomieDataType, HomieID, PropertyRef};
+use crate::{Homie5ProtocolError, HomieDataType, HomieID, PropertyRef};
 
 mod builder;
 mod number_ranges;
@@ -264,7 +262,7 @@ impl<'de> Deserialize<'de> for HomiePropertyDescription {
 ///       }
 ///       ...
 /// ```
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct HomieNodeDescription {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -355,7 +353,7 @@ pub type HomieNodes = BTreeMap<HomieID, HomieNodeDescription>;
 ///         }
 ///       }
 /// ```
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct HomieDeviceDescription {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -433,11 +431,137 @@ impl HomieDeviceDescription {
         self.get_property_by_id(property.node_id(), property.prop_id())
     }
 
+    /// Sets `version` to a content hash of the description.
+    ///
+    /// The hash is computed with FNV-1a over the description's JSON serialization (with `version`
+    /// set to 0), so the same description yields the same non-negative version on every platform,
+    /// Rust release and process restart.
     pub fn update_version(&mut self) {
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
-        let hash = hasher.finish();
-        self.version = i64::from_ne_bytes(hash.to_ne_bytes());
+        self.version = 0;
+        // Serializing a description cannot fail: all map keys are strings and all values are
+        // plain data.
+        let json = serde_json::to_vec(self).unwrap_or_default();
+        self.version = (fnv1a64(&json) >> 1) as i64;
+    }
+
+    /// Parses a description and rejects it if any node or property is invalid.
+    ///
+    /// # Errors
+    /// Returns [`Homie5ProtocolError::InvalidDeviceDescription`] if the JSON is not a valid
+    /// description.
+    pub fn from_json_strict(json: &str) -> Result<Self, Homie5ProtocolError> {
+        serde_json::from_str(json).map_err(|err| {
+            log::debug!("Invalid device description: {}", err);
+            Homie5ProtocolError::InvalidDeviceDescription
+        })
+    }
+
+    /// Parses a description, dropping invalid nodes and properties instead of rejecting it.
+    ///
+    /// The convention asks controllers to ignore invalid objects while keeping the rest of the
+    /// device usable. Every dropped node or property is reported as a [`DescriptionIssue`].
+    ///
+    /// # Errors
+    /// Returns [`Homie5ProtocolError::InvalidDeviceDescription`] if the device-level attributes
+    /// (`homie`, `version`, `children`, `root`, ...) are invalid.
+    pub fn from_json_lenient(json: &str) -> Result<(Self, Vec<DescriptionIssue>), Homie5ProtocolError> {
+        #[derive(Deserialize)]
+        struct RawDevice {
+            name: Option<String>,
+            version: i64,
+            homie: String,
+            #[serde(default)]
+            r#type: Option<String>,
+            #[serde(default)]
+            children: Vec<HomieID>,
+            root: Option<HomieID>,
+            parent: Option<HomieID>,
+            #[serde(default)]
+            extensions: Vec<String>,
+            #[serde(default)]
+            nodes: BTreeMap<String, serde_json::Value>,
+        }
+
+        #[derive(Deserialize)]
+        struct RawNode {
+            name: Option<String>,
+            r#type: Option<String>,
+            #[serde(default)]
+            properties: BTreeMap<String, serde_json::Value>,
+        }
+
+        let raw: RawDevice = serde_json::from_str(json).map_err(|err| {
+            log::debug!("Invalid device description: {}", err);
+            Homie5ProtocolError::InvalidDeviceDescription
+        })?;
+
+        let mut issues = Vec::new();
+        let mut nodes = BTreeMap::new();
+        for (node_key, raw_node) in raw.nodes {
+            let parsed = HomieID::try_from(node_key.clone())
+                .map_err(|err| err.to_string())
+                .and_then(|id| {
+                    serde_json::from_value::<RawNode>(raw_node)
+                        .map(|node| (id, node))
+                        .map_err(|err| err.to_string())
+                });
+            let (node_id, raw_node) = match parsed {
+                Ok(node) => node,
+                Err(reason) => {
+                    issues.push(DescriptionIssue {
+                        node_id: node_key,
+                        prop_id: None,
+                        reason,
+                    });
+                    continue;
+                }
+            };
+
+            let mut properties = BTreeMap::new();
+            for (prop_key, raw_prop) in raw_node.properties {
+                let parsed = HomieID::try_from(prop_key.clone())
+                    .map_err(|err| err.to_string())
+                    .and_then(|id| {
+                        serde_json::from_value::<HomiePropertyDescription>(raw_prop)
+                            .map(|prop| (id, prop))
+                            .map_err(|err| err.to_string())
+                    });
+                match parsed {
+                    Ok((prop_id, prop)) => {
+                        properties.insert(prop_id, prop);
+                    }
+                    Err(reason) => issues.push(DescriptionIssue {
+                        node_id: node_key.clone(),
+                        prop_id: Some(prop_key),
+                        reason,
+                    }),
+                }
+            }
+
+            nodes.insert(
+                node_id,
+                HomieNodeDescription {
+                    name: raw_node.name,
+                    r#type: raw_node.r#type,
+                    properties,
+                },
+            );
+        }
+
+        Ok((
+            HomieDeviceDescription {
+                name: raw.name,
+                version: raw.version,
+                homie: raw.homie,
+                r#type: raw.r#type,
+                children: raw.children,
+                root: raw.root,
+                parent: raw.parent,
+                extensions: raw.extensions,
+                nodes,
+            },
+            issues,
+        ))
     }
 
     pub fn add_child(&mut self, child_id: HomieID) {
@@ -455,6 +579,37 @@ impl HomieDeviceDescription {
     pub fn iter(&self) -> HomiePropertyIterator<'_> {
         HomiePropertyIterator::new(self)
     }
+}
+
+/// A node or property that was dropped while parsing a description leniently.
+///
+/// See [`HomieDeviceDescription::from_json_lenient`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DescriptionIssue {
+    /// Raw key of the affected node (the key itself may be the invalid part).
+    pub node_id: String,
+    /// Raw key of the dropped property, or `None` if the whole node was dropped.
+    pub prop_id: Option<String>,
+    /// Why the node or property was dropped.
+    pub reason: String,
+}
+
+impl std::fmt::Display for DescriptionIssue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.prop_id {
+            Some(prop_id) => write!(f, "dropped property {}/{}: {}", self.node_id, prop_id, self.reason),
+            None => write!(f, "dropped node {}: {}", self.node_id, self.reason),
+        }
+    }
+}
+
+const FNV_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
+const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(FNV_OFFSET_BASIS, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(FNV_PRIME)
+    })
 }
 
 impl Hash for HomieDeviceDescription {

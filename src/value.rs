@@ -881,35 +881,33 @@ impl HomieValue {
     }
 
     pub fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
-        static RE: std::sync::LazyLock<regex::Regex> =
-            std::sync::LazyLock::new(|| regex::Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").unwrap());
         let invalid = || Homie5ValueConversionError::InvalidDurationFormat(s.to_string());
-        if let Some(captures) = RE.captures(s) {
-            // Require at least one component (reject bare "PT")
-            if captures.get(1).is_none() && captures.get(2).is_none() && captures.get(3).is_none() {
+        // Require at least one component (reject bare "PT")
+        let mut rest = s.strip_prefix("PT").filter(|r| !r.is_empty()).ok_or_else(invalid)?;
+        let mut total_seconds: i64 = 0;
+        // Components are optional but must appear in the order H, M, S and at most once each.
+        for (unit, factor) in [('H', 3600_i64), ('M', 60), ('S', 1)] {
+            let Some(pos) = rest.find(unit) else {
+                continue;
+            };
+            let digits = &rest[..pos];
+            if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
                 return Err(invalid());
             }
-
-            // The regex only guarantees digits; the component values can still overflow i64
-            // (e.g. "PT99999999999999999999H"), so every conversion must be checked.
-            let component = |i: usize| -> Result<i64, Homie5ValueConversionError> {
-                captures
-                    .get(i)
-                    .map_or(Ok(0), |m| m.as_str().parse().map_err(|_| invalid()))
-            };
-            let hours = component(1)?;
-            let minutes = component(2)?;
-            let seconds = component(3)?;
-
-            let total_seconds = hours
-                .checked_mul(3600)
-                .and_then(|h| minutes.checked_mul(60).and_then(|m| h.checked_add(m)))
-                .and_then(|hm| hm.checked_add(seconds))
+            // Digits alone can still overflow i64 (e.g. "PT99999999999999999999H"), so every
+            // conversion must be checked.
+            total_seconds = digits
+                .parse::<i64>()
+                .ok()
+                .and_then(|n| n.checked_mul(factor))
+                .and_then(|n| total_seconds.checked_add(n))
                 .ok_or_else(invalid)?;
-
-            return chrono::Duration::try_seconds(total_seconds).ok_or_else(invalid);
+            rest = &rest[pos + 1..];
         }
-        Err(invalid())
+        if !rest.is_empty() {
+            return Err(invalid());
+        }
+        chrono::Duration::try_seconds(total_seconds).ok_or_else(invalid)
     }
 
     // flexible deserialization approach as timestamps are hard and we want to keep compatibility

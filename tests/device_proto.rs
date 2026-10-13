@@ -109,21 +109,6 @@ fn nested_child_keeps_original_root() {
         .clone_for_child(id("grandchild"));
     assert_eq!(grandchild.root_id(), &id("root"));
     assert!(grandchild.publish_description(&description(Some(id("root")))).is_ok());
-
-    let via_for_child = Homie5DeviceProtocol::for_child(id("child"), root_proto());
-    assert_eq!(via_for_child.root_id(), &id("root"));
-}
-
-#[test]
-fn root_device_publishing_for_child_id_requires_root() {
-    let proto = root_proto();
-    assert!(proto
-        .publish_description_for_id(&id("child"), &description(Some(id("root"))))
-        .is_ok());
-    assert!(matches!(
-        proto.publish_description_for_id(&id("child"), &description(None)),
-        Err(Homie5ProtocolError::RootMismatch)
-    ));
 }
 
 #[test]
@@ -166,4 +151,22 @@ fn last_will_publishes_lost_state() {
     assert_eq!(last_will.topic, "homie/5/root/$state");
     assert_eq!(last_will.message, b"lost");
     assert!(last_will.retain);
+}
+
+#[test]
+fn step_sequences_are_fixed() {
+    assert_eq!(
+        homie_device_publish_steps().collect::<Vec<_>>(),
+        DEVICE_PUBLISH_STEPS.to_vec()
+    );
+    assert_eq!(DEVICE_PUBLISH_STEPS[0], DevicePublishStep::DeviceStateInit);
+    assert_eq!(DEVICE_PUBLISH_STEPS[4], DevicePublishStep::DeviceStateReady);
+    assert_eq!(homie_device_reconfigure_steps().count(), 7);
+    assert_eq!(
+        homie_device_disconnect_steps().collect::<Vec<_>>(),
+        [
+            DeviceDisconnectStep::DeviceStateDisconnect,
+            DeviceDisconnectStep::UnsubscribeProperties
+        ]
+    );
 }

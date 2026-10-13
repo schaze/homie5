@@ -4,6 +4,7 @@ use crate::{InvalidHomieDomainError, InvalidHomieIDError};
 
 /// Errors that can occur when working with the `$meta` overlay extension.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum MetaError {
     /// The overlay document payload could not be parsed as valid JSON.
     #[error("Error parsing meta overlay document")]
@@ -22,6 +23,6 @@ pub enum MetaError {
     InvalidHomieDomain(#[from] InvalidHomieDomainError),
 
     /// The provider or device ID segment of the topic is invalid.
-    #[error("Invalid homie id: {0}")]
+    #[error(transparent)]
     InvalidHomieID(#[from] InvalidHomieIDError),
 }

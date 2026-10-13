@@ -32,9 +32,7 @@
 
 use core::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::RwLock;
-
-use schemars::JsonSchema;
+use std::sync::{Arc, RwLock};
 
 use crate::DEFAULT_HOMIE_DOMAIN;
 
@@ -73,55 +71,28 @@ pub fn get_fallback_homie_domain() -> HomieDomain {
     FALLBACK_HOMIE_DOMAIN.read().unwrap().clone()
 }
 
-// ---- Feature-gated inner representation ----
+// ---- Inner representation ----
 
-#[cfg(not(feature = "legacy-cow"))]
-mod domain_inner {
-    use std::sync::Arc;
+#[derive(Debug, Clone)]
+enum CustomDomainInner {
+    Static(&'static str),
+    Shared(Arc<str>),
+}
 
-    #[derive(Debug, Clone)]
-    pub(super) enum CustomDomainInner {
-        Static(&'static str),
-        Shared(Arc<str>),
+impl CustomDomainInner {
+    fn new_static(s: &'static str) -> Self {
+        Self::Static(s)
     }
-
-    impl CustomDomainInner {
-        pub(super) fn new_static(s: &'static str) -> Self {
-            Self::Static(s)
-        }
-        pub(super) fn new_owned(s: String) -> Self {
-            Self::Shared(Arc::from(s.as_str()))
-        }
-        pub(super) fn as_str(&self) -> &str {
-            match self {
-                Self::Static(s) => s,
-                Self::Shared(s) => s,
-            }
+    fn new_owned(s: String) -> Self {
+        Self::Shared(Arc::from(s))
+    }
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Static(s) => s,
+            Self::Shared(s) => s,
         }
     }
 }
-
-#[cfg(feature = "legacy-cow")]
-mod domain_inner {
-    use std::borrow::Cow;
-
-    #[derive(Debug, Clone)]
-    pub(super) struct CustomDomainInner(Cow<'static, str>);
-
-    impl CustomDomainInner {
-        pub(super) fn new_static(s: &'static str) -> Self {
-            Self(Cow::Borrowed(s))
-        }
-        pub(super) fn new_owned(s: String) -> Self {
-            Self(Cow::Owned(s))
-        }
-        pub(super) fn as_str(&self) -> &str {
-            &self.0
-        }
-    }
-}
-
-use domain_inner::CustomDomainInner;
 
 // ---- Error type ----
 
@@ -251,19 +222,21 @@ impl<'de> serde::Deserialize<'de> for CustomDomain {
     }
 }
 
-impl JsonSchema for CustomDomain {
+#[cfg(feature = "schemars")]
+impl schemars::JsonSchema for CustomDomain {
     fn schema_name() -> std::borrow::Cow<'static, str> {
         std::borrow::Cow::Borrowed("CustomDomain")
     }
 
     fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        <String as JsonSchema>::json_schema(generator)
+        <String as schemars::JsonSchema>::json_schema(generator)
     }
 }
 
 // ---- HomieDomain ----
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum HomieDomain {
     #[default]
     Default,

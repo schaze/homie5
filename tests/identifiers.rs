@@ -285,3 +285,13 @@ fn test_custom_domain_default_is_valid() {
     assert!(CustomDomain::validate(domain.as_str()).is_ok());
     assert_eq!(domain.as_str(), DEFAULT_HOMIE_DOMAIN);
 }
+
+#[test]
+fn test_invalid_homie_id_error_reports_value() {
+    let err = HomieID::try_from("Living_Room".to_string()).unwrap_err();
+    assert_eq!(err.value, "Living_Room");
+    assert!(err.to_string().starts_with("invalid Homie ID \"Living_Room\":"));
+    let err = HomieID::validate("").unwrap_err();
+    assert_eq!(err.value, "");
+    assert_eq!(err.reason, "Homie ID cannot be empty");
+}

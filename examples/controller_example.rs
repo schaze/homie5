@@ -92,7 +92,14 @@ async fn main() -> anyhow::Result<()> {
             // DISCOVERY STEP 3/3 - subscibe to properties
             // when a description is received we can subscribe to all the devices properties
             // ==> This basically concludes all steps needed for discovery
-            AppEvent::Homie(Homie5Message::DeviceDescription { device, description }) => {
+            AppEvent::Homie(Homie5Message::DeviceDescription {
+                device,
+                description,
+                issues,
+            }) => {
+                for issue in &issues {
+                    log::warn!("{}: {}", device.device_id(), issue);
+                }
                 // Handle error if device does not exist
                 let Some(existing_device) = devices.get_mut(device.device_id()) else {
                     log::error!(

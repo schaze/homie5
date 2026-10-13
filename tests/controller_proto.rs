@@ -56,11 +56,3 @@ fn device_subscriptions_cover_device_attributes() {
     assert!(topics.contains(&"homie/5/dev/$alert/+".to_string()));
     assert!(!topics.contains(&"homie/5/dev/$state".to_string()));
 }
-
-#[test]
-fn empty_description_payload_is_rejected() {
-    assert!(matches!(
-        parse_mqtt_message("homie/5/dev/$description", b""),
-        Err(Homie5ProtocolError::InvalidPayload)
-    ));
-}

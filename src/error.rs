@@ -7,27 +7,11 @@ use crate::{Homie5ValueConversionError, InvalidHomieDomainError, InvalidHomieIDE
 
 /// Represents various errors that can occur while handling the Homie v5 protocol.
 ///
-/// This error enum is used to encapsulate all possible errors encountered during
-/// interaction with devices and MQTT messages under the Homie v5 protocol. It
-/// covers errors related to subscribing, publishing, message formatting, and more.
+/// This error enum is used to encapsulate all possible errors encountered while parsing
+/// MQTT messages and generating publish/subscribe requests under the Homie v5 protocol.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Homie5ProtocolError {
-    /// Error occurred while subscribing to a topic.
-    #[error("Error Subscribing to topic")]
-    SubscribeError,
-
-    /// An unknown error occurred within the MQTT client.
-    #[error("Unknown MqttClient Error.")]
-    MqttClientError,
-
-    /// Error occurred while unsubscribing from a topic.
-    #[error("Error Unsubscribing to topic.")]
-    UnsubscribeError,
-
-    /// Error occurred while sending a set command to a device.
-    #[error("Error sending set command")]
-    SetCommandError,
-
     /// An MQTT message was received for a topic that does not conform to the Homie convention.
     #[error("Message for invalid homie MQTT topic received.")]
     InvalidTopic,
@@ -65,7 +49,7 @@ pub enum Homie5ProtocolError {
     InvalidHomieDataType,
 
     /// The data provided does not confirm to the homie specification for a homie id
-    #[error("Invalid homie id: {0}")]
+    #[error(transparent)]
     InvalidHomieID(#[from] InvalidHomieIDError),
 
     /// The device state is invalid. Valid states are: "init", "ready", "disconnected", "sleeping", and "lost".

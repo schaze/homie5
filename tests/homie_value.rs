@@ -1002,3 +1002,23 @@ fn test_datetime_fallback_formats() {
     assert!(HomieValue::parse("2024-10-08", &desc).is_err());
     assert!(HomieValue::parse("not a date", &desc).is_err());
 }
+
+#[test]
+fn test_parse_duration_grammar() {
+    for (raw, secs) in [
+        ("PT0S", 0),
+        ("PT5M", 300),
+        ("PT1H", 3600),
+        ("PT1H5S", 3605),
+        ("PT1H2M3S", 3723),
+        ("PT007S", 7),
+    ] {
+        assert_eq!(HomieValue::parse_duration(raw), Ok(Duration::seconds(secs)), "{raw}");
+    }
+    for raw in [
+        "", "P", "PT", "PTH", "PT1", "PT1X", "PT-1S", "PT+1S", "PT1.5S", "PT 1S", "PT1S1M", "PT5M3H", "PT1H1H",
+        "PT1S ", "pt1s", "P1D", "PT1M1M",
+    ] {
+        assert!(HomieValue::parse_duration(raw).is_err(), "{raw}");
+    }
+}
