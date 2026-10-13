@@ -19,28 +19,22 @@ impl FloatRange {
     }
 
     pub fn validate_float_range(min: Option<f64>, max: Option<f64>, step: Option<f64>) -> bool {
+        // The convention restricts float payloads (and hence range bounds) to finite decimal
+        // notation: "NaN" and "Infinity" representations are not valid. Note that NaN would
+        // also silently pass all of the ordering checks below.
+        if min.is_some_and(|m| !m.is_finite()) || max.is_some_and(|m| !m.is_finite()) {
+            return false;
+        }
         if let Some(step) = step {
-            if step <= 0.0 {
+            if !step.is_finite() || step <= 0.0 {
                 return false;
             }
         }
         match (min, max, step) {
-            (Some(min), Some(max), None) => {
-                if min > max {
-                    return false;
-                }
-            }
-            (Some(min), Some(max), Some(step)) => {
-                if min > max {
-                    return false;
-                }
-                if step > max - min {
-                    return false;
-                }
-            }
-            _ => {}
+            (Some(min), Some(max), None) if min > max => false,
+            (Some(min), Some(max), Some(step)) => min <= max && step <= max - min,
+            _ => true,
         }
-        true
     }
 
     pub fn parse(raw: &str) -> Result<Self, HomiePropertyFormatError> {
@@ -107,7 +101,9 @@ impl Hash for FloatRange {
 impl Display for FloatRange {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_empty() {
-            return Err(std::fmt::Error);
+            // The convention's default (unrestricted) numeric format. Returning `Err` here
+            // would violate the `Display` contract and panic in `to_string()`.
+            return write!(f, ":");
         }
         if let Some(min) = self.min {
             if self.max.is_none() && self.step.is_none() {
@@ -177,22 +173,12 @@ impl IntegerRange {
             }
         }
         match (min, max, step) {
-            (Some(min), Some(max), None) => {
-                if min > max {
-                    return false;
-                }
-            }
-            (Some(min), Some(max), Some(step)) => {
-                if min > max {
-                    return false;
-                }
-                if step > max - min {
-                    return false;
-                }
-            }
-            _ => {}
+            (Some(min), Some(max), None) if min > max => false,
+            // The subtraction is done in i128: `max - min` overflows i64 for extreme but valid
+            // ranges (e.g. the full i64 range).
+            (Some(min), Some(max), Some(step)) => min <= max && step as i128 <= max as i128 - min as i128,
+            _ => true,
         }
-        true
     }
 
     pub fn parse(raw: &str) -> Result<Self, HomiePropertyFormatError> {
@@ -239,7 +225,9 @@ impl IntegerRange {
 impl Display for IntegerRange {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_empty() {
-            return Err(std::fmt::Error);
+            // The convention's default (unrestricted) numeric format. Returning `Err` here
+            // would violate the `Display` contract and panic in `to_string()`.
+            return write!(f, ":");
         }
         if let Some(min) = self.min {
             if self.max.is_none() && self.step.is_none() {
