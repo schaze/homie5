@@ -731,7 +731,7 @@ fn test_validation_float_ok() {
         "6.0", "6.5", "7.2", "8.0",
     ];
 
-    println!("FloatRange Format: {:?}", &desc.format);
+    println!("FloatRange Format: {:?}", desc.format);
     println!("Value | Rounded Value | Result");
     println!("------|---------------|-------");
     for value in float_values {
@@ -757,7 +757,7 @@ fn test_validation_integer_ok() {
         "17", "20",
     ];
 
-    println!("Integer Format: {:?}", &desc.format);
+    println!("Integer Format: {:?}", desc.format);
     println!("Value | Rounded Value | Result");
     println!("------|---------------|-------");
     for value in -10..30 {
@@ -957,4 +957,68 @@ fn test_mqtt_payload_to_string_strict_empty_encoding() {
     assert_eq!(client::mqtt_payload_to_string(&[0, b'x']).unwrap(), "\0x");
     // Round-trip with the encoder
     assert_eq!(client::mqtt_payload_to_string(&homie_str_to_vecu8("")).unwrap(), "");
+}
+
+#[test]
+fn test_partial_ord_consistent_with_eq_across_types() {
+    let a = HomieValue::Enum("a".into());
+    let b = HomieValue::String("a".into());
+    assert_ne!(a, b);
+    assert_eq!(a.partial_cmp(&b), None);
+    assert_eq!(b.partial_cmp(&a), None);
+    assert!(HomieValue::Enum("a".into()) < HomieValue::Enum("b".into()));
+}
+
+#[test]
+fn test_duration_validate_rejects_unrepresentable_values() {
+    let desc = PropertyDescriptionBuilder::duration().build();
+    assert!(HomieValue::Duration(Duration::seconds(90)).validate(&desc));
+    assert!(HomieValue::Duration(Duration::zero()).validate(&desc));
+    assert!(!HomieValue::Duration(Duration::seconds(-1)).validate(&desc));
+    assert!(!HomieValue::Duration(Duration::milliseconds(1500)).validate(&desc));
+}
+
+#[test]
+fn test_datetime_fallback_formats() {
+    let desc = PropertyDescriptionBuilder::datetime().build();
+    let expected = chrono::NaiveDate::from_ymd_opt(2024, 10, 8)
+        .unwrap()
+        .and_hms_opt(10, 15, 0)
+        .unwrap()
+        .and_utc();
+    for raw in [
+        "2024-10-08T10:15:00Z",
+        "2024-10-08T10:15:00",
+        "2024-10-08T10:15:00.000",
+        "2024-10-08T10:15",
+        "2024-10-08T10:15Z",
+    ] {
+        assert_eq!(
+            HomieValue::parse(raw, &desc).ok(),
+            Some(HomieValue::DateTime(expected)),
+            "{raw}"
+        );
+    }
+    assert!(HomieValue::parse("2024-10-08", &desc).is_err());
+    assert!(HomieValue::parse("not a date", &desc).is_err());
+}
+
+#[test]
+fn test_parse_duration_grammar() {
+    for (raw, secs) in [
+        ("PT0S", 0),
+        ("PT5M", 300),
+        ("PT1H", 3600),
+        ("PT1H5S", 3605),
+        ("PT1H2M3S", 3723),
+        ("PT007S", 7),
+    ] {
+        assert_eq!(HomieValue::parse_duration(raw), Ok(Duration::seconds(secs)), "{raw}");
+    }
+    for raw in [
+        "", "P", "PT", "PTH", "PT1", "PT1X", "PT-1S", "PT+1S", "PT1.5S", "PT 1S", "PT1S1M", "PT5M3H", "PT1H1H",
+        "PT1S ", "pt1s", "P1D", "PT1M1M",
+    ] {
+        assert!(HomieValue::parse_duration(raw).is_err(), "{raw}");
+    }
 }

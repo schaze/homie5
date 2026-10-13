@@ -8,6 +8,13 @@
 //! only if a certain condition is met. This is useful for adding optional elements or applying logic
 //! based on runtime conditions.
 //!
+//! ```rust
+//! use homie5::device_description::*;
+//! let has_name = true;
+//! let description = DeviceDescriptionBuilder::new()
+//!     .do_if(has_name, |builder| builder.name("MyDevice"))
+//!     .build();
+//! assert_eq!(description.name.as_deref(), Some("MyDevice"));
 //! ```
 use super::property_format::{BooleanFormat, HomiePropertyFormat};
 use super::{

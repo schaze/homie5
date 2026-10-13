@@ -725,8 +725,6 @@ impl PartialOrd<HomieValue> for HomieValue {
             (HomieValue::Float(self_float), HomieValue::Float(other_float)) => self_float.partial_cmp(other_float),
             (HomieValue::Bool(self_bool), HomieValue::Bool(other_bool)) => self_bool.partial_cmp(other_bool),
             (HomieValue::Enum(self_enum), HomieValue::Enum(other_enum)) => self_enum.partial_cmp(other_enum),
-            (HomieValue::Enum(self_enum), HomieValue::String(other_string)) => self_enum.partial_cmp(other_string),
-            (HomieValue::String(self_string), HomieValue::Enum(other_enum)) => self_string.partial_cmp(other_enum),
             (HomieValue::Color(self_homie_color_value), HomieValue::Color(other_homie_color_value)) => {
                 self_homie_color_value.partial_cmp(other_homie_color_value)
             }
@@ -883,72 +881,52 @@ impl HomieValue {
     }
 
     pub fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {
-        static RE: std::sync::LazyLock<regex::Regex> =
-            std::sync::LazyLock::new(|| regex::Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").unwrap());
         let invalid = || Homie5ValueConversionError::InvalidDurationFormat(s.to_string());
-        if let Some(captures) = RE.captures(s) {
-            // Require at least one component (reject bare "PT")
-            if captures.get(1).is_none() && captures.get(2).is_none() && captures.get(3).is_none() {
+        // Require at least one component (reject bare "PT")
+        let mut rest = s.strip_prefix("PT").filter(|r| !r.is_empty()).ok_or_else(invalid)?;
+        let mut total_seconds: i64 = 0;
+        // Components are optional but must appear in the order H, M, S and at most once each.
+        for (unit, factor) in [('H', 3600_i64), ('M', 60), ('S', 1)] {
+            let Some(pos) = rest.find(unit) else {
+                continue;
+            };
+            let digits = &rest[..pos];
+            if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
                 return Err(invalid());
             }
-
-            // The regex only guarantees digits; the component values can still overflow i64
-            // (e.g. "PT99999999999999999999H"), so every conversion must be checked.
-            let component = |i: usize| -> Result<i64, Homie5ValueConversionError> {
-                captures
-                    .get(i)
-                    .map_or(Ok(0), |m| m.as_str().parse().map_err(|_| invalid()))
-            };
-            let hours = component(1)?;
-            let minutes = component(2)?;
-            let seconds = component(3)?;
-
-            let total_seconds = hours
-                .checked_mul(3600)
-                .and_then(|h| minutes.checked_mul(60).and_then(|m| h.checked_add(m)))
-                .and_then(|hm| hm.checked_add(seconds))
+            // Digits alone can still overflow i64 (e.g. "PT99999999999999999999H"), so every
+            // conversion must be checked.
+            total_seconds = digits
+                .parse::<i64>()
+                .ok()
+                .and_then(|n| n.checked_mul(factor))
+                .and_then(|n| total_seconds.checked_add(n))
                 .ok_or_else(invalid)?;
-
-            return chrono::Duration::try_seconds(total_seconds).ok_or_else(invalid);
+            rest = &rest[pos + 1..];
         }
-        Err(invalid())
+        if !rest.is_empty() {
+            return Err(invalid());
+        }
+        chrono::Duration::try_seconds(total_seconds).ok_or_else(invalid)
     }
 
     // flexible deserialization approach as timestamps are hard and we want to keep compatibility
     // high
     pub fn flexible_datetime_parser(s: &str) -> Result<chrono::DateTime<chrono::Utc>, Homie5ValueConversionError> {
         // try standard RFC3339 compliant parsing
-        chrono::DateTime::parse_from_rfc3339(s).map_or_else(
-            |_| {
-                // if it does not work we try parsing it from a string representation without
-                // seconds (we strip the last character as this is supposed to be a Z for UTC
-                // timezone
-                let s = if let Some(rest) = s.strip_suffix('Z') { rest } else { s };
-                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").map_or_else(
-                    |_| {
-                        // if this also does not work we try parsing it from a string representation with
-                        // fractional seconds
-                        chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f").map_or_else(
-                            |_| Err(Homie5ValueConversionError::InvalidDateTimeFormat(s.to_string())), // if this also does not work, we give
-                            // up
-                            |ndt| {
-                                Ok(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-                                    ndt,
-                                    chrono::Utc,
-                                ))
-                            },
-                        )
-                    },
-                    |ndt| {
-                        Ok(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-                            ndt,
-                            chrono::Utc,
-                        ))
-                    },
-                )
-            },
-            |d| Ok(chrono::DateTime::<chrono::Utc>::from(d)),
-        )
+        if let Ok(d) = chrono::DateTime::parse_from_rfc3339(s) {
+            return Ok(d.into());
+        }
+
+        // Fall back to ISO 8601 local times without offset (optionally with a trailing `Z`),
+        // with or without fractional seconds, or without seconds. These are treated as UTC.
+        const FALLBACK_FORMATS: [&str; 3] = ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M"];
+        let naive = s.strip_suffix('Z').unwrap_or(s);
+        FALLBACK_FORMATS
+            .iter()
+            .find_map(|format| chrono::NaiveDateTime::parse_from_str(naive, format).ok())
+            .map(|ndt| ndt.and_utc())
+            .ok_or_else(|| Homie5ValueConversionError::InvalidDateTimeFormat(s.to_string()))
     }
 
     fn validate_float(value: f64, property_desc: &HomiePropertyDescription) -> Result<f64, Homie5ValueConversionError> {
@@ -1056,7 +1034,10 @@ impl HomieValue {
                 }
             }
             (HomieValue::DateTime(_), HomieDataType::Datetime) => true,
-            (HomieValue::Duration(_), HomieDataType::Duration) => true,
+            // The wire format cannot express negative or sub-second durations.
+            (HomieValue::Duration(d), HomieDataType::Duration) => {
+                *d >= chrono::Duration::zero() && d.subsec_nanos() == 0
+            }
             (HomieValue::JSON(v), HomieDataType::JSON) => v.is_object() || v.is_array(),
             _ => false,
         }

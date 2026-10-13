@@ -10,12 +10,9 @@
 //!
 //! # Storage Backend
 //!
-//! By default, `HomieID` uses an `Arc<str>`-based inner representation that makes cloning O(1)
+//! `HomieID` stores either a `&'static str` or an `Arc<str>`, which makes cloning O(1)
 //! (atomic reference count increment instead of string copy). This is ideal when IDs are cloned
 //! frequently (e.g., as HashMap keys in reference types).
-//!
-//! Enable the `legacy-cow` feature to use the original `Cow<'static, str>` backend, which offers
-//! zero-cost construction from `&'static str` but O(n) cloning for owned strings.
 //!
 //! # Errors
 //!
@@ -37,82 +34,51 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
-use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::AsNodeId;
 
-// ---- Feature-gated inner representation ----
+// ---- Inner representation ----
 
-#[cfg(not(feature = "legacy-cow"))]
-mod id_inner {
-    use std::sync::Arc;
+#[derive(Debug, Clone)]
+enum HomieIDInner {
+    Static(&'static str),
+    Shared(Arc<str>),
+}
 
-    #[derive(Debug, Clone)]
-    pub(super) enum HomieIDInner {
-        Static(&'static str),
-        Shared(Arc<str>),
+impl HomieIDInner {
+    const fn new_static(s: &'static str) -> Self {
+        Self::Static(s)
     }
-
-    impl HomieIDInner {
-        pub(super) const fn new_static(s: &'static str) -> Self {
-            Self::Static(s)
-        }
-        pub(super) fn new_owned(s: String) -> Self {
-            Self::Shared(Arc::from(s.as_str()))
-        }
-        pub(super) fn as_str(&self) -> &str {
-            match self {
-                Self::Static(s) => s,
-                Self::Shared(s) => s,
-            }
+    fn new_owned(s: String) -> Self {
+        Self::Shared(Arc::from(s))
+    }
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Static(s) => s,
+            Self::Shared(s) => s,
         }
     }
 }
-
-#[cfg(feature = "legacy-cow")]
-mod id_inner {
-    use std::borrow::Cow;
-
-    #[derive(Debug, Clone)]
-    pub(super) struct HomieIDInner(Cow<'static, str>);
-
-    impl HomieIDInner {
-        pub(super) const fn new_static(s: &'static str) -> Self {
-            Self(Cow::Borrowed(s))
-        }
-        pub(super) fn new_owned(s: String) -> Self {
-            Self(Cow::Owned(s))
-        }
-        pub(super) fn as_str(&self) -> &str {
-            &self.0
-        }
-    }
-}
-
-use id_inner::HomieIDInner;
 
 // ---- Error type ----
 
 /// Error type returned when a string fails to validate as a Homie ID.
 ///
-/// Provides details about why the validation failed.
-#[derive(Debug, Clone, PartialEq)]
+/// Carries the offending value and the reason why the validation failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvalidHomieIDError {
-    details: &'static str,
-}
-
-impl InvalidHomieIDError {
-    /// Creates a new `InvalidHomieIDError` with a specific message.
-    const fn new(msg: &'static str) -> Self {
-        InvalidHomieIDError { details: msg }
-    }
+    /// The value that failed validation.
+    pub value: String,
+    /// Why the value is not a valid Homie ID.
+    pub reason: &'static str,
 }
 
 impl fmt::Display for InvalidHomieIDError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.details)
+        write!(f, "invalid Homie ID {:?}: {}", self.value, self.reason)
     }
 }
 
@@ -146,8 +112,8 @@ impl HomieID {
     ///
     /// Panics if the `id` is not a valid `HomieID`.
     pub const fn new_const(id: &'static str) -> Self {
-        if let Err(e) = Self::validate(id) {
-            panic!("{}", e.details);
+        if let Err(reason) = Self::check(id) {
+            panic!("{}", reason);
         }
         Self(HomieIDInner::new_static(id))
     }
@@ -157,19 +123,24 @@ impl HomieID {
         self.0.as_str()
     }
 
-    pub const fn validate(id: &str) -> Result<(), InvalidHomieIDError> {
+    /// Validates `id` against the Homie ID rules.
+    pub fn validate(id: &str) -> Result<(), InvalidHomieIDError> {
+        Self::check(id).map_err(|reason| InvalidHomieIDError {
+            value: id.to_owned(),
+            reason,
+        })
+    }
+
+    const fn check(id: &str) -> Result<(), &'static str> {
         if id.is_empty() {
-            return Err(InvalidHomieIDError::new("Homie ID cannot be empty"));
+            return Err("Homie ID cannot be empty");
         }
         let mut bytes = id.as_bytes();
-        while !bytes.is_empty() {
-            let [b'a'..=b'z' | b'0'..=b'9' | b'-', remainder @ ..] = bytes else {
-                return Err(InvalidHomieIDError::new(
-                    "Homie ID can only contain lowercase letters a-z, numbers 0-9, and hyphens (-)",
-                ));
-            };
+        while let [first, remainder @ ..] = bytes {
+            if !matches!(first, b'a'..=b'z' | b'0'..=b'9' | b'-') {
+                return Err("Homie ID can only contain lowercase letters a-z, numbers 0-9, and hyphens (-)");
+            }
             bytes = remainder;
-            continue;
         }
         Ok(())
     }
@@ -262,13 +233,14 @@ impl<'de> Deserialize<'de> for HomieID {
 
 // ---- JsonSchema ----
 
-impl JsonSchema for HomieID {
+#[cfg(feature = "schemars")]
+impl schemars::JsonSchema for HomieID {
     fn schema_name() -> std::borrow::Cow<'static, str> {
         std::borrow::Cow::Borrowed("HomieID")
     }
 
     fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        <String as JsonSchema>::json_schema(generator)
+        <String as schemars::JsonSchema>::json_schema(generator)
     }
 }
 

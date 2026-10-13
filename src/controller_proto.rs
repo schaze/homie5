@@ -20,7 +20,8 @@ use std::iter;
 
 use crate::{
     client::{Publish, QoS, Subscription, Unsubscribe},
-    device_description::{HomieDeviceDescription, HomiePropertyIterator},
+    device_description::{HomieDeviceDescription, HomiePropertyDescription, HomiePropertyIterator},
+    device_proto::property_qos,
     DeviceLogLevel, DeviceRef, HomieDomain, HomieID, HomieValue, PropertyRef, ToTopic, TopicBuilder, DEVICE_ATTRIBUTES,
     DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE, DEVICE_LOG_LEVELS, HOMIE_TOPIC_BROADCAST,
     PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
@@ -232,6 +233,28 @@ impl Homie5ControllerProtocol {
             prop.prop_id(),
             value,
         )
+    }
+
+    /// Publishes a set command for a property, choosing the QoS from its description.
+    ///
+    /// Set commands for non-retained properties are published with QoS 0 as recommended by the
+    /// convention, so stale commands are not delivered to a device that reconnects later.
+    /// [`Self::set_command`] always uses QoS 2.
+    ///
+    /// # Parameters
+    /// - `prop`: A reference to the `PropertyRef` identifying the property.
+    /// - `prop_desc`: The description of the property.
+    /// - `value`: The new value to set for the property.
+    pub fn set_command_for_property(
+        &self,
+        prop: &PropertyRef,
+        prop_desc: &HomiePropertyDescription,
+        value: &HomieValue,
+    ) -> Publish {
+        Publish {
+            qos: property_qos(prop_desc.retained),
+            ..self.set_command(prop, value)
+        }
     }
 
     /// Sends a broadcast message to all devices in the specified Homie domain.

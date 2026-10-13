@@ -4,28 +4,25 @@
 //!
 //! The primary struct in this module is [`Homie5DeviceProtocol`], which provides
 //! functionality to generate MQTT publish and subscribe messages according to the Homie
-//! v5 protocol. Additionally, state machines for device publishing, reconfiguration,
-//! and disconnection are provided through the use of enumerated steps and transitions.
+//! v5 protocol. Additionally, the fixed step sequences for device publishing, reconfiguration,
+//! and disconnection are provided as constant arrays.
 
 use crate::{
     client::{LastWill, Publish, QoS, Subscription, Unsubscribe},
-    device_description::{HomieDeviceDescription, HomiePropertyIterator},
+    device_description::HomieDeviceDescription,
     error::Homie5ProtocolError,
-    homie_str_to_vecu8,
-    statemachine::{HomieStateMachine, Transition},
-    DeviceLogLevel, DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, TopicBuilder, DEVICE_ATTRIBUTES,
+    homie_str_to_vecu8, DeviceLogLevel, DeviceRef, HomieDeviceStatus, HomieDomain, HomieID, TopicBuilder,
     DEVICE_ATTRIBUTE_ALERT, DEVICE_ATTRIBUTE_DESCRIPTION, DEVICE_ATTRIBUTE_LOG, DEVICE_ATTRIBUTE_STATE,
     PROPERTY_ATTRIBUTE_TARGET, PROPERTY_SET_TOPIC,
 };
 
-#[derive(Default, Copy, Clone)]
 /// Represents the steps required to publish a Homie device.
 ///
 /// This enum enumerates the sequential steps needed to bring a device online
 /// following the Homie protocol, from setting the device's initial state to
 /// publishing the device's retained properties and subscribing to relevant topics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DevicePublishStep {
-    #[default]
     /// Set the state of the device to "init" and publish the state
     DeviceStateInit,
     /// Publish the device description
@@ -38,34 +35,28 @@ pub enum DevicePublishStep {
     DeviceStateReady,
 }
 
-impl Transition<DevicePublishStep> for DevicePublishStep {
-    fn transition(&self) -> Option<DevicePublishStep> {
-        match self {
-            DevicePublishStep::DeviceStateInit => Some(DevicePublishStep::DeviceDescription),
-            DevicePublishStep::DeviceDescription => Some(DevicePublishStep::PropertyValues),
-            DevicePublishStep::PropertyValues => Some(DevicePublishStep::SubscribeProperties),
-            DevicePublishStep::SubscribeProperties => Some(DevicePublishStep::DeviceStateReady),
-            DevicePublishStep::DeviceStateReady => None,
-        }
-    }
-}
+/// All steps for publishing a device, in order.
+pub const DEVICE_PUBLISH_STEPS: [DevicePublishStep; 5] = [
+    DevicePublishStep::DeviceStateInit,
+    DevicePublishStep::DeviceDescription,
+    DevicePublishStep::PropertyValues,
+    DevicePublishStep::SubscribeProperties,
+    DevicePublishStep::DeviceStateReady,
+];
 
 /// Provides an iterator that yields all the necessary steps for publishing a device in order.
 ///
-/// This iterator follows the sequence defined in [`DevicePublishStep`], transitioning
-/// through the device's initialization, description publishing, property publishing,
-/// and subscription setup.
+/// See [`DEVICE_PUBLISH_STEPS`].
 pub fn homie_device_publish_steps() -> impl Iterator<Item = DevicePublishStep> {
-    HomieStateMachine::new(Default::default())
+    DEVICE_PUBLISH_STEPS.into_iter()
 }
 
 /// Represents the steps required to reconfigure a Homie device.
 ///
 /// This enum defines the steps needed to update a device's configuration, such as
 /// modifying nodes or properties, followed by republishing the updated state and properties.
-#[derive(Default, Copy, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceReconfigureStep {
-    #[default]
     /// Set the state of the device to "init" and publish the state
     DeviceStateInit,
     /// Unsubscribe from all device properties
@@ -82,69 +73,71 @@ pub enum DeviceReconfigureStep {
     DeviceStateReady,
 }
 
-impl Transition<DeviceReconfigureStep> for DeviceReconfigureStep {
-    fn transition(&self) -> Option<DeviceReconfigureStep> {
-        match self {
-            DeviceReconfigureStep::DeviceStateInit => Some(DeviceReconfigureStep::UnsubscribeProperties),
-            DeviceReconfigureStep::UnsubscribeProperties => Some(DeviceReconfigureStep::Reconfigure),
-            DeviceReconfigureStep::Reconfigure => Some(DeviceReconfigureStep::DeviceDescription),
-            DeviceReconfigureStep::DeviceDescription => Some(DeviceReconfigureStep::PropertyValues),
-            DeviceReconfigureStep::PropertyValues => Some(DeviceReconfigureStep::SubscribeProperties),
-            DeviceReconfigureStep::SubscribeProperties => Some(DeviceReconfigureStep::DeviceStateReady),
-            DeviceReconfigureStep::DeviceStateReady => None,
-        }
-    }
-}
+/// All steps for reconfiguring a device, in order.
+pub const DEVICE_RECONFIGURE_STEPS: [DeviceReconfigureStep; 7] = [
+    DeviceReconfigureStep::DeviceStateInit,
+    DeviceReconfigureStep::UnsubscribeProperties,
+    DeviceReconfigureStep::Reconfigure,
+    DeviceReconfigureStep::DeviceDescription,
+    DeviceReconfigureStep::PropertyValues,
+    DeviceReconfigureStep::SubscribeProperties,
+    DeviceReconfigureStep::DeviceStateReady,
+];
 
 /// Provides an iterator that yields all the necessary steps for reconfiguring a device in order.
 ///
-/// This iterator follows the sequence defined in [`DeviceReconfigureStep`], ensuring the device
-/// is properly reconfigured, including unsubscribing from old properties, reconfiguring, and
-/// republishing the updated state.
+/// See [`DEVICE_RECONFIGURE_STEPS`].
 pub fn homie_device_reconfigure_steps() -> impl Iterator<Item = DeviceReconfigureStep> {
-    HomieStateMachine::new(Default::default())
+    DEVICE_RECONFIGURE_STEPS.into_iter()
 }
 
 /// Represents the steps required to disconnect a Homie device.
 ///
 /// This enum enumerates the steps needed to gracefully disconnect a device
 /// following the Homie protocol, ensuring that all device properties are properly unsubscribed.
-#[derive(Default, Copy, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceDisconnectStep {
-    #[default]
     /// Set the state of the device to "disconnect" and publish the state
     DeviceStateDisconnect,
     /// Unsubscribe from all device properties
     UnsubscribeProperties,
 }
 
-impl Transition<DeviceDisconnectStep> for DeviceDisconnectStep {
-    fn transition(&self) -> Option<DeviceDisconnectStep> {
-        match self {
-            DeviceDisconnectStep::DeviceStateDisconnect => Some(DeviceDisconnectStep::UnsubscribeProperties),
-            DeviceDisconnectStep::UnsubscribeProperties => None,
-        }
-    }
-}
+/// All steps for disconnecting a device, in order.
+pub const DEVICE_DISCONNECT_STEPS: [DeviceDisconnectStep; 2] = [
+    DeviceDisconnectStep::DeviceStateDisconnect,
+    DeviceDisconnectStep::UnsubscribeProperties,
+];
 
 /// Provides an iterator that yields all the necessary steps for disconnecting a device in order.
 ///
-/// This iterator follows the sequence defined in [`DeviceDisconnectStep`], ensuring the device
-/// is properly disconnected and its properties unsubscribed.
+/// See [`DEVICE_DISCONNECT_STEPS`].
 pub fn homie_device_disconnect_steps() -> impl Iterator<Item = DeviceDisconnectStep> {
-    HomieStateMachine::new(Default::default())
+    DEVICE_DISCONNECT_STEPS.into_iter()
 }
 
-/// Represents the Homie v5 protocol implementation for a device, providing methods for
+/// QoS for property values, targets and set commands: the convention requires QoS 0 for
+/// non-retained properties so that events are not delivered late or multiple times.
+pub(crate) fn property_qos(retained: bool) -> QoS {
+    if retained {
+        QoS::ExactlyOnce
+    } else {
+        QoS::AtMostOnce
+    }
+}
+
+/// Represents the Homie v5 protocol implementation for a single device, providing methods for
 /// publishing state, logging, and handling properties.
 ///
 /// [`Homie5DeviceProtocol`] defines the MQTT topics and messages needed for a device to
 /// communicate its state, properties, and logs, as well as managing subscriptions to
-/// settable properties.
+/// settable properties. Each protocol instance publishes for exactly one device; use
+/// [`Homie5DeviceProtocol::clone_for_child`] to obtain the protocol for a child device.
 #[derive(Clone, Debug)]
 pub struct Homie5DeviceProtocol {
     device_ref: DeviceRef,
-    is_child: bool,
+    /// ID of the root device if this protocol belongs to a child device.
+    root: Option<HomieID>,
 }
 
 impl Homie5DeviceProtocol {
@@ -162,7 +155,7 @@ impl Homie5DeviceProtocol {
                 .add_attr(DEVICE_ATTRIBUTE_STATE)
                 .build(),
             message: HomieDeviceStatus::Lost.as_str().bytes().collect(),
-            qos: crate::client::QoS::ExactlyOnce,
+            qos: QoS::ExactlyOnce,
             retain: true,
         };
 
@@ -171,7 +164,7 @@ impl Homie5DeviceProtocol {
                 homie_domain,
                 id: device_id,
             },
-            is_child: false,
+            root: None,
         };
 
         (homie5_proto, last_will)
@@ -181,6 +174,7 @@ impl Homie5DeviceProtocol {
     pub fn device_ref(&self) -> &DeviceRef {
         &self.device_ref
     }
+
     /// Returns the device's ID.
     pub fn id(&self) -> &HomieID {
         &self.device_ref.id
@@ -193,42 +187,49 @@ impl Homie5DeviceProtocol {
 
     /// Checks if the device is a child device.
     pub fn is_child(&self) -> bool {
-        self.is_child
+        self.root.is_some()
+    }
+
+    /// Returns the ID of the root device this protocol publishes under.
+    pub fn root_id(&self) -> &HomieID {
+        self.root.as_ref().unwrap_or(&self.device_ref.id)
     }
 
     /// Clones the protocol for a child device using the given `device_id`.
+    ///
+    /// Descriptions published through the child protocol must set `root` to the root device's ID.
     pub fn clone_for_child(&self, device_id: HomieID) -> Self {
         Self {
             device_ref: DeviceRef {
                 homie_domain: self.device_ref.homie_domain.clone(),
                 id: device_id,
             },
-            is_child: true,
+            root: Some(self.root_id().clone()),
         }
     }
 
-    /// Clones the protocol for a child device using the provided root protocol and device ID.
-    pub fn for_child(device_id: HomieID, root: Homie5DeviceProtocol) -> Self {
-        Self {
-            device_ref: DeviceRef {
-                homie_domain: root.homie_domain().clone(),
-                id: device_id,
-            },
-            is_child: true,
+    /// Checks that `description` carries the correct `root` attribute for this device.
+    fn check_root(&self, description: &HomieDeviceDescription) -> Result<(), Homie5ProtocolError> {
+        match (&self.root, &description.root) {
+            (None, None) => Ok(()),
+            (None, Some(_)) => Err(Homie5ProtocolError::NonEmptyRootForRootDevice),
+            (Some(root), Some(desc_root)) if root == desc_root => Ok(()),
+            _ => Err(Homie5ProtocolError::RootMismatch),
         }
+    }
+
+    fn device_topic(&self) -> TopicBuilder {
+        TopicBuilder::new_for_device(self.homie_domain(), self.id())
+    }
+
+    fn property_topic(&self, node_id: &HomieID, prop_id: &HomieID) -> TopicBuilder {
+        TopicBuilder::new_for_property(self.homie_domain(), self.id(), node_id, prop_id)
     }
 
     /// Publishes the device's state.
     pub fn publish_state(&self, state: HomieDeviceStatus) -> Publish {
-        self.publish_state_for_id(self.id(), state)
-    }
-
-    /// Publishes the state for the given `device_id`.
-    pub fn publish_state_for_id(&self, device_id: &HomieID, state: HomieDeviceStatus) -> Publish {
         Publish {
-            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
-                .add_attr(DEVICE_ATTRIBUTE_STATE)
-                .build(),
+            topic: self.device_topic().add_attr(DEVICE_ATTRIBUTE_STATE).build(),
             retain: true,
             payload: state.as_str().into(),
             qos: QoS::ExactlyOnce,
@@ -237,13 +238,9 @@ impl Homie5DeviceProtocol {
 
     /// Publishes a log message for the device.
     pub fn publish_log(&self, level: DeviceLogLevel, log_msg: &str) -> Publish {
-        self.publish_log_for_id(self.id(), level, log_msg)
-    }
-
-    /// Publishes a log message for the given `device_id`.
-    pub fn publish_log_for_id(&self, device_id: &HomieID, level: DeviceLogLevel, log_msg: &str) -> Publish {
         Publish {
-            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+            topic: self
+                .device_topic()
                 .add_attr(DEVICE_ATTRIBUTE_LOG)
                 .add_attr(level.as_str())
                 .build(),
@@ -253,33 +250,28 @@ impl Homie5DeviceProtocol {
         }
     }
 
-    // Publishes an alert with a given `alert_id` and `alert_msg`.
+    /// Publishes an alert with a given `alert_id` and `alert_msg`.
+    ///
+    /// An empty `alert_msg` is published as an empty string (`0x00`), not as an alert removal.
+    /// Use [`Self::publish_clear_alert`] to clear an alert.
     pub fn publish_alert(&self, alert_id: &HomieID, alert_msg: &str) -> Publish {
-        self.publish_alert_for_id(self.id(), alert_id, alert_msg)
-    }
-
-    /// Publishes an alert with a given `alert_id` and `alert_msg` for the provided `device_id`.
-    pub fn publish_alert_for_id(&self, device_id: &HomieID, alert_id: &HomieID, alert_msg: &str) -> Publish {
         Publish {
-            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+            topic: self
+                .device_topic()
                 .add_attr(DEVICE_ATTRIBUTE_ALERT)
                 .add_attr(alert_id.as_str())
                 .build(),
             qos: QoS::ExactlyOnce,
             retain: true,
-            payload: alert_msg.into(),
+            payload: homie_str_to_vecu8(alert_msg),
         }
     }
 
-    // Publishes an alert with a given `alert_id` and `alert_msg`.
+    /// Clears the alert with the given `alert_id`.
     pub fn publish_clear_alert(&self, alert_id: &HomieID) -> Publish {
-        self.publish_clear_alert_for_id(self.id(), alert_id)
-    }
-
-    /// Publishes an alert with a given `alert_id` and `alert_msg` for the provided `device_id`.
-    pub fn publish_clear_alert_for_id(&self, device_id: &HomieID, alert_id: &HomieID) -> Publish {
         Publish {
-            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
+            topic: self
+                .device_topic()
                 .add_attr(DEVICE_ATTRIBUTE_ALERT)
                 .add_attr(alert_id.as_str())
                 .build(),
@@ -288,7 +280,10 @@ impl Homie5DeviceProtocol {
             payload: Vec::default(),
         }
     }
+
     /// Publishes a Homie value for a given property and node.
+    ///
+    /// Non-retained values are published with QoS 0 as required by the convention.
     pub fn publish_value(
         &self,
         node_id: &HomieID,
@@ -296,23 +291,11 @@ impl Homie5DeviceProtocol {
         value: impl Into<String>,
         retain: bool,
     ) -> Publish {
-        self.publish_value_for_id(self.id(), node_id, prop_id, value, retain)
-    }
-
-    /// Publishes a value for a specific `device_id`.
-    pub fn publish_value_for_id(
-        &self,
-        device_id: &HomieID,
-        node_id: &HomieID,
-        prop_id: &HomieID,
-        value: impl Into<String>,
-        retain: bool,
-    ) -> Publish {
         Publish {
-            topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id).build(),
-            qos: QoS::ExactlyOnce,
+            topic: self.property_topic(node_id, prop_id).build(),
+            qos: property_qos(retain),
             retain,
-            payload: homie_str_to_vecu8(value.into()),
+            payload: homie_str_to_vecu8(value),
         }
     }
 
@@ -322,25 +305,14 @@ impl Homie5DeviceProtocol {
         node_id: &HomieID,
         prop_id: &HomieID,
         value: impl Into<String>,
-        retained: bool,
-    ) -> Publish {
-        self.publish_target_for_id(self.id(), node_id, prop_id, value, retained)
-    }
-
-    /// Publishes the target value for a given property using the provided `device_id`.
-    pub fn publish_target_for_id(
-        &self,
-        device_id: &HomieID,
-        node_id: &HomieID,
-        prop_id: &HomieID,
-        value: impl Into<String>,
         retain: bool,
     ) -> Publish {
         Publish {
-            topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
+            topic: self
+                .property_topic(node_id, prop_id)
                 .add_attr(PROPERTY_ATTRIBUTE_TARGET)
                 .build(),
-            qos: QoS::ExactlyOnce,
+            qos: property_qos(retain),
             retain,
             payload: homie_str_to_vecu8(value),
         }
@@ -349,72 +321,33 @@ impl Homie5DeviceProtocol {
     /// Publishes the device description.
     ///
     /// # Errors
-    /// Returns an error if the description is invalid for the device type.
+    /// Returns an error if the description's `root` attribute does not match the device type.
     pub fn publish_description(&self, description: &HomieDeviceDescription) -> Result<Publish, Homie5ProtocolError> {
-        self.publish_description_for_id(self.id(), description)
-    }
-
-    /// Publishes the device description for the provided `device_id`.
-    ///
-    /// # Errors
-    /// Returns an error if the description is invalid for the device type.
-    pub fn publish_description_for_id(
-        &self,
-        device_id: &HomieID,
-        description: &HomieDeviceDescription,
-    ) -> Result<Publish, Homie5ProtocolError> {
-        if !self.is_child && self.id() == device_id && description.root.is_some() {
-            return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id() != device_id && Some(self.id()) != description.root.as_ref() {
-            return Err(Homie5ProtocolError::RootMismatch);
-        }
-        match serde_json::to_string(description) {
-            Ok(json) => Ok(Publish {
-                topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
-                    .add_attr(DEVICE_ATTRIBUTE_DESCRIPTION)
-                    .build(),
-                qos: QoS::ExactlyOnce,
-                retain: true,
-                payload: json.into(),
-            }),
-            Err(_) => {
-                // TODO: log actual error for debug purposes
-                Err(Homie5ProtocolError::InvalidDeviceDescription)
-            }
-        }
+        self.check_root(description)?;
+        let json = serde_json::to_string(description).map_err(|_| Homie5ProtocolError::InvalidDeviceDescription)?;
+        Ok(Publish {
+            topic: self.device_topic().add_attr(DEVICE_ATTRIBUTE_DESCRIPTION).build(),
+            qos: QoS::ExactlyOnce,
+            retain: true,
+            payload: json.into(),
+        })
     }
 
     /// Subscribes to all settable properties for the device.
     ///
     /// # Errors
-    /// Returns an error if the description is invalid for the device type.
+    /// Returns an error if the description's `root` attribute does not match the device type.
     pub fn subscribe_props<'a>(
         &'a self,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Subscription> + 'a, Homie5ProtocolError> {
-        self.subscribe_props_for_id(self.id(), description)
-    }
-
-    /// Subscribes to all settable properties for the given `device_id`.
-    ///
-    /// # Errors
-    /// Returns an error if the description is invalid for the device type.
-    pub fn subscribe_props_for_id<'a>(
-        &'a self,
-        device_id: &'a HomieID,
-        description: &'a HomieDeviceDescription,
-    ) -> Result<impl Iterator<Item = Subscription> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id() == device_id && description.root.is_some() {
-            return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id() != device_id && Some(self.id()) != description.root.as_ref() {
-            return Err(Homie5ProtocolError::RootMismatch);
-        }
-
+        self.check_root(description)?;
         Ok(description
             .iter()
             .filter(|&(_, _, _, prop)| prop.settable)
             .map(|(node_id, _, prop_id, _)| Subscription {
-                topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
+                topic: self
+                    .property_topic(node_id, prop_id)
                     .add_attr(PROPERTY_SET_TOPIC)
                     .build(),
                 qos: QoS::ExactlyOnce,
@@ -424,33 +357,18 @@ impl Homie5DeviceProtocol {
     /// Unsubscribes from all settable properties for the device.
     ///
     /// # Errors
-    /// Returns an error if the description is invalid for the device type.
+    /// Returns an error if the description's `root` attribute does not match the device type.
     pub fn unsubscribe_props<'a>(
         &'a self,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Unsubscribe> + 'a, Homie5ProtocolError> {
-        self.unsubscribe_props_for_id(self.id(), description)
-    }
-
-    /// Unsubscribes from all settable properties for the given `device_id`.
-    ///
-    /// # Errors
-    /// Returns an error if the description is invalid for the device type.
-    pub fn unsubscribe_props_for_id<'a>(
-        &'a self,
-        device_id: &'a HomieID,
-        description: &'a HomieDeviceDescription,
-    ) -> Result<impl Iterator<Item = Unsubscribe> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id() == device_id && description.root.is_some() {
-            return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id() != device_id && Some(self.id()) != description.root.as_ref() {
-            return Err(Homie5ProtocolError::RootMismatch);
-        }
-        let prop_iter = HomiePropertyIterator::new(description);
-        Ok(prop_iter
+        self.check_root(description)?;
+        Ok(description
+            .iter()
             .filter(|&(_, _, _, prop)| prop.settable)
             .map(|(node_id, _, prop_id, _)| Unsubscribe {
-                topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
+                topic: self
+                    .property_topic(node_id, prop_id)
                     .add_attr(PROPERTY_SET_TOPIC)
                     .build(),
             }))
@@ -458,62 +376,45 @@ impl Homie5DeviceProtocol {
 
     /// Removes the device by clearing all retained property values.
     ///
+    /// Clears `$state` first, then `$description` and all retained property values and targets.
+    /// Active alerts live under `$alert/<alert-id>` and are not known to the protocol; clear them
+    /// with [`Self::publish_clear_alert`] before removing the device.
+    ///
     /// # Errors
-    /// Returns an error if the description is invalid for the device type.
+    /// Returns an error if the description's `root` attribute does not match the device type.
     pub fn remove_device<'a>(
         &'a self,
         description: &'a HomieDeviceDescription,
     ) -> Result<impl Iterator<Item = Publish> + 'a, Homie5ProtocolError> {
-        self.remove_device_for_id(self.id(), description)
-    }
+        self.check_root(description)?;
 
-    /// Removes the device for the given `device_id` by clearing all retained property values.
-    ///
-    /// # Errors
-    /// Returns an error if the description is invalid for the device type.
-    pub fn remove_device_for_id<'a>(
-        &'a self,
-        device_id: &'a HomieID,
-        description: &'a HomieDeviceDescription,
-    ) -> Result<impl Iterator<Item = Publish> + 'a, Homie5ProtocolError> {
-        if !self.is_child && self.id() == device_id && description.root.is_some() {
-            return Err(Homie5ProtocolError::NonEmptyRootForRootDevice);
-        } else if !self.is_child && self.id() != device_id && Some(self.id()) != description.root.as_ref() {
-            return Err(Homie5ProtocolError::RootMismatch);
-        }
-
-        // clear device attributes (startes with `$state` as per convention)
-        let attrs = DEVICE_ATTRIBUTES.iter().map(move |attribute| Publish {
-            topic: TopicBuilder::new_for_device(self.homie_domain(), device_id)
-                .add_attr(attribute)
-                .build(),
+        let clear = |topic: String| Publish {
+            topic,
             qos: QoS::ExactlyOnce,
             retain: true,
             payload: Vec::default(),
-        });
+        };
 
-        let prop_iter = HomiePropertyIterator::new(description);
-        // clear all retained property values
-        let props = prop_iter
-            .filter(|(_, _, _, prop)| prop.retained)
-            .flat_map(move |(node_id, _, prop_id, _)| {
-                [
-                    Publish {
-                        topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id).build(),
-                        qos: QoS::ExactlyOnce,
-                        retain: true,
-                        payload: Vec::default(),
-                    },
-                    Publish {
-                        topic: TopicBuilder::new_for_property(self.homie_domain(), device_id, node_id, prop_id)
-                            .add_attr(PROPERTY_ATTRIBUTE_TARGET)
-                            .build(),
-                        qos: QoS::ExactlyOnce,
-                        retain: true,
-                        payload: Vec::default(),
-                    },
-                ]
-            });
+        // clear retained device attributes (starts with `$state` as per convention)
+        let attrs = [DEVICE_ATTRIBUTE_STATE, DEVICE_ATTRIBUTE_DESCRIPTION]
+            .into_iter()
+            .map(move |attribute| clear(self.device_topic().add_attr(attribute).build()));
+
+        // clear all retained property values and targets
+        let props =
+            description
+                .iter()
+                .filter(|(_, _, _, prop)| prop.retained)
+                .flat_map(move |(node_id, _, prop_id, _)| {
+                    [
+                        clear(self.property_topic(node_id, prop_id).build()),
+                        clear(
+                            self.property_topic(node_id, prop_id)
+                                .add_attr(PROPERTY_ATTRIBUTE_TARGET)
+                                .build(),
+                        ),
+                    ]
+                });
         Ok(attrs.chain(props))
     }
 }

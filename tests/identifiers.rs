@@ -278,3 +278,20 @@ fn test_property_pointer_fromstr_wrong_segments() {
     assert!(PropertyPointer::from_str("single").is_err());
     assert!(PropertyPointer::from_str("a/b/c").is_err());
 }
+
+#[test]
+fn test_custom_domain_default_is_valid() {
+    let domain = CustomDomain::default();
+    assert!(CustomDomain::validate(domain.as_str()).is_ok());
+    assert_eq!(domain.as_str(), DEFAULT_HOMIE_DOMAIN);
+}
+
+#[test]
+fn test_invalid_homie_id_error_reports_value() {
+    let err = HomieID::try_from("Living_Room".to_string()).unwrap_err();
+    assert_eq!(err.value, "Living_Room");
+    assert!(err.to_string().starts_with("invalid Homie ID \"Living_Room\":"));
+    let err = HomieID::validate("").unwrap_err();
+    assert_eq!(err.value, "");
+    assert_eq!(err.reason, "Homie ID cannot be empty");
+}
