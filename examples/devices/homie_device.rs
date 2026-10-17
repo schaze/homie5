@@ -111,7 +111,7 @@ where
     }
 
     async fn publish_device(&mut self) -> Result<(), Self::ResultError> {
-        log::debug!("[{}] publishing", self.protcol().id());
+        tracing::debug!("[{}] publishing", self.protcol().id());
 
         for step in homie_device_publish_steps() {
             match step {
@@ -153,7 +153,7 @@ where
     // In case you have only one device override this and include the disconnect of the mqtt client
     // here as well.
     async fn disconnect_device(&mut self) -> Result<(), Self::ResultError> {
-        log::debug!("[{}] disconnect", self.protcol().id());
+        tracing::debug!("[{}] disconnect", self.protcol().id());
         for step in homie_device_disconnect_steps() {
             match step {
                 homie5::DeviceDisconnectStep::DeviceStateDisconnect => {

@@ -47,7 +47,7 @@ impl Device {
     fn is_retained(&self, property: &PropertyRef, desc: &HomieDeviceDescription) -> bool {
         // get the retained setting for the property
         let Ok(retained) = desc.with_property(property, |prop| prop.retained).ok_or_else(|| {
-            log::debug!("Cannot set value for: {}", property.to_topic());
+            tracing::debug!("Cannot set value for: {}", property.to_topic());
             Homie5ProtocolError::PropertyNotFound
         }) else {
             return false;
@@ -64,11 +64,11 @@ impl Device {
         let value = desc
             .with_property(property, |prop| HomieValue::parse(&value, prop))
             .ok_or_else(|| {
-                log::debug!("Cannot set value for: {}", property.to_topic());
+                tracing::debug!("Cannot set value for: {}", property.to_topic());
                 Homie5ProtocolError::PropertyNotFound
             })?
             .map_err(|err| {
-                log::debug!(
+                tracing::debug!(
                     "Invalid value provided for property: {} -- {:?}",
                     property.to_topic(),
                     err

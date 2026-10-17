@@ -15,7 +15,7 @@ export HOMIE_MQTT_PASSWORD=[password]
 export HOMIE_MQTT_CLIENT_ID=[client-id]
 export HOMIE_MQTT_HOMIE_DOMAIN=[homie-dev]
 
-RUST_LOG=error,controller_example=debug,warn,info,error,verbose cargo run --example controller_example
+RUST_LOG=warn,controller_example=debug cargo run --example controller_example
 ```
 
 ## TODO

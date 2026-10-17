@@ -97,7 +97,7 @@ impl LightDevice {
         // wait 1 seconds to ensure all outstanding mqtt packets have been processed by the
         // eventloop - we need to find a proper solution later (if possible) but for now
         // this has to do.
-        log::debug!("Waiting for mqtt eventloop to finish processing all requests...");
+        tracing::debug!("Waiting for mqtt eventloop to finish processing all requests...");
         tokio::time::sleep(Duration::from_secs(1)).await;
         self.mqtt_client.disconnect().await?;
         self.client().disconnect().await?;
