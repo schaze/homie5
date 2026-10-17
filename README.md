@@ -449,11 +449,11 @@ rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) => {
             let value = device_desc
                 .with_property(&property, |prop| HomieValue::parse(&set_value, prop))
                 .ok_or_else(|| {
-                    log::debug!("Cannot set value for: {}", property.to_topic());
+                    tracing::debug!("Cannot set value for: {}", property.to_topic());
                     Homie5ProtocolError::PropertyNotFound
                 })?
                 .map_err(|err| {
-                    log::debug!(
+                    tracing::debug!(
                         "Invalid value provided for property: {} -- {:?}",
                         property.to_topic(),
                         err
@@ -466,7 +466,7 @@ rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) => {
             if property == prop_light_state {
                 if let HomieValue::Bool(value) = value {
                     prop_light_state_value = value;
-                    log::debug!("light state: {}", prop_light_state_value);
+                    tracing::debug!("light state: {}", prop_light_state_value);
                     publish(
                         &mqtt_client,
                         protocol.publish_value(
@@ -483,7 +483,7 @@ rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) => {
             } else if property == prop_light_brightness {
                 if let HomieValue::Integer(value) = value {
                     prop_light_brightness_value = value;
-                    log::debug!("light brightness: {}", prop_light_brightness_value);
+                    tracing::debug!("light brightness: {}", prop_light_brightness_value);
                     publish(
                         &mqtt_client,
                         protocol.publish_value(
@@ -502,7 +502,7 @@ rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) => {
             subtopic,
             data,
         } => {
-            log::debug!("Broadcast received: {} | {} | {}", homie_domain, subtopic, data);
+            tracing::debug!("Broadcast received: {} | {} | {}", homie_domain, subtopic, data);
         }
         _ => (),
     }
@@ -571,12 +571,12 @@ The function returns `Err(Homie5ValueConversionError)` in the following cases:
            .with_property(&property, |prop| HomieValue::parse(&set_value, prop))
            // check for None and log out in case we did not find the property description (message not for this device)
            .ok_or_else(|| {
-               log::debug!("Cannot set value for: {}", property.to_topic());
+               tracing::debug!("Cannot set value for: {}", property.to_topic());
                Homie5ProtocolError::PropertyNotFound
            })?
            // Check the inner result and log if we had a conversion error.
            .map_err(|err| {
-               log::debug!(
+               tracing::debug!(
                    "Invalid value provided for property: {} -- {:?}",
                    property.to_topic(),
                    err
@@ -607,8 +607,8 @@ The steps are pretty simple:
 
 ```rust
 rumqttc::Event::Incoming(rumqttc::Incoming::ConnAck(_)) => {
-    log::debug!("HOMIE: Connected");
-    log::debug!("Publishing device");
+    tracing::debug!("HOMIE: Connected");
+    tracing::debug!("Publishing device");
     for step in homie_device_publish_steps() {
         match step {
             DevicePublishStep::DeviceStateInit => {

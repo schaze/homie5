@@ -39,7 +39,9 @@ async fn subscribe(client: &AsyncClient, subs: impl Iterator<Item = Subscription
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     // start of actual application logic
     // ===================================================
@@ -74,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
                             if property == prop_light_state {
                                 if let HomieValue::Bool(value) = value {
                                     prop_light_state_value = value;
-                                    log::debug!("light state: {}", prop_light_state_value);
+                                    tracing::debug!("light state: {}", prop_light_state_value);
                                     publish(
                                         &mqtt_client,
                                         protocol.publish_value(
@@ -91,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
                             } else if property == prop_light_brightness {
                                 if let HomieValue::Integer(value) = value {
                                     prop_light_brightness_value = value;
-                                    log::debug!("light brightness: {}", prop_light_brightness_value);
+                                    tracing::debug!("light brightness: {}", prop_light_brightness_value);
                                     publish(
                                         &mqtt_client,
                                         protocol.publish_value(
@@ -110,18 +112,18 @@ async fn main() -> anyhow::Result<()> {
                             subtopic,
                             data,
                         } => {
-                            log::debug!("Broadcast received: {} | {} | {}", homie_domain, subtopic, data);
+                            tracing::debug!("Broadcast received: {} | {} | {}", homie_domain, subtopic, data);
                         }
                         _ => (),
                     }
                     // invalid messages get ignored for now...
                 }
                 rumqttc::Event::Incoming(rumqttc::Incoming::ConnAck(_)) => {
-                    log::debug!("HOMIE: Connected");
+                    tracing::debug!("HOMIE: Connected");
                     // ===================
                     // Publishing device
                     // ===================
-                    log::debug!("Publishing device");
+                    tracing::debug!("Publishing device");
                     for step in homie_device_publish_steps() {
                         match step {
                             DevicePublishStep::DeviceStateInit => {
@@ -164,19 +166,19 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
                 rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect) => {
-                    log::debug!("HOMIE: Connection closed from our side. Will exit");
+                    tracing::debug!("HOMIE: Connection closed from our side. Will exit");
                 }
                 _ => (),
             },
             Err(err) => {
-                log::error!("Error connecting mqtt. {:#?}", err);
+                tracing::error!("Error connecting mqtt. {:?}", err);
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 break;
             }
         }
     }
 
-    log::debug!("Exiting example app");
+    tracing::debug!("Exiting example app");
     Ok(())
 }
 

@@ -24,7 +24,9 @@ pub enum AppEvent {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
     // create a channel used for sending and receiving application events
     let (channel_tx, mut channel_rx) = channel(65535);
 
@@ -56,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
 
         match &event {
             AppEvent::Homie(message) => {
-                log::debug!("Event: {:#?}", message);
+                tracing::debug!("Event: {:?}", message);
                 let Homie5Message::PropertySet { property, set_value } = message else {
                     continue; // we only handle PropertySet messages here
                 };
@@ -65,38 +67,38 @@ async fn main() -> anyhow::Result<()> {
                 if property.device_id() == device.homie_id() {
                     match device.handle_set_command(property, set_value).await {
                         Ok(_) => {
-                            log::debug!("Value updated {} - {}", property.to_topic().build(), set_value);
+                            tracing::debug!("Value updated {} - {}", property.to_topic().build(), set_value);
                         }
                         Err(e) => {
-                            log::debug!("{}", e);
+                            tracing::debug!("{}", e);
                         }
                     }
                 }
             }
             AppEvent::MqttConnect => {
-                log::debug!("Connected! Publishing Device");
+                tracing::debug!("Connected! Publishing Device");
                 device.publish_device().await?;
             }
             AppEvent::MQTT(event) => {
                 if let rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) = &event {
-                    log::debug!("MQTT Publish: {:#?}", p);
+                    tracing::debug!("MQTT Publish: {:?}", p);
                 }
             }
             AppEvent::MqttDisconnect => {
-                log::warn!("Mqtt Disconnected unexpectedly");
+                tracing::warn!("Mqtt Disconnected unexpectedly");
             }
             AppEvent::Exit => {
                 // Disconnect the device, this will set the device state to disconnected and also
                 // disconnect from the mqtt broker
                 device.disconnect_device_and_close().await?;
-                log::debug!("Exiting main event loop");
+                tracing::debug!("Exiting main event loop");
                 break;
             }
         }
     }
     handle.await??;
 
-    log::debug!("Exiting example app");
+    tracing::debug!("Exiting example app");
     Ok(())
 }
 
@@ -140,12 +142,12 @@ async fn run_mqtt_eventloop(mut eventloop: EventLoop, channel_tx: Sender<AppEven
                         // invalid messages get ignored for now...
                     }
                     rumqttc::Event::Incoming(rumqttc::Incoming::ConnAck(_)) => {
-                        log::debug!("HOMIE: Connected");
+                        tracing::debug!("HOMIE: Connected");
                         connected = true;
                         channel_tx.send(AppEvent::MqttConnect).await?;
                     }
                     rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect) => {
-                        log::debug!("HOMIE: Connection closed from our side. Will exit");
+                        tracing::debug!("HOMIE: Connection closed from our side. Will exit");
                         exit = true;
                     }
                     _ => (),
@@ -158,12 +160,12 @@ async fn run_mqtt_eventloop(mut eventloop: EventLoop, channel_tx: Sender<AppEven
                         connected = false;
                         channel_tx.send(AppEvent::MqttDisconnect).await?;
                     }
-                    log::error!("Error connecting mqtt. {:#?}", err);
+                    tracing::error!("Error connecting mqtt. {:?}", err);
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
             }
         }
-        log::debug!("HOMIE: exiting eventloop");
+        tracing::debug!("HOMIE: exiting eventloop");
         Ok(())
     })
 }

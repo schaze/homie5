@@ -451,7 +451,7 @@ impl HomieDeviceDescription {
     /// description.
     pub fn from_json_strict(json: &str) -> Result<Self, Homie5ProtocolError> {
         serde_json::from_str(json).map_err(|err| {
-            log::debug!("Invalid device description: {}", err);
+            tracing::debug!(error = %err, "invalid device description");
             Homie5ProtocolError::InvalidDeviceDescription
         })
     }
@@ -491,7 +491,7 @@ impl HomieDeviceDescription {
         }
 
         let raw: RawDevice = serde_json::from_str(json).map_err(|err| {
-            log::debug!("Invalid device description: {}", err);
+            tracing::debug!(error = %err, "invalid device description");
             Homie5ProtocolError::InvalidDeviceDescription
         })?;
 
@@ -735,14 +735,8 @@ mod test {
                 unit: None,
             }
         );
-        println!("DESERIALIZATION: {:#?}", data);
         if let Ok(data) = data {
-            let s_f = serde_json::to_string(&data);
-            println!("SERIALIZATION: {:#?}", s_f);
-            //println!(
-            //    "RE-Deserialize: {:#?}",
-            //    serde_json::from_str::<HomiePropertyDescription>(&s_f)
-            //);
+            assert!(serde_json::to_string(&data).is_ok());
         }
     }
     #[test]

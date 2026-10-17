@@ -65,7 +65,7 @@ where
                 .expect("Error during application shutdown!");
         });
     }) {
-        log::error!("Fatal Error: Cannot set ctrl-c app exit handler:\n{:#?}", err);
+        tracing::error!("Fatal Error: Cannot set ctrl-c app exit handler: {:?}", err);
         panic!("Will exit now");
     }
 }

@@ -24,7 +24,9 @@ pub enum AppEvent {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     let (channel_tx, mut channel_rx) = channel(65535);
 
@@ -47,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
             // DISCOVERY STEP 1/3 - get devices state messages
             // when connected subscribe to ../+/$state for all devices to begin discovery
             AppEvent::MqttConnect => {
-                log::debug!("Connected! Discovering devices");
+                tracing::debug!("Connected! Discovering devices");
                 devices.clear();
                 mqtt_client
                     .homie_subscribe(protocol.subscribe_device_discovery(&settings.homie_domain))
@@ -68,10 +70,10 @@ async fn main() -> anyhow::Result<()> {
                     devices.entry(device.device_id().clone())
                 {
                     // If the device exists, update its state and log the update
-                    log::debug!("[{}]: Received state update: {:#?}", device.to_topic().build(), state);
+                    tracing::debug!("[{}]: Received state update: {:?}", device.to_topic().build(), state);
                     state.clone_into(&mut entry.get_mut().state);
                 } else {
-                    log::debug!("New Device discovered: {} - starting discovery", device.to_topic());
+                    tracing::debug!("New Device discovered: {} - starting discovery", device.to_topic());
 
                     // Insert the new device into the map with the provided state and an empty description
                     devices.insert(
@@ -98,12 +100,12 @@ async fn main() -> anyhow::Result<()> {
                 issues,
             }) => {
                 for issue in &issues {
-                    log::warn!("{}: {}", device.device_id(), issue);
+                    tracing::warn!("{}: {}", device.device_id(), issue);
                 }
                 // Handle error if device does not exist
                 let Some(existing_device) = devices.get_mut(device.device_id()) else {
-                    log::error!(
-                        "ERROR: received description for non-existing id [{}]: {:#?}",
+                    tracing::error!(
+                        "ERROR: received description for non-existing id [{}]: {:?}",
                         device.device_id(),
                         description
                     );
@@ -124,17 +126,17 @@ async fn main() -> anyhow::Result<()> {
                     .await?;
             }
             AppEvent::Homie(Homie5Message::DeviceLog { device, level, log_msg }) => {
-                log::debug!("DeviceLog: {:?} - {} - {}", device.to_topic(), level, log_msg);
+                tracing::debug!("DeviceLog: {:?} - {} - {}", device.to_topic(), level, log_msg);
             }
             AppEvent::Homie(Homie5Message::PropertyValue { property, value }) => {
-                log::debug!("PropertyValue: {} - {}", property.to_topic(), value);
+                tracing::debug!("PropertyValue: {} - {}", property.to_topic(), value);
                 let Some(device) = devices.get_mut(property.device_id()) else {
                     continue;
                 };
                 device.store_value(property, value)?;
             }
             AppEvent::Homie(Homie5Message::PropertyTarget { property, target }) => {
-                log::debug!("PropertyTarget: {} - {}", property.to_topic(), target);
+                tracing::debug!("PropertyTarget: {} - {}", property.to_topic(), target);
                 let Some(device) = devices.get_mut(property.device_id()) else {
                     continue;
                 };
@@ -145,7 +147,7 @@ async fn main() -> anyhow::Result<()> {
                 subtopic: _,
                 data: _,
             }) => {
-                log::debug!("{:#?}", event);
+                tracing::debug!("{:?}", event);
             }
             AppEvent::Homie(Homie5Message::DeviceRemoval { device }) => {
                 // Unsubscribe from device-specific topics
@@ -165,17 +167,17 @@ async fn main() -> anyhow::Result<()> {
                         .await?;
                 }
 
-                log::debug!("Device removed: {}", device.device_id());
+                tracing::debug!("Device removed: {}", device.device_id());
             }
             AppEvent::Exit => {
-                log::debug!("Disconnecting mqtt");
+                tracing::debug!("Disconnecting mqtt");
                 mqtt_client.disconnect().await?;
                 break;
             }
             AppEvent::MQTT(event) => match &event {
                 rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_ca)) => {}
                 rumqttc::Event::Incoming(rumqttc::Packet::Publish(p)) => {
-                    log::debug!("MQTT Publish: {:#?}", p);
+                    tracing::debug!("MQTT Publish: {:?}", p);
                 }
                 _ => {}
             },
@@ -184,7 +186,7 @@ async fn main() -> anyhow::Result<()> {
     }
     handle.await??;
 
-    log::debug!("Exiting example app");
+    tracing::debug!("Exiting example app");
     Ok(())
 }
 
@@ -219,12 +221,12 @@ async fn run_mqtt_eventloop(mut eventloop: EventLoop, channel_tx: Sender<AppEven
                         // invalid messages get ignored for now...
                     }
                     rumqttc::Event::Incoming(rumqttc::Incoming::ConnAck(_)) => {
-                        log::debug!("HOMIE: Connected");
+                        tracing::debug!("HOMIE: Connected");
                         connected = true;
                         channel_tx.send(AppEvent::MqttConnect).await?;
                     }
                     rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect) => {
-                        log::debug!("HOMIE: Connection closed from our side. Will exit");
+                        tracing::debug!("HOMIE: Connection closed from our side. Will exit");
                         exit = true;
                     }
                     _ => (),
@@ -237,12 +239,12 @@ async fn run_mqtt_eventloop(mut eventloop: EventLoop, channel_tx: Sender<AppEven
                         connected = false;
                         channel_tx.send(AppEvent::MqttDisconnect).await?;
                     }
-                    log::error!("Error connecting mqtt. {:#?}", err);
+                    tracing::error!("Error connecting mqtt. {:?}", err);
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
             }
         }
-        log::debug!("HOMIE: exiting eventloop");
+        tracing::debug!("HOMIE: exiting eventloop");
         Ok(())
     })
 }
