@@ -76,6 +76,9 @@ jobs:
       - name: Build without std for a target without atomic compare-and-swap
         run: cargo build --verbose --lib --no-default-features --target riscv32imc-unknown-none-elf
 
+      - name: Build without std with the meta extension
+        run: cargo build --verbose --lib --no-default-features --features ext-meta --target riscv32imc-unknown-none-elf
+
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest

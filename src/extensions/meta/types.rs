@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use alloc::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +72,7 @@ impl MetaValue {
 /// Arbitrary metadata annotations as key-value pairs.
 ///
 /// Keys are free-form strings. Values are either a single string or a list of strings.
-pub type MetaEntries = HashMap<String, MetaValue>;
+pub type MetaEntries = BTreeMap<String, MetaValue>;
 
 /// Per-device overlay document published at `{domain}/$meta/<provider>/<device-id>`.
 ///
@@ -95,7 +95,7 @@ pub struct MetaDeviceLevel {
     pub annotations: Option<MetaEntries>,
     /// Per-node metadata, keyed by Homie node ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub nodes: Option<HashMap<String, MetaNodeLevel>>,
+    pub nodes: Option<BTreeMap<String, MetaNodeLevel>>,
 }
 
 /// Node-level metadata: annotations and an optional map of property-level metadata.
@@ -106,7 +106,7 @@ pub struct MetaNodeLevel {
     pub annotations: Option<MetaEntries>,
     /// Per-property metadata, keyed by Homie property ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub properties: Option<HashMap<String, MetaPropertyLevel>>,
+    pub properties: Option<BTreeMap<String, MetaPropertyLevel>>,
 }
 
 /// Property-level metadata: annotations only.
@@ -127,7 +127,7 @@ pub struct MetaPropertyLevel {
 /// - A `Text` value is treated as a single-element list for merging purposes.
 pub fn merge_meta_entries<'a>(sources: impl IntoIterator<Item = &'a MetaEntries>) -> MetaEntries {
     // Collect all values per key, preserving source order.
-    let mut collected: HashMap<String, Vec<&MetaValue>> = HashMap::new();
+    let mut collected: BTreeMap<String, Vec<&MetaValue>> = BTreeMap::new();
     for source in sources {
         for (key, value) in source {
             collected.entry(key.clone()).or_default().push(value);
@@ -193,7 +193,7 @@ pub fn merge_device_overlays<'a>(overlays: impl IntoIterator<Item = &'a MetaDevi
     let nodes = if all_node_ids.is_empty() {
         None
     } else {
-        let mut merged_nodes = HashMap::new();
+        let mut merged_nodes = BTreeMap::new();
         for node_id in all_node_ids {
             // Merge node-level annotations.
             let node_ann_sources: Vec<&MetaEntries> = device_levels
@@ -228,7 +228,7 @@ pub fn merge_device_overlays<'a>(overlays: impl IntoIterator<Item = &'a MetaDevi
             let properties = if all_prop_ids.is_empty() {
                 None
             } else {
-                let mut merged_props = HashMap::new();
+                let mut merged_props = BTreeMap::new();
                 for prop_id in all_prop_ids {
                     let prop_ann_sources: Vec<&MetaEntries> = device_levels
                         .iter()
@@ -315,6 +315,20 @@ mod tests {
         assert_eq!(parsed, entries);
     }
 
+    #[test]
+    fn test_meta_entries_serialize_in_key_order() {
+        // The same entries always give the same JSON, whatever the insertion order
+        let mut entries = MetaEntries::new();
+        entries.insert("room".into(), MetaValue::text("kitchen"));
+        entries.insert("icon".into(), MetaValue::text("mdi:lamp"));
+        entries.insert("name".into(), MetaValue::text("Lamp"));
+
+        assert_eq!(
+            serde_json::to_string(&entries).unwrap(),
+            r#"{"icon":"mdi:lamp","name":"Lamp","room":"kitchen"}"#
+        );
+    }
+
     // ── Document structure serde ─────────────────────────────────────────
 
     #[test]
@@ -322,18 +336,21 @@ mod tests {
         let overlay = MetaDeviceOverlay {
             schema: 2,
             device: Some(MetaDeviceLevel {
-                annotations: Some(HashMap::from([
+                annotations: Some(BTreeMap::from([
                     ("name".into(), MetaValue::text("Test Device")),
                     ("tags".into(), MetaValue::list(["zigbee"])),
                 ])),
-                nodes: Some(HashMap::from([(
+                nodes: Some(BTreeMap::from([(
                     "sensor".into(),
                     MetaNodeLevel {
-                        annotations: Some(HashMap::from([("name".into(), MetaValue::text("Temp Sensor"))])),
-                        properties: Some(HashMap::from([(
+                        annotations: Some(BTreeMap::from([("name".into(), MetaValue::text("Temp Sensor"))])),
+                        properties: Some(BTreeMap::from([(
                             "temp".into(),
                             MetaPropertyLevel {
-                                annotations: Some(HashMap::from([("icon".into(), MetaValue::text("mdi:thermometer"))])),
+                                annotations: Some(BTreeMap::from([(
+                                    "icon".into(),
+                                    MetaValue::text("mdi:thermometer"),
+                                )])),
                             },
                         )])),
                     },
@@ -505,7 +522,7 @@ mod tests {
         let a = MetaDeviceOverlay {
             schema: 2,
             device: Some(MetaDeviceLevel {
-                annotations: Some(HashMap::from([
+                annotations: Some(BTreeMap::from([
                     ("name".into(), MetaValue::text("Device A")),
                     ("room".into(), MetaValue::text("kitchen")),
                 ])),
@@ -515,7 +532,7 @@ mod tests {
         let b = MetaDeviceOverlay {
             schema: 2,
             device: Some(MetaDeviceLevel {
-                annotations: Some(HashMap::from([
+                annotations: Some(BTreeMap::from([
                     ("room".into(), MetaValue::text("dining")),
                     ("icon".into(), MetaValue::text("mdi:lamp")),
                 ])),
@@ -537,14 +554,17 @@ mod tests {
             schema: 2,
             device: Some(MetaDeviceLevel {
                 annotations: None,
-                nodes: Some(HashMap::from([(
+                nodes: Some(BTreeMap::from([(
                     "sensor".into(),
                     MetaNodeLevel {
-                        annotations: Some(HashMap::from([("name".into(), MetaValue::text("Temp Sensor"))])),
-                        properties: Some(HashMap::from([(
+                        annotations: Some(BTreeMap::from([("name".into(), MetaValue::text("Temp Sensor"))])),
+                        properties: Some(BTreeMap::from([(
                             "temp".into(),
                             MetaPropertyLevel {
-                                annotations: Some(HashMap::from([("icon".into(), MetaValue::text("mdi:thermometer"))])),
+                                annotations: Some(BTreeMap::from([(
+                                    "icon".into(),
+                                    MetaValue::text("mdi:thermometer"),
+                                )])),
                             },
                         )])),
                     },
@@ -555,14 +575,14 @@ mod tests {
             schema: 2,
             device: Some(MetaDeviceLevel {
                 annotations: None,
-                nodes: Some(HashMap::from([(
+                nodes: Some(BTreeMap::from([(
                     "sensor".into(),
                     MetaNodeLevel {
-                        annotations: Some(HashMap::from([("room".into(), MetaValue::text("kitchen"))])),
-                        properties: Some(HashMap::from([(
+                        annotations: Some(BTreeMap::from([("room".into(), MetaValue::text("kitchen"))])),
+                        properties: Some(BTreeMap::from([(
                             "temp".into(),
                             MetaPropertyLevel {
-                                annotations: Some(HashMap::from([("name".into(), MetaValue::text("Temperature"))])),
+                                annotations: Some(BTreeMap::from([("name".into(), MetaValue::text("Temperature"))])),
                             },
                         )])),
                     },

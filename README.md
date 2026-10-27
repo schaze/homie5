@@ -54,7 +54,7 @@ for how to integrate with your MQTT client of choice.
 | Feature      | Description |
 |--------------|-------------|
 | `std`        | Enabled by default. Without it the crate is `no_std` and only needs `alloc`, see [no_std support](#no-std-support) |
-| `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support. Requires `std` |
+| `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support |
 | `schemars`   | Implements `schemars::JsonSchema` for `HomieID`, `HomieDomain`, `CustomDomain` and `HomieDataType`. Requires `std` |
 
 Enable features in your `Cargo.toml`:
@@ -81,7 +81,7 @@ The crate then only needs `alloc`, so the firmware must provide a global allocat
 
 - `set_fallback_homie_domain` is not available. References parsed without a domain always use
   `HomieDomain::Default` (`"homie"`).
-- Enabling `ext-meta` or `schemars` turns `std` back on.
+- Enabling `schemars` turns `std` back on.
 - On targets without atomic compare-and-swap (e.g. ESP32-C3, RP2040), `HomieID` and `CustomDomain`
   store owned strings as `Box<str>` instead of `Arc<str>`, so cloning them copies the string.
 
