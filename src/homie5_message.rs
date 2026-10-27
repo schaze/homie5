@@ -239,6 +239,9 @@ pub enum Homie5Message {
 /// (`DeviceRemoval`, `DeviceDescriptionCleared`, `DeviceAlertCleared`, `PropertyValueCleared`,
 /// `PropertyTargetCleared`).
 ///
+/// Devices only receive `/set` and `$broadcast` messages and can use [`parse_device_message`]
+/// instead, which keeps the device description parser out of their firmware.
+///
 /// # Arguments
 ///
 /// - `topic`: The MQTT topic string, which must follow the Homie topic conventions (e.g., "homie/5/device_id/node_id/property_id").
@@ -264,28 +267,11 @@ pub enum Homie5Message {
 /// let message = parse_mqtt_message(topic, payload).unwrap();
 /// ```
 pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, Homie5ProtocolError> {
-    // Split the topic into components based on '/' delimiter
-    let tokens: Vec<&str> = topic.split('/').collect();
+    let (homie_domain, tokens) = split_topic(topic)?;
 
-    // Ensure the topic contains at least 4 tokens (e.g. "homie/5/device-id/$state")
-    if tokens.len() <= 3 {
-        return Err(Homie5ProtocolError::InvalidTopic);
-    }
-
-    // Ensure homie version matches to supported version
-    if tokens[1] != HOMIE_VERSION {
-        return Err(Homie5ProtocolError::InvalidTopic);
-    }
-
-    let homie_domain: HomieDomain = tokens[0].to_owned().try_into()?;
-
-    // Handle broadcast messages (e.g. "homie/5/$broadcast")
-    if tokens[2] == "$broadcast" {
-        return Ok(Homie5Message::Broadcast {
-            homie_domain,
-            subtopic: tokens[3..].join("/"),
-            data: mqtt_payload_to_string(payload)?,
-        });
+    // Broadcasts and property `/set` commands are parsed exactly as for devices
+    if let Some(message) = parse_device_topic(&homie_domain, &tokens, payload)? {
+        return Ok(message);
     }
 
     // check the homie id provided
@@ -362,11 +348,6 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
                 HomieID::try_from(tokens[4].to_string())?,
             );
             match tokens[5] {
-                // Handle the "set" action
-                "set" => Ok(Homie5Message::PropertySet {
-                    property,
-                    set_value: mqtt_payload_to_string(payload)?,
-                }),
                 // Handle the "$target" attribute
                 "$target" if deleted => Ok(Homie5Message::PropertyTargetCleared { property }),
                 "$target" => Ok(Homie5Message::PropertyTarget {
@@ -378,4 +359,77 @@ pub fn parse_mqtt_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, 
         }
         _ => Err(Homie5ProtocolError::InvalidTopic),
     }
+}
+
+/// Parses an MQTT message received by a device: a property `/set` command or a `$broadcast`.
+///
+/// Devices only subscribe to these two kinds of topics. Unlike [`parse_mqtt_message`], this
+/// function does not handle `$description` and the other topics a controller receives, so the
+/// device description parser is not linked into device firmware. For `/set` and `$broadcast`
+/// topics it returns exactly what [`parse_mqtt_message`] returns.
+///
+/// # Errors
+///
+/// - Returns `Homie5ProtocolError::InvalidTopic` for every other topic.
+/// - Returns the same errors as [`parse_mqtt_message`] for invalid IDs or payloads.
+///
+/// # Example
+/// ```rust
+/// use homie5::{parse_device_message, Homie5Message};
+/// let message = parse_device_message("homie/5/device1/light/state/set", b"true").unwrap();
+/// assert!(matches!(message, Homie5Message::PropertySet { .. }));
+/// ```
+pub fn parse_device_message(topic: &str, payload: &[u8]) -> Result<Homie5Message, Homie5ProtocolError> {
+    let (homie_domain, tokens) = split_topic(topic)?;
+    parse_device_topic(&homie_domain, &tokens, payload)?.ok_or(Homie5ProtocolError::InvalidTopic)
+}
+
+/// Splits a topic into its segments and checks the `<domain>/5/` prefix.
+fn split_topic(topic: &str) -> Result<(HomieDomain, Vec<&str>), Homie5ProtocolError> {
+    // Split the topic into components based on '/' delimiter
+    let tokens: Vec<&str> = topic.split('/').collect();
+
+    // Ensure the topic contains at least 4 tokens (e.g. "homie/5/device-id/$state")
+    if tokens.len() <= 3 {
+        return Err(Homie5ProtocolError::InvalidTopic);
+    }
+
+    // Ensure homie version matches to supported version
+    if tokens[1] != HOMIE_VERSION {
+        return Err(Homie5ProtocolError::InvalidTopic);
+    }
+
+    let homie_domain: HomieDomain = tokens[0].to_owned().try_into()?;
+    Ok((homie_domain, tokens))
+}
+
+/// Parses the topics a device receives (`$broadcast` and property `/set`). Returns `None` for
+/// all other topics.
+fn parse_device_topic(
+    homie_domain: &HomieDomain,
+    tokens: &[&str],
+    payload: &[u8],
+) -> Result<Option<Homie5Message>, Homie5ProtocolError> {
+    // Handle broadcast messages (e.g. "homie/5/$broadcast")
+    if tokens[2] == "$broadcast" {
+        return Ok(Some(Homie5Message::Broadcast {
+            homie_domain: homie_domain.clone(),
+            subtopic: tokens[3..].join("/"),
+            data: mqtt_payload_to_string(payload)?,
+        }));
+    }
+
+    // Handle the "set" action (e.g. "device-id/node-id/prop-id/set")
+    let [_, _, device_id, node_id, prop_id, "set"] = tokens else {
+        return Ok(None);
+    };
+    let device = DeviceRef::new(homie_domain.clone(), device_id.to_string().try_into()?);
+    let property = PropertyRef::from_node(
+        NodeRef::from_device(device, HomieID::try_from(node_id.to_string())?),
+        HomieID::try_from(prop_id.to_string())?,
+    );
+    Ok(Some(Homie5Message::PropertySet {
+        property,
+        set_value: mqtt_payload_to_string(payload)?,
+    }))
 }

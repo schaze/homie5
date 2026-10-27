@@ -340,3 +340,57 @@ fn test_device_removal_msg() {
         );
     }
 }
+
+#[test]
+fn test_device_message_matches_full_parser() {
+    // A device parses `/set` and `$broadcast` messages exactly like `parse_mqtt_message`
+    for (topic, payload) in [
+        ("homie/5/test-device-1/light/state/set", "true"),
+        ("homie/5/test-device-1/light/state/set", ""),
+        ("my-domain/5/test-device-1/light/brightness/set", "42"),
+        ("homie/5/$broadcast/alert", "intruder"),
+        ("homie/5/$broadcast/a/b/c", "data"),
+    ] {
+        let expected = parse_mqtt_message(topic, payload.as_bytes()).unwrap();
+        assert_eq!(
+            parse_device_message(topic, payload.as_bytes()).unwrap(),
+            expected,
+            "{topic}"
+        );
+    }
+}
+
+#[test]
+fn test_device_message_rejects_other_topics() {
+    for topic in [
+        "homie/5/test-device-1/$state",
+        "homie/5/test-device-1/$description",
+        "homie/5/test-device-1/$log/info",
+        "homie/5/test-device-1/$alert/battery",
+        "homie/5/test-device-1/light/state",
+        "homie/5/test-device-1/light/state/$target",
+        "homie/4/test-device-1/light/state/set",
+        "homie/5/test-device-1/light/state/set/extra",
+    ] {
+        assert!(
+            matches!(
+                parse_device_message(topic, b"ready"),
+                Err(Homie5ProtocolError::InvalidTopic)
+            ),
+            "{topic}"
+        );
+    }
+}
+
+#[test]
+fn test_device_message_rejects_invalid_ids_like_full_parser() {
+    let topic = "homie/5/Test-Device/light/state/set";
+    assert!(matches!(
+        parse_device_message(topic, b"true"),
+        Err(Homie5ProtocolError::InvalidHomieID(_))
+    ));
+    assert!(matches!(
+        parse_mqtt_message(topic, b"true"),
+        Err(Homie5ProtocolError::InvalidHomieID(_))
+    ));
+}

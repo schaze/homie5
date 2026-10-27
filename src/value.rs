@@ -751,6 +751,14 @@ impl HomieValue {
     /// associated `HomiePropertyDescription`. Supported data types include integers, floats,
     /// booleans, strings, enums, colors, datetime, duration, and JSON.
     ///
+    /// Because `parse` handles every datatype, calling it links the parsers for all of them into
+    /// the binary. When the datatype is known up front, as in device firmware, call the typed
+    /// parser instead; it applies the same checks: [`parse_integer`](Self::parse_integer),
+    /// [`parse_float`](Self::parse_float), [`parse_bool`](Self::parse_bool),
+    /// [`parse_enum`](Self::parse_enum), [`parse_color`](Self::parse_color),
+    /// [`flexible_datetime_parser`](Self::flexible_datetime_parser),
+    /// [`parse_duration`](Self::parse_duration) or [`parse_json`](Self::parse_json).
+    ///
     /// # Arguments
     ///
     /// - `raw`: The raw string value to be parsed.
@@ -792,93 +800,124 @@ impl HomieValue {
         //    return Ok(HomieValue::Empty);
         //}
         match &property_desc.datatype {
-            HomieDataType::Integer => raw
-                .parse::<i64>()
-                .map_err(|_| Homie5ValueConversionError::InvalidIntegerFormat(raw.to_string()))
-                .and_then(|d| Self::validate_int(d, property_desc))
-                .map(HomieValue::Integer),
-            HomieDataType::Float => raw
-                .parse::<f64>()
-                .map_err(|_| Homie5ValueConversionError::InvalidFloatFormat(raw.to_string()))
-                .and_then(|d| {
-                    // The convention explicitly forbids representations of numeric concepts
-                    // such as "NaN" and "Infinity" in float payloads.
-                    if d.is_finite() {
-                        Ok(d)
-                    } else {
-                        Err(Homie5ValueConversionError::InvalidFloatFormat(raw.to_string()))
-                    }
-                })
-                .and_then(|d| Self::validate_float(d, property_desc))
-                .map(HomieValue::Float),
-            HomieDataType::Boolean => raw
-                .parse::<bool>()
-                .map_err(|_| Homie5ValueConversionError::InvalidBooleanFormat(raw.to_string()))
-                .map(HomieValue::Bool),
+            HomieDataType::Integer => Self::parse_integer(raw, property_desc).map(HomieValue::Integer),
+            HomieDataType::Float => Self::parse_float(raw, property_desc).map(HomieValue::Float),
+            HomieDataType::Boolean => Self::parse_bool(raw).map(HomieValue::Bool),
             HomieDataType::String => Ok(HomieValue::String(raw.to_owned())),
-            HomieDataType::Enum => {
-                if let HomiePropertyFormat::Enum(values) = &property_desc.format {
-                    if values.is_empty() || values.iter().any(|v| v.is_empty()) {
-                        return Err(
-                            Homie5ValueConversionError::InvalidEnumFormat(raw.to_string(), values.clone()).into(),
-                        );
-                    }
-
-                    let string_val = raw.to_owned();
-                    values
-                        .contains(&string_val)
-                        .then_some(HomieValue::Enum(string_val))
-                        .ok_or(Homie5ValueConversionError::InvalidEnumFormat(
-                            raw.to_string(),
-                            values.clone(),
-                        ))
-                } else {
-                    Err(Homie5ValueConversionError::InvalidEnumFormat(raw.to_string(), vec![]))
-                }
-            }
-            HomieDataType::Color => raw
-                .parse::<HomieColorValue>()
-                .and_then(|color_value| {
-                    if let HomiePropertyFormat::Color(formats) = &property_desc.format {
-                        if formats.is_empty() {
-                            return Err(Homie5ValueConversionError::UnsupportedColorFormat(
-                                color_value.color_format(),
-                                vec![],
-                            ));
-                        }
-
-                        match color_value {
-                            HomieColorValue::RGB(_, _, _) if formats.contains(&ColorFormat::Rgb) => Ok(color_value),
-                            HomieColorValue::HSV(_, _, _) if formats.contains(&ColorFormat::Hsv) => Ok(color_value),
-                            HomieColorValue::XYZ(_, _, _) if formats.contains(&ColorFormat::Xyz) => Ok(color_value),
-                            color => Err(Homie5ValueConversionError::UnsupportedColorFormat(
-                                color.color_format(),
-                                formats.clone(),
-                            )),
-                        }
-                    } else {
-                        Err(Homie5ValueConversionError::UnsupportedColorFormat(
-                            color_value.color_format(),
-                            vec![],
-                        ))
-                    }
-                })
-                .map(HomieValue::Color),
+            HomieDataType::Enum => Self::parse_enum(raw, property_desc).map(HomieValue::Enum),
+            HomieDataType::Color => Self::parse_color(raw, property_desc).map(HomieValue::Color),
             HomieDataType::Datetime => Self::flexible_datetime_parser(raw).map(HomieValue::DateTime),
             HomieDataType::Duration => Self::parse_duration(raw).map(HomieValue::Duration),
-            HomieDataType::JSON => serde_json::from_str::<serde_json::Value>(raw)
-                .map_err(|e| Homie5ValueConversionError::JsonParseError(e.to_string()))
-                .and_then(|v| {
-                    if v.is_object() || v.is_array() {
-                        Ok(HomieValue::JSON(v))
-                    } else {
-                        Err(Homie5ValueConversionError::JsonParseError(
-                            "JSON payload must be an object or array".to_string(),
-                        ))
-                    }
-                }),
+            HomieDataType::JSON => Self::parse_json(raw).map(HomieValue::JSON),
         }
         .map_err(Homie5ProtocolError::InvalidHomieValue)
+    }
+
+    /// Parses an `integer` value and checks it against the property's range, snapping it to the
+    /// range's step like [`HomieValue::parse`].
+    pub fn parse_integer(
+        raw: &str,
+        property_desc: &HomiePropertyDescription,
+    ) -> Result<i64, Homie5ValueConversionError> {
+        raw.parse::<i64>()
+            .map_err(|_| Homie5ValueConversionError::InvalidIntegerFormat(raw.to_string()))
+            .and_then(|d| Self::validate_int(d, property_desc))
+    }
+
+    /// Parses a `float` value and checks it against the property's range, snapping it to the
+    /// range's step like [`HomieValue::parse`]. `NaN` and infinities are rejected.
+    pub fn parse_float(raw: &str, property_desc: &HomiePropertyDescription) -> Result<f64, Homie5ValueConversionError> {
+        raw.parse::<f64>()
+            .map_err(|_| Homie5ValueConversionError::InvalidFloatFormat(raw.to_string()))
+            .and_then(|d| {
+                // The convention explicitly forbids representations of numeric concepts
+                // such as "NaN" and "Infinity" in float payloads.
+                if d.is_finite() {
+                    Ok(d)
+                } else {
+                    Err(Homie5ValueConversionError::InvalidFloatFormat(raw.to_string()))
+                }
+            })
+            .and_then(|d| Self::validate_float(d, property_desc))
+    }
+
+    /// Parses a `boolean` value (`true` or `false`).
+    pub fn parse_bool(raw: &str) -> Result<bool, Homie5ValueConversionError> {
+        raw.parse::<bool>()
+            .map_err(|_| Homie5ValueConversionError::InvalidBooleanFormat(raw.to_string()))
+    }
+
+    /// Parses an `enum` value and checks that it is one of the property's enum values.
+    pub fn parse_enum(
+        raw: &str,
+        property_desc: &HomiePropertyDescription,
+    ) -> Result<String, Homie5ValueConversionError> {
+        if let HomiePropertyFormat::Enum(values) = &property_desc.format {
+            if values.is_empty() || values.iter().any(|v| v.is_empty()) {
+                return Err(Homie5ValueConversionError::InvalidEnumFormat(
+                    raw.to_string(),
+                    values.clone(),
+                ));
+            }
+
+            let string_val = raw.to_owned();
+            values
+                .contains(&string_val)
+                .then_some(string_val)
+                .ok_or(Homie5ValueConversionError::InvalidEnumFormat(
+                    raw.to_string(),
+                    values.clone(),
+                ))
+        } else {
+            Err(Homie5ValueConversionError::InvalidEnumFormat(raw.to_string(), vec![]))
+        }
+    }
+
+    /// Parses a `color` value and checks that its color format is allowed by the property.
+    pub fn parse_color(
+        raw: &str,
+        property_desc: &HomiePropertyDescription,
+    ) -> Result<HomieColorValue, Homie5ValueConversionError> {
+        raw.parse::<HomieColorValue>().and_then(|color_value| {
+            if let HomiePropertyFormat::Color(formats) = &property_desc.format {
+                if formats.is_empty() {
+                    return Err(Homie5ValueConversionError::UnsupportedColorFormat(
+                        color_value.color_format(),
+                        vec![],
+                    ));
+                }
+
+                match color_value {
+                    HomieColorValue::RGB(_, _, _) if formats.contains(&ColorFormat::Rgb) => Ok(color_value),
+                    HomieColorValue::HSV(_, _, _) if formats.contains(&ColorFormat::Hsv) => Ok(color_value),
+                    HomieColorValue::XYZ(_, _, _) if formats.contains(&ColorFormat::Xyz) => Ok(color_value),
+                    color => Err(Homie5ValueConversionError::UnsupportedColorFormat(
+                        color.color_format(),
+                        formats.clone(),
+                    )),
+                }
+            } else {
+                Err(Homie5ValueConversionError::UnsupportedColorFormat(
+                    color_value.color_format(),
+                    vec![],
+                ))
+            }
+        })
+    }
+
+    /// Parses a `json` value, which must be a JSON object or array.
+    pub fn parse_json(raw: &str) -> Result<serde_json::Value, Homie5ValueConversionError> {
+        serde_json::from_str::<serde_json::Value>(raw)
+            .map_err(|e| Homie5ValueConversionError::JsonParseError(e.to_string()))
+            .and_then(|v| {
+                if v.is_object() || v.is_array() {
+                    Ok(v)
+                } else {
+                    Err(Homie5ValueConversionError::JsonParseError(
+                        "JSON payload must be an object or array".to_string(),
+                    ))
+                }
+            })
     }
 
     pub fn parse_duration(s: &str) -> Result<chrono::Duration, Homie5ValueConversionError> {

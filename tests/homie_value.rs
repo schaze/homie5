@@ -1022,3 +1022,84 @@ fn test_parse_duration_grammar() {
         assert!(HomieValue::parse_duration(raw).is_err(), "{raw}");
     }
 }
+
+/// `HomieValue::parse` with the inner conversion error, for comparing with the typed parsers.
+fn parse_value(raw: &str, desc: &HomiePropertyDescription) -> Result<HomieValue, Homie5ValueConversionError> {
+    match HomieValue::parse(raw, desc) {
+        Ok(value) => Ok(value),
+        Err(Homie5ProtocolError::InvalidHomieValue(err)) => Err(err),
+        Err(err) => panic!("unexpected error: {err:?}"),
+    }
+}
+
+#[test]
+fn test_typed_parsers_apply_the_same_checks_as_parse() {
+    let integer = PropertyDescriptionBuilder::integer()
+        .integer_range(IntegerRange {
+            min: Some(0),
+            max: Some(100),
+            step: Some(5),
+        })
+        .build();
+    for raw in ["42", "100", "101", "-1", "4.2", "abc"] {
+        let typed = HomieValue::parse_integer(raw, &integer).map(HomieValue::Integer);
+        assert_eq!(typed, parse_value(raw, &integer), "{raw}");
+    }
+
+    let float = PropertyDescriptionBuilder::float()
+        .float_range(FloatRange {
+            min: Some(0.0),
+            max: Some(1.0),
+            step: Some(0.25),
+        })
+        .build();
+    for raw in ["0.3", "1.0", "1.5", "NaN", "inf", "abc"] {
+        let typed = HomieValue::parse_float(raw, &float).map(HomieValue::Float);
+        assert_eq!(typed, parse_value(raw, &float), "{raw}");
+    }
+
+    let boolean = PropertyDescriptionBuilder::boolean().build();
+    for raw in ["true", "false", "TRUE", "1"] {
+        let typed = HomieValue::parse_bool(raw).map(HomieValue::Bool);
+        assert_eq!(typed, parse_value(raw, &boolean), "{raw}");
+    }
+
+    let enumeration = PropertyDescriptionBuilder::enumeration(["low", "high"])
+        .unwrap()
+        .build();
+    for raw in ["low", "high", "medium", ""] {
+        let typed = HomieValue::parse_enum(raw, &enumeration).map(HomieValue::Enum);
+        assert_eq!(typed, parse_value(raw, &enumeration), "{raw}");
+    }
+
+    let color = PropertyDescriptionBuilder::color([ColorFormat::Rgb]).unwrap().build();
+    for raw in ["rgb,255,0,0", "rgb,256,0,0", "hsv,120,50,50", "red"] {
+        let typed = HomieValue::parse_color(raw, &color).map(HomieValue::Color);
+        assert_eq!(typed, parse_value(raw, &color), "{raw}");
+    }
+
+    let json = PropertyDescriptionBuilder::json().build();
+    for raw in [r#"{"a":1}"#, "[1,2]", "42", "{"] {
+        let typed = HomieValue::parse_json(raw).map(HomieValue::JSON);
+        assert_eq!(typed, parse_value(raw, &json), "{raw}");
+    }
+}
+
+#[test]
+fn test_typed_parsers_return_plain_values() {
+    let brightness = PropertyDescriptionBuilder::integer()
+        .integer_range(IntegerRange {
+            min: Some(0),
+            max: Some(100),
+            step: Some(5),
+        })
+        .build();
+    assert_eq!(HomieValue::parse_integer("42", &brightness), Ok(40));
+    // Values snap to the step before the range check: 101 becomes 100, 103 becomes 105
+    assert_eq!(HomieValue::parse_integer("101", &brightness), Ok(100));
+    assert!(matches!(
+        HomieValue::parse_integer("103", &brightness),
+        Err(Homie5ValueConversionError::IntegerOutOfRange(103, _))
+    ));
+    assert_eq!(HomieValue::parse_bool("true"), Ok(true));
+}
