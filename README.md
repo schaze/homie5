@@ -144,7 +144,7 @@ fallback is `HomieDomain::Default` (`"homie"`).
 Applications that operate under a custom domain can override this once at startup:
 
 ```rust
-use homie5::homie_domain::{set_fallback_homie_domain, get_fallback_homie_domain};
+use homie5::{get_fallback_homie_domain, set_fallback_homie_domain, DeviceRef};
 
 // At startup — set the fallback to a custom domain
 set_fallback_homie_domain("my-domain".try_into().unwrap());
