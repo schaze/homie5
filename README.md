@@ -60,7 +60,7 @@ for how to integrate with your MQTT client of choice.
 Enable features in your `Cargo.toml`:
 ```toml
 [dependencies]
-homie5 = { version = "0.12", features = ["ext-meta"] }
+homie5 = { version = "0.13", features = ["ext-meta"] }
 ```
 
 The minimum supported Rust version (MSRV) is 1.82, with and without `std`.
@@ -73,7 +73,7 @@ For bare-metal targets, disable the default features:
 
 ```toml
 [dependencies]
-homie5 = { version = "0.12.2", default-features = false }
+homie5 = { version = "0.13", default-features = false }
 ```
 
 The crate then only needs `alloc`, so the firmware must provide a global allocator (for example
