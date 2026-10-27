@@ -450,10 +450,7 @@ impl HomieDeviceDescription {
     /// Returns [`Homie5ProtocolError::InvalidDeviceDescription`] if the JSON is not a valid
     /// description.
     pub fn from_json_strict(json: &str) -> Result<Self, Homie5ProtocolError> {
-        serde_json::from_str(json).map_err(|err| {
-            tracing::debug!(error = %err, "invalid device description");
-            Homie5ProtocolError::InvalidDeviceDescription
-        })
+        serde_json::from_str(json).map_err(|_| Homie5ProtocolError::InvalidDeviceDescription)
     }
 
     /// Parses a description, dropping invalid nodes and properties instead of rejecting it.
@@ -490,10 +487,7 @@ impl HomieDeviceDescription {
             properties: BTreeMap<String, serde_json::Value>,
         }
 
-        let raw: RawDevice = serde_json::from_str(json).map_err(|err| {
-            tracing::debug!(error = %err, "invalid device description");
-            Homie5ProtocolError::InvalidDeviceDescription
-        })?;
+        let raw: RawDevice = serde_json::from_str(json).map_err(|_| Homie5ProtocolError::InvalidDeviceDescription)?;
 
         let mut issues = Vec::new();
         let mut nodes = BTreeMap::new();
