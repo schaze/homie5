@@ -21,11 +21,12 @@
 //! assert_eq!(node_ref.to_string(), "homie/device-01/node-01");
 //! ```
 
-use std::fmt;
-use std::str::FromStr;
+use core::fmt;
+use core::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::prelude::*;
 use crate::AsNodeId;
 use crate::{get_fallback_homie_domain, DeviceRef, Homie5ProtocolError, HomieDomain, HomieID, ToTopic, TopicBuilder};
 

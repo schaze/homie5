@@ -25,11 +25,12 @@
 //! assert_eq!(prop_ref.to_string(), "homie/device-01/node-01/temperature");
 //! ```
 
-use std::fmt;
-use std::str::FromStr;
+use core::fmt;
+use core::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::prelude::*;
 use crate::AsPropPointer;
 use crate::{
     get_fallback_homie_domain, AsNodeId, DeviceRef, Homie5ProtocolError, HomieDomain, HomieID, NodeRef, ToTopic,

@@ -31,9 +31,10 @@
 //!
 
 use core::fmt;
-use std::hash::{Hash, Hasher};
-use std::sync::{Arc, RwLock};
+use core::hash::{Hash, Hasher};
 
+use crate::homie_id::SharedStr;
+use crate::prelude::*;
 use crate::DEFAULT_HOMIE_DOMAIN;
 
 // ---- Global fallback domain ----
@@ -43,7 +44,8 @@ use crate::DEFAULT_HOMIE_DOMAIN;
 ///
 /// Initialised to `HomieDomain::Default` (`"homie"`).  Call
 /// [`set_fallback_homie_domain`] once at startup to override.
-static FALLBACK_HOMIE_DOMAIN: RwLock<HomieDomain> = RwLock::new(HomieDomain::Default);
+#[cfg(feature = "std")]
+static FALLBACK_HOMIE_DOMAIN: std::sync::RwLock<HomieDomain> = std::sync::RwLock::new(HomieDomain::Default);
 
 /// Override the fallback homie domain.
 ///
@@ -51,10 +53,14 @@ static FALLBACK_HOMIE_DOMAIN: RwLock<HomieDomain> = RwLock::new(HomieDomain::Def
 /// `DeviceRef::from_str`, `NodeRef::from_str`, and `PropertyRef::from_str`
 /// when the input does not contain an explicit domain segment.
 ///
+/// Requires the `std` feature, because the shared value needs a lock. Without
+/// `std` the fallback is always [`HomieDomain::Default`].
+///
 /// # Panics
 ///
 /// Panics if `domain` is [`HomieDomain::All`] — a wildcard is not a valid
 /// concrete fallback domain.
+#[cfg(feature = "std")]
 pub fn set_fallback_homie_domain(domain: HomieDomain) {
     assert!(
         domain != HomieDomain::All,
@@ -66,9 +72,16 @@ pub fn set_fallback_homie_domain(domain: HomieDomain) {
 /// Read the current fallback homie domain.
 ///
 /// Returns `HomieDomain::Default` if [`set_fallback_homie_domain`] has not
-/// been called.
+/// been called (always the case without the `std` feature).
 pub fn get_fallback_homie_domain() -> HomieDomain {
-    FALLBACK_HOMIE_DOMAIN.read().unwrap().clone()
+    #[cfg(feature = "std")]
+    {
+        FALLBACK_HOMIE_DOMAIN.read().unwrap().clone()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        HomieDomain::Default
+    }
 }
 
 // ---- Inner representation ----
@@ -76,7 +89,7 @@ pub fn get_fallback_homie_domain() -> HomieDomain {
 #[derive(Debug, Clone)]
 enum CustomDomainInner {
     Static(&'static str),
-    Shared(Arc<str>),
+    Shared(SharedStr),
 }
 
 impl CustomDomainInner {
@@ -84,7 +97,7 @@ impl CustomDomainInner {
         Self::Static(s)
     }
     fn new_owned(s: String) -> Self {
-        Self::Shared(Arc::from(s))
+        Self::Shared(SharedStr::from(s))
     }
     fn as_str(&self) -> &str {
         match self {
@@ -119,7 +132,7 @@ impl fmt::Display for InvalidHomieDomainError {
     }
 }
 
-impl std::error::Error for InvalidHomieDomainError {}
+impl core::error::Error for InvalidHomieDomainError {}
 
 // ---- CustomDomain ----
 
@@ -161,13 +174,13 @@ impl Hash for CustomDomain {
 }
 
 impl PartialOrd for CustomDomain {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for CustomDomain {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.as_str().cmp(other.as_str())
     }
 }
@@ -224,8 +237,8 @@ impl<'de> serde::Deserialize<'de> for CustomDomain {
 
 #[cfg(feature = "schemars")]
 impl schemars::JsonSchema for CustomDomain {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("CustomDomain")
+    fn schema_name() -> alloc::borrow::Cow<'static, str> {
+        alloc::borrow::Cow::Borrowed("CustomDomain")
     }
 
     fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
@@ -270,7 +283,7 @@ impl<'de> serde::Deserialize<'de> for HomieDomain {
     where
         D: serde::Deserializer<'de>,
     {
-        let s: std::borrow::Cow<'de, str> = serde::Deserialize::deserialize(deserializer)?;
+        let s: alloc::borrow::Cow<'de, str> = serde::Deserialize::deserialize(deserializer)?;
         match s.as_ref() {
             DEFAULT_HOMIE_DOMAIN => Ok(HomieDomain::Default),
             "+" => Ok(HomieDomain::All),
@@ -315,7 +328,7 @@ impl TryFrom<String> for HomieDomain {
     }
 }
 
-impl std::str::FromStr for HomieDomain {
+impl core::str::FromStr for HomieDomain {
     type Err = InvalidHomieDomainError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

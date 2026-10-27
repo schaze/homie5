@@ -26,9 +26,11 @@
 //! These primitives form the backbone of MQTT communication and can be converted to their equivalents in
 //! various MQTT libraries, making this module a flexible foundation for MQTT client implementations.
 
-use std::string::FromUtf8Error;
+use alloc::string::FromUtf8Error;
 
 use serde::{Deserialize, Serialize};
+
+use crate::prelude::*;
 
 /// Represents the Last Will (LW) contract for an MQTT client.
 ///

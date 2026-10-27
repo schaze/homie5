@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::{client::mqtt_payload_to_string, HomieDomain, HomieID, HOMIE_VERSION};
 
 use super::{

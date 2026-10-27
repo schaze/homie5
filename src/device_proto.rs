@@ -7,6 +7,7 @@
 //! v5 protocol. Additionally, the fixed step sequences for device publishing, reconfiguration,
 //! and disconnection are provided as constant arrays.
 
+use crate::prelude::*;
 use crate::{
     client::{LastWill, Publish, QoS, Subscription, Unsubscribe},
     device_description::HomieDeviceDescription,

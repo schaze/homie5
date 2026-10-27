@@ -15,6 +15,8 @@ Due to this, the usage of the library is a bit more involved as with a completly
 
 - [Installation and usage](#installation-and-usage)
 - [Feature Flags](#feature-flags)
+  - [no_std support](#no-std-support)
+    - [Small firmware](#small-firmware)
 - [Examples](#examples)
 - [Documentation](#documentation)
   - [TLDR;](#tldr)
@@ -51,8 +53,9 @@ for how to integrate with your MQTT client of choice.
 
 | Feature      | Description |
 |--------------|-------------|
-| `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support |
-| `schemars`   | Implements `schemars::JsonSchema` for `HomieID`, `HomieDomain`, `CustomDomain` and `HomieDataType` |
+| `std`        | Enabled by default. Without it the crate is `no_std` and only needs `alloc`, see [no_std support](#no-std-support) |
+| `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support. Requires `std` |
+| `schemars`   | Implements `schemars::JsonSchema` for `HomieID`, `HomieDomain`, `CustomDomain` and `HomieDataType`. Requires `std` |
 
 Enable features in your `Cargo.toml`:
 ```toml
@@ -60,7 +63,44 @@ Enable features in your `Cargo.toml`:
 homie5 = { version = "0.12", features = ["ext-meta"] }
 ```
 
-The minimum supported Rust version (MSRV) is 1.82.
+The minimum supported Rust version (MSRV) is 1.82, with and without `std`.
+
+<!-- TOC --><a name="no-std-support"></a>
+
+## no_std support
+
+For bare-metal targets, disable the default features:
+
+```toml
+[dependencies]
+homie5 = { version = "0.12.2", default-features = false }
+```
+
+The crate then only needs `alloc`, so the firmware must provide a global allocator (for example
+`esp-alloc` on ESP32 or `embedded-alloc`). Without `std`:
+
+- `set_fallback_homie_domain` is not available. References parsed without a domain always use
+  `HomieDomain::Default` (`"homie"`).
+- Enabling `ext-meta` or `schemars` turns `std` back on.
+- On targets without atomic compare-and-swap (e.g. ESP32-C3, RP2040), `HomieID` and `CustomDomain`
+  store owned strings as `Box<str>` instead of `Arc<str>`, so cloning them copies the string.
+
+CI builds the crate for `riscv32imc-unknown-none-elf` (ESP32-C3) to keep it `no_std` compatible.
+
+<!-- TOC --><a name="small-firmware"></a>
+
+### Small firmware
+
+`parse_mqtt_message` and `HomieValue::parse` decide at runtime what they parse, so the linker
+keeps all of their branches: the JSON parser for `$description` and the parsers for every
+datatype. A device can use `parse_device_message` and the typed value parsers instead. Flash use
+of a light with a boolean and an integer property, built for ESP32-C3:
+
+| Handling of `/set`                                       | Flash     |
+|----------------------------------------------------------|-----------|
+| none (publish only)                                      | 36.6 KiB  |
+| `parse_mqtt_message` and `HomieValue::parse`             | 165.9 KiB |
+| `parse_device_message` and `parse_bool`/`parse_integer`  | 44.6 KiB  |
 
 <!-- TOC --><a name="examples"></a>
 
@@ -106,8 +146,9 @@ homie5 provides validated reference types for addressing entities in the Homie t
 
 - **`HomieID`** — A validated identifier (lowercase a-z, 0-9, hyphens only, non-empty). Created via
   `HomieID::try_from("my-device")` or `HomieID::new_const("my-device")` (panics on invalid).
-  Internally uses `Arc<str>` for O(1) cloning. Validation errors (`InvalidHomieIDError`) carry the
-  offending `value` and the `reason`.
+  Internally uses `Arc<str>` for O(1) cloning (`Box<str>` on targets without atomic
+  compare-and-swap, see [no_std support](#no-std-support)). Validation errors
+  (`InvalidHomieIDError`) carry the offending `value` and the `reason`.
 - **`HomieDomain`** — The MQTT root topic. Variants: `Default` ("homie"), `All` ("+"), or
   `Custom(...)` for custom domains.
 - **`DeviceRef`** — Identifies a device (domain + device ID).
@@ -141,10 +182,11 @@ When `FromStr` encounters an input without an explicit domain segment (e.g. `"de
 of `"custom/device1"`), it resolves the domain via the **global fallback**. Out of the box, the
 fallback is `HomieDomain::Default` (`"homie"`).
 
-Applications that operate under a custom domain can override this once at startup:
+Applications that operate under a custom domain can override this once at startup (requires the
+default `std` feature):
 
 ```rust
-use homie5::homie_domain::{set_fallback_homie_domain, get_fallback_homie_domain};
+use homie5::{get_fallback_homie_domain, set_fallback_homie_domain, DeviceRef};
 
 // At startup — set the fallback to a custom domain
 set_fallback_homie_domain("my-domain".try_into().unwrap());
@@ -434,6 +476,11 @@ Use the `parse_mqtt_message` function to parse a mqtt topic and a payload into a
 For a Homie Device only the Homie5Message::PropertySet and Homie5Message::Broadcast variants are relevant.
 A controller will use all the other variants. (see controller_example for more details).
 
+A device can use `parse_device_message` instead. It accepts only `/set` and `$broadcast` topics,
+returns the same `Homie5Message` for them, and rejects every other topic with `InvalidTopic`.
+Because it does not parse `$description`, the description parser stays out of device firmware
+(see [Small firmware](#small-firmware)).
+
 <details>
 <summary>show example (HomieDevice)</summary>
 
@@ -540,6 +587,11 @@ This function attempts to convert a string representation of a property value in
 a specific `HomieValue` type, depending on the data type and format defined in the
 associated `HomiePropertyDescription`. Supported data types include integers, floats,
 booleans, strings, enums, colors, datetime, duration, and JSON.
+
+If the datatype is known in advance, as it usually is on a device, call the typed parser instead:
+`parse_integer`, `parse_float`, `parse_bool`, `parse_enum`, `parse_color`,
+`flexible_datetime_parser`, `parse_duration` or `parse_json`. They apply the same checks as
+`HomieValue::parse`, which calls them, and return the plain value, for example an `i64`.
 
 ##### Arguments
 

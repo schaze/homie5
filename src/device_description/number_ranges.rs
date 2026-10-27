@@ -1,6 +1,6 @@
-use std::hash::Hash;
-use std::ops::{RangeFrom, RangeTo};
-use std::{fmt::Display, ops::RangeInclusive};
+use core::hash::Hash;
+use core::ops::{RangeFrom, RangeTo};
+use core::{fmt::Display, ops::RangeInclusive};
 
 use serde::{Deserialize, Serialize};
 
@@ -85,7 +85,7 @@ impl FloatRange {
 // negligeble. Worst case this will lead to an unstable version number generation for the device
 // description.
 impl Hash for FloatRange {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         if let Some(min) = self.min {
             min.to_bits().hash(state);
         }
@@ -99,7 +99,7 @@ impl Hash for FloatRange {
 }
 
 impl Display for FloatRange {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.is_empty() {
             // The convention's default (unrestricted) numeric format. Returning `Err` here
             // would violate the `Display` contract and panic in `to_string()`.
@@ -223,7 +223,7 @@ impl IntegerRange {
 }
 
 impl Display for IntegerRange {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.is_empty() {
             // The convention's default (unrestricted) numeric format. Returning `Err` here
             // would violate the `Display` contract and panic in `to_string()`.
