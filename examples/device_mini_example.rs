@@ -185,7 +185,7 @@ async fn main() -> anyhow::Result<()> {
 fn create_client(device_id: &HomieID) -> (Homie5DeviceProtocol, AsyncClient, EventLoop) {
     // start building the mqtt options
     let mut mqttoptions = rumqttc::MqttOptions::new("homie_mini_example_dev", "", 1883);
-    //mqttoptions.set_credentials("user", _"pass");
+    //mqttoptions.set_credentials("user", "pass");
     mqttoptions.set_keep_alive(Duration::from_secs(5));
     mqttoptions.set_clean_session(true);
 

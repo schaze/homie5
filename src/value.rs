@@ -792,13 +792,6 @@ impl HomieValue {
     /// assert_eq!(value.ok(), Some(HomieValue::Integer(42)));
     /// ```
     pub fn parse(raw: &str, property_desc: &HomiePropertyDescription) -> Result<HomieValue, Homie5ProtocolError> {
-        //if raw
-        //    .first()
-        //    .map(|first| matches!(property_desc.datatype, HomieDataType::String) && *first == 0)
-        //    == Some(true)
-        //{
-        //    return Ok(HomieValue::Empty);
-        //}
         match &property_desc.datatype {
             HomieDataType::Integer => Self::parse_integer(raw, property_desc).map(HomieValue::Integer),
             HomieDataType::Float => Self::parse_float(raw, property_desc).map(HomieValue::Float),
