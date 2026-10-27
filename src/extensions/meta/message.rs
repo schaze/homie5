@@ -109,7 +109,7 @@ mod tests {
     use super::*;
     use crate::extensions::meta::types::*;
     #[allow(unused_imports)]
-    use std::collections::HashMap;
+    use alloc::collections::BTreeMap;
 
     #[test]
     fn test_parse_provider_info() {
@@ -303,7 +303,7 @@ mod tests {
         let overlay = MetaDeviceOverlay {
             schema: 2,
             device: Some(MetaDeviceLevel {
-                annotations: Some(HashMap::from([
+                annotations: Some(BTreeMap::from([
                     ("name".into(), MetaValue::text("Test Device")),
                     ("room".into(), MetaValue::text("kitchen")),
                     ("groups".into(), MetaValue::list(["lights"])),

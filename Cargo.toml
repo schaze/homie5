@@ -1,6 +1,6 @@
 [package]
 name = "homie5"
-version = "0.12.2"
+version = "0.13.0"
 edition = "2021"
 rust-version = "1.82"
 publish = true
@@ -15,7 +15,7 @@ keywords = ["homie", "iot", "mqtt"]
 default = ["std"]
 # Without `std` the crate is `no_std` and only needs `alloc`.
 std = ["serde/std", "serde_json/std", "chrono/std", "thiserror/std"]
-ext-meta = ["std"]
+ext-meta = []
 schemars = ["std", "dep:schemars"]
 
 [dependencies]
