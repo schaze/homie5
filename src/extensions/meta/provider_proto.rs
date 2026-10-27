@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::{
     client::{Publish, QoS},
     HomieDomain, HomieID,

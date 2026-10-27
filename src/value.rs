@@ -1,6 +1,6 @@
 //! Provides all types and functions for parsing and creating homie property values
 //!
-use std::{
+use core::{
     cmp::Ordering,
     fmt::{self, Display},
     str::FromStr,
@@ -9,6 +9,7 @@ use std::{
 use serde::{de, Serialize, Serializer};
 use serde::{Deserialize, Deserializer};
 
+use crate::prelude::*;
 use crate::{
     device_description::{ColorFormat, FloatRange, HomiePropertyDescription, HomiePropertyFormat, IntegerRange},
     Homie5ProtocolError, HomieDataType,
@@ -103,9 +104,9 @@ impl fmt::Display for Homie5ValueConversionError {
     }
 }
 
-// Implement the std::error::Error trait
-impl std::error::Error for Homie5ValueConversionError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+// Implement the Error trait (`core::error::Error` is the trait `std::error::Error` re-exports)
+impl core::error::Error for Homie5ValueConversionError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         // This error type doesn't wrap any other errors
         None
     }
@@ -211,7 +212,7 @@ impl PartialEq for HomieColorValue {
             (HomieColorValue::RGB(r1, g1, b1), HomieColorValue::RGB(r2, g2, b2)) => r1 == r2 && g1 == g2 && b1 == b2,
             (HomieColorValue::HSV(h1, s1, v1), HomieColorValue::HSV(h2, s2, v2)) => h1 == h2 && s1 == s2 && v1 == v2,
             (HomieColorValue::XYZ(x1, y1, z1), HomieColorValue::XYZ(x2, y2, z2)) => {
-                (x1 - x2).abs() < EPSILON && (y1 - y2).abs() < EPSILON && (z1 - z2).abs() < EPSILON
+                libm::fabs(x1 - x2) < EPSILON && libm::fabs(y1 - y2) < EPSILON && libm::fabs(z1 - z2) < EPSILON
             }
             _ => false,
         }
@@ -269,7 +270,7 @@ impl HomieColorValue {
                     && (0.0..=1.0).contains(y)
                     && (0.0..=1.0).contains(z)
                     && x + y <= 1.0
-                    && (z - expected_z).abs() <= XYZ_EPSILON
+                    && libm::fabs(z - expected_z) <= XYZ_EPSILON
                 {
                     Ok(())
                 } else {
@@ -287,7 +288,7 @@ impl From<HomieColorValue> for String {
 }
 
 impl Display for HomieColorValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieColorValue::RGB(r, g, b) => write!(f, "rgb,{},{},{}", r, g, b),
             HomieColorValue::HSV(h, s, v) => write!(f, "hsv,{},{},{}", h, s, v),
@@ -316,7 +317,7 @@ impl FromStr for HomieColorValue {
             Ok(num)
         };
         let parse_rounded = |token: &str, reason: &'static str| -> Result<i64, Homie5ValueConversionError> {
-            Ok(parse_component(token, reason)?.round() as i64)
+            Ok(libm::round(parse_component(token, reason)?) as i64)
         };
 
         match tokens.next() {
@@ -618,7 +619,7 @@ impl<'de> Deserialize<'de> for HomieValue {
 }
 
 impl Display for HomieValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieValue::Empty => write!(f, ""),
             HomieValue::String(value) => write!(f, "{}", value),
@@ -941,14 +942,14 @@ impl HomieValue {
         // recommended step-rounding algorithm)
         let rounded = match range.step {
             Some(s) if s > 0.0 => {
-                let candidate = ((value - base) / s + 0.5).floor() * s + base;
+                let candidate = libm::floor((value - base) / s + 0.5) * s + base;
                 // Binary floating point cannot represent most decimal steps exactly (e.g. 0.1),
                 // so the snapped candidate may differ from a value that already lies exactly on
                 // the step grid by a few ULPs (e.g. 0.3 -> 0.30000000000000004). If the original
                 // value is within floating point tolerance of the candidate, keep the original
                 // value to avoid mutating already-valid values.
-                let tolerance = f64::EPSILON * value.abs().max(candidate.abs()).max(1.0) * 4.0;
-                if (candidate - value).abs() <= tolerance {
+                let tolerance = f64::EPSILON * libm::fabs(value).max(libm::fabs(candidate)).max(1.0) * 4.0;
+                if libm::fabs(candidate - value) <= tolerance {
                     value
                 } else {
                     candidate

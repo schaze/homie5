@@ -1,13 +1,13 @@
 //! This module provides all types and tools to create (builders) and manage homie device, node and property
 //! descriptions.
-use std::collections::BTreeMap;
-use std::collections::HashSet;
-use std::hash::Hash;
-use std::iter::Iterator;
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::hash::Hash;
+use core::iter::Iterator;
 
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
+use crate::prelude::*;
 use crate::AsNodeId;
 use crate::AsPropPointer;
 use crate::PropertyPointer;
@@ -127,7 +127,7 @@ impl HomiePropertyDescription {
                     return Err(PropertyDescriptionValidationError::EnumContainsEmptyValue);
                 }
 
-                let unique_len = values.iter().collect::<HashSet<_>>().len();
+                let unique_len = values.iter().collect::<BTreeSet<_>>().len();
                 if unique_len != values.len() {
                     return Err(PropertyDescriptionValidationError::DuplicateEnumValues);
                 }
@@ -143,7 +143,7 @@ impl HomiePropertyDescription {
                     return Err(PropertyDescriptionValidationError::MissingColorFormat);
                 }
 
-                let unique_len = formats.iter().collect::<HashSet<_>>().len();
+                let unique_len = formats.iter().collect::<BTreeSet<_>>().len();
                 if unique_len != formats.len() {
                     return Err(PropertyDescriptionValidationError::DuplicateColorFormats);
                 }
@@ -292,7 +292,7 @@ impl HomieNodeDescription {
     }
 }
 impl Hash for HomieNodeDescription {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
         self.r#type.hash(state);
 
@@ -588,8 +588,8 @@ pub struct DescriptionIssue {
     pub reason: String,
 }
 
-impl std::fmt::Display for DescriptionIssue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DescriptionIssue {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match &self.prop_id {
             Some(prop_id) => write!(f, "dropped property {}/{}: {}", self.node_id, prop_id, self.reason),
             None => write!(f, "dropped node {}: {}", self.node_id, self.reason),
@@ -607,7 +607,7 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 }
 
 impl Hash for HomieDeviceDescription {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
         self.r#type.hash(state);
         self.homie.hash(state);
@@ -639,9 +639,9 @@ pub fn serde_skip_if_empty_list<T>(children: &[T]) -> bool {
 
 pub struct HomiePropertyIterator<'a> {
     _device: &'a HomieDeviceDescription,
-    node_iter: std::collections::btree_map::Iter<'a, HomieID, HomieNodeDescription>,
+    node_iter: alloc::collections::btree_map::Iter<'a, HomieID, HomieNodeDescription>,
     current_node: Option<(&'a HomieID, &'a HomieNodeDescription)>,
-    property_iter: Option<std::collections::btree_map::Iter<'a, HomieID, HomiePropertyDescription>>,
+    property_iter: Option<alloc::collections::btree_map::Iter<'a, HomieID, HomiePropertyDescription>>,
 }
 
 impl<'a> HomiePropertyIterator<'a> {

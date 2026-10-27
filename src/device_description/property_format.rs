@@ -1,11 +1,12 @@
-use std::fmt::Display;
-use std::hash::Hash;
-use std::iter::Iterator;
-use std::str::FromStr;
+use core::fmt::Display;
+use core::hash::Hash;
+use core::iter::Iterator;
+use core::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::prelude::*;
 use crate::HomieDataType;
 
 use super::number_ranges::{FloatRange, IntegerRange};
@@ -42,7 +43,7 @@ impl HomiePropertyFormat {
 
 // Implement string representation of HomiePropertyFormat for serialization
 impl Display for HomiePropertyFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomiePropertyFormat::FloatRange(fr) => fr.fmt(f),
             HomiePropertyFormat::IntegerRange(ir) => ir.fmt(f),
@@ -77,7 +78,7 @@ impl BooleanFormat {
 }
 
 impl Display for BooleanFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{},{}", self.false_val, self.true_val)
     }
 }
@@ -99,7 +100,7 @@ impl FromStr for BooleanFormat {
         })
     }
 }
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash, PartialOrd)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[serde(rename_all = "lowercase")]
 pub enum ColorFormat {
     Rgb,
@@ -120,7 +121,7 @@ impl FromStr for ColorFormat {
 }
 
 impl Display for ColorFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ColorFormat::Rgb => write!(f, "rgb"),
             ColorFormat::Hsv => write!(f, "hsv"),

@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::prelude::*;
+
 /// Provider descriptor published at `{domain}/$meta/<provider>/$info`.
 ///
 /// Every meta provider MUST publish a descriptor containing at least the `schema` version.

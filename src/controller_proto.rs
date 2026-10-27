@@ -16,8 +16,9 @@
 //!    ['Homie5Message::PropertyTarget`] messages for the properties of the device
 //!
 
-use std::iter;
+use core::iter;
 
+use crate::prelude::*;
 use crate::{
     client::{Publish, QoS, Subscription, Unsubscribe},
     device_description::{HomieDeviceDescription, HomiePropertyDescription, HomiePropertyIterator},
@@ -320,8 +321,8 @@ impl Homie5ControllerProtocol {
 
 pub struct DeviceSubscriptionIterator<'a> {
     device: &'a DeviceRef,
-    attributes: std::slice::Iter<'a, &'static str>,
-    current_log_lvl: Option<std::slice::Iter<'a, DeviceLogLevel>>,
+    attributes: core::slice::Iter<'a, &'static str>,
+    current_log_lvl: Option<core::slice::Iter<'a, DeviceLogLevel>>,
 }
 
 impl<'a> DeviceSubscriptionIterator<'a> {

@@ -19,11 +19,12 @@
 //! assert_eq!(device_ref.to_string(), "homie/device-01");
 //! ```
 
-use std::fmt;
-use std::str::FromStr;
+use core::fmt;
+use core::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::prelude::*;
 use crate::{get_fallback_homie_domain, Homie5ProtocolError, HomieDomain, HomieID, ToTopic, TopicBuilder};
 
 /// Identifies a device via homie-domain and the device id

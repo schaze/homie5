@@ -16,7 +16,7 @@ pub enum MetaError {
 
     /// The MQTT payload could not be converted to a valid UTF-8 string.
     #[error(transparent)]
-    PayloadConversionError(#[from] std::string::FromUtf8Error),
+    PayloadConversionError(#[from] alloc::string::FromUtf8Error),
 
     /// The homie domain segment of the topic is invalid.
     #[error("Invalid homie domain: {0}")]

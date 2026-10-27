@@ -12,17 +12,22 @@ readme = "README.md"
 keywords = ["homie", "iot", "mqtt"]
 
 [features]
-ext-meta = []
-schemars = ["dep:schemars"]
+default = ["std"]
+# Without `std` the crate is `no_std` and only needs `alloc`.
+std = ["serde/std", "serde_json/std", "chrono/std", "thiserror/std"]
+ext-meta = ["std"]
+schemars = ["std", "dep:schemars"]
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-thiserror = "2.0"
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+chrono = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
+thiserror = { version = "2.0", default-features = false }
+libm = "0.2"
 schemars = { version = "1.2", optional = true }
 
 [dev-dependencies]
+chrono = { version = "0.4", features = ["clock"] }
 rumqttc = "0.25"
 bytes = "1"
 tokio = { version = "1.52", features = ["full"] }

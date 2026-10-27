@@ -15,6 +15,7 @@ Due to this, the usage of the library is a bit more involved as with a completly
 
 - [Installation and usage](#installation-and-usage)
 - [Feature Flags](#feature-flags)
+  - [no_std support](#no-std-support)
 - [Examples](#examples)
 - [Documentation](#documentation)
   - [TLDR;](#tldr)
@@ -51,8 +52,9 @@ for how to integrate with your MQTT client of choice.
 
 | Feature      | Description |
 |--------------|-------------|
-| `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support |
-| `schemars`   | Implements `schemars::JsonSchema` for `HomieID`, `HomieDomain`, `CustomDomain` and `HomieDataType` |
+| `std`        | Enabled by default. Without it the crate is `no_std` and only needs `alloc`, see [no_std support](#no-std-support) |
+| `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support. Requires `std` |
+| `schemars`   | Implements `schemars::JsonSchema` for `HomieID`, `HomieDomain`, `CustomDomain` and `HomieDataType`. Requires `std` |
 
 Enable features in your `Cargo.toml`:
 ```toml
@@ -60,7 +62,29 @@ Enable features in your `Cargo.toml`:
 homie5 = { version = "0.12", features = ["ext-meta"] }
 ```
 
-The minimum supported Rust version (MSRV) is 1.82.
+The minimum supported Rust version (MSRV) is 1.82, with and without `std`.
+
+<!-- TOC --><a name="no-std-support"></a>
+
+## no_std support
+
+For bare-metal targets, disable the default features:
+
+```toml
+[dependencies]
+homie5 = { version = "0.12.2", default-features = false }
+```
+
+The crate then only needs `alloc`, so the firmware must provide a global allocator (for example
+`esp-alloc` on ESP32 or `embedded-alloc`). Without `std`:
+
+- `set_fallback_homie_domain` is not available. References parsed without a domain always use
+  `HomieDomain::Default` (`"homie"`).
+- Enabling `ext-meta` or `schemars` turns `std` back on.
+- On targets without atomic compare-and-swap (e.g. ESP32-C3, RP2040), `HomieID` and `CustomDomain`
+  store owned strings as `Box<str>` instead of `Arc<str>`, so cloning them copies the string.
+
+CI builds the crate for `riscv32imc-unknown-none-elf` (ESP32-C3) to keep it `no_std` compatible.
 
 <!-- TOC --><a name="examples"></a>
 
@@ -106,8 +130,9 @@ homie5 provides validated reference types for addressing entities in the Homie t
 
 - **`HomieID`** — A validated identifier (lowercase a-z, 0-9, hyphens only, non-empty). Created via
   `HomieID::try_from("my-device")` or `HomieID::new_const("my-device")` (panics on invalid).
-  Internally uses `Arc<str>` for O(1) cloning. Validation errors (`InvalidHomieIDError`) carry the
-  offending `value` and the `reason`.
+  Internally uses `Arc<str>` for O(1) cloning (`Box<str>` on targets without atomic
+  compare-and-swap, see [no_std support](#no-std-support)). Validation errors
+  (`InvalidHomieIDError`) carry the offending `value` and the `reason`.
 - **`HomieDomain`** — The MQTT root topic. Variants: `Default` ("homie"), `All` ("+"), or
   `Custom(...)` for custom domains.
 - **`DeviceRef`** — Identifies a device (domain + device ID).
@@ -141,7 +166,8 @@ When `FromStr` encounters an input without an explicit domain segment (e.g. `"de
 of `"custom/device1"`), it resolves the domain via the **global fallback**. Out of the box, the
 fallback is `HomieDomain::Default` (`"homie"`).
 
-Applications that operate under a custom domain can override this once at startup:
+Applications that operate under a custom domain can override this once at startup (requires the
+default `std` feature):
 
 ```rust
 use homie5::{get_fallback_homie_domain, set_fallback_homie_domain, DeviceRef};

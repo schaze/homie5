@@ -9,11 +9,12 @@
 //! The `Display` format is `"{node_id}/{prop_id}"` (e.g. `"node-01/temperature"`).
 //! `FromStr` parses the same format.
 
-use std::fmt;
-use std::str::FromStr;
+use core::fmt;
+use core::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::prelude::*;
 use crate::{Homie5ProtocolError, HomieID};
 
 use super::AsPropPointer;

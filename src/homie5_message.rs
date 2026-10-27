@@ -79,6 +79,7 @@
 //! The `parse_mqtt_message` function successfully parses the message, and the resulting `Homie5Message` enum variant
 //! is used to handle the message.
 
+use crate::prelude::*;
 use crate::{
     client::mqtt_payload_to_string,
     device_description::{DescriptionIssue, HomieDeviceDescription},

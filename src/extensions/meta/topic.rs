@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::{HomieDomain, HomieID, TopicBuilder};
 
 /// The `$meta` reserved topic segment for the overlay namespace.

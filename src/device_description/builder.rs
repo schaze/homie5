@@ -21,9 +21,10 @@ use super::{
     ColorFormat, FloatRange, HomieDeviceDescription, HomieNodeDescription, HomiePropertyDescription, IntegerRange,
     PropertyDescriptionValidationError, RETAINED_DEFAULT, SETTABLE_DEFAULT,
 };
+use crate::prelude::*;
 use crate::{HomieID, HOMIE_VERSION_FULL};
-use std::collections::{btree_map, BTreeMap};
-use std::marker::PhantomData;
+use alloc::collections::{btree_map, BTreeMap};
+use core::marker::PhantomData;
 
 /// Builder for constructing `HomieDeviceDescription` objects.
 ///

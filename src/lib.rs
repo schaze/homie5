@@ -17,6 +17,31 @@
 //! both examples use rumqttc as a mqtt client implementation and provide a best practice in homie5
 //! usage and in how to integrate the 2 libraries.
 //!
+//! # Feature flags
+//!
+//! - `std` (default): enables `std` support in the dependencies and provides
+//!   [`set_fallback_homie_domain`]. Without it the crate is `no_std` and only needs `alloc`, so it
+//!   also runs on bare-metal targets that provide a global allocator.
+//! - `ext-meta`: the `$meta` overlay extension in `homie5::extensions::meta`. Requires `std`.
+//! - `schemars`: `schemars::JsonSchema` implementations for the identifier types. Requires `std`.
+//!
+#![no_std]
+
+extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
+
+/// The `alloc` items of the std prelude. The crate is always `no_std`, so modules import these
+/// from here instead of getting them from the std prelude.
+mod prelude {
+    pub(crate) use alloc::{
+        borrow::ToOwned,
+        format,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
+}
 
 pub mod client;
 mod controller_proto;
@@ -41,9 +66,11 @@ pub use value::*;
 
 use serde::{Deserialize, Serialize};
 
-use std::fmt;
-use std::fmt::{Debug, Display};
-use std::str::FromStr;
+use core::fmt;
+use core::fmt::{Debug, Display};
+use core::str::FromStr;
+
+use crate::prelude::*;
 
 /// The default mqtt root topic: "homie"
 pub const DEFAULT_HOMIE_DOMAIN: &str = "homie";
@@ -146,7 +173,7 @@ impl Debug for HomieDataType {
 }
 
 impl Display for HomieDataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieDataType::Integer => write!(f, "integer"),
             HomieDataType::Float => write!(f, "float"),
@@ -215,7 +242,7 @@ impl Debug for HomieDeviceStatus {
 }
 
 impl Display for HomieDeviceStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HomieDeviceStatus::Init => write!(f, "init"),
             HomieDeviceStatus::Ready => write!(f, "ready"),

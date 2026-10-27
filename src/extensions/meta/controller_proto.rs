@@ -18,7 +18,7 @@ impl MetaControllerProtocol {
 
     /// Subscribe to provider discovery: `{domain}/5/$meta/+/$info`
     pub fn subscribe_provider_discovery(&self, homie_domain: &HomieDomain) -> impl Iterator<Item = Subscription> {
-        std::iter::once(Subscription {
+        core::iter::once(Subscription {
             topic: meta_topic_root(homie_domain)
                 .add_attr("+")
                 .add_attr(META_INFO_ATTRIBUTE)
@@ -33,7 +33,7 @@ impl MetaControllerProtocol {
         homie_domain: &HomieDomain,
         provider_id: &HomieID,
     ) -> impl Iterator<Item = Subscription> {
-        std::iter::once(Subscription {
+        core::iter::once(Subscription {
             topic: meta_topic_root(homie_domain).add_id(provider_id).add_attr("+").build(),
             qos: QoS::ExactlyOnce,
         })
@@ -41,7 +41,7 @@ impl MetaControllerProtocol {
 
     /// Subscribe to all overlays from all providers: `{domain}/5/$meta/+/+`
     pub fn subscribe_all_overlays(&self, homie_domain: &HomieDomain) -> impl Iterator<Item = Subscription> {
-        std::iter::once(Subscription {
+        core::iter::once(Subscription {
             topic: meta_topic_root(homie_domain).add_attr("+").add_attr("+").build(),
             qos: QoS::ExactlyOnce,
         })
@@ -49,7 +49,7 @@ impl MetaControllerProtocol {
 
     /// Unsubscribe from provider discovery.
     pub fn unsubscribe_provider_discovery(&self, homie_domain: &HomieDomain) -> impl Iterator<Item = Unsubscribe> {
-        std::iter::once(Unsubscribe {
+        core::iter::once(Unsubscribe {
             topic: meta_topic_root(homie_domain)
                 .add_attr("+")
                 .add_attr(META_INFO_ATTRIBUTE)
@@ -63,14 +63,14 @@ impl MetaControllerProtocol {
         homie_domain: &HomieDomain,
         provider_id: &HomieID,
     ) -> impl Iterator<Item = Unsubscribe> {
-        std::iter::once(Unsubscribe {
+        core::iter::once(Unsubscribe {
             topic: meta_topic_root(homie_domain).add_id(provider_id).add_attr("+").build(),
         })
     }
 
     /// Unsubscribe from all provider overlays.
     pub fn unsubscribe_all_overlays(&self, homie_domain: &HomieDomain) -> impl Iterator<Item = Unsubscribe> {
-        std::iter::once(Unsubscribe {
+        core::iter::once(Unsubscribe {
             topic: meta_topic_root(homie_domain).add_attr("+").add_attr("+").build(),
         })
     }

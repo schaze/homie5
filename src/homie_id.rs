@@ -14,6 +14,9 @@
 //! (atomic reference count increment instead of string copy). This is ideal when IDs are cloned
 //! frequently (e.g., as HashMap keys in reference types).
 //!
+//! Targets without atomic compare-and-swap (e.g. ESP32-C3, RP2040) have no `Arc`. There a
+//! `HomieID` stores a `Box<str>` instead, and cloning an owned ID copies the string.
+//!
 //! # Errors
 //!
 //! If an ID fails to meet the specifications, an `InvalidHomieIDError` is returned with a message indicating the issue.
@@ -31,21 +34,28 @@
 //! assert!(invalid_id.is_err());
 //! ```
 
-use std::convert::TryFrom;
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use core::convert::TryFrom;
+use core::fmt;
+use core::hash::{Hash, Hasher};
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::prelude::*;
 use crate::AsNodeId;
+
+/// Owned string storage: `Arc<str>` where the target has atomic compare-and-swap on pointers,
+/// `Box<str>` otherwise (e.g. ESP32-C3, RP2040), where `alloc::sync` does not exist.
+#[cfg(target_has_atomic = "ptr")]
+pub(crate) type SharedStr = alloc::sync::Arc<str>;
+#[cfg(not(target_has_atomic = "ptr"))]
+pub(crate) type SharedStr = alloc::boxed::Box<str>;
 
 // ---- Inner representation ----
 
 #[derive(Debug, Clone)]
 enum HomieIDInner {
     Static(&'static str),
-    Shared(Arc<str>),
+    Shared(SharedStr),
 }
 
 impl HomieIDInner {
@@ -53,7 +63,7 @@ impl HomieIDInner {
         Self::Static(s)
     }
     fn new_owned(s: String) -> Self {
-        Self::Shared(Arc::from(s))
+        Self::Shared(SharedStr::from(s))
     }
     fn as_str(&self) -> &str {
         match self {
@@ -82,7 +92,7 @@ impl fmt::Display for InvalidHomieIDError {
     }
 }
 
-impl std::error::Error for InvalidHomieIDError {}
+impl core::error::Error for InvalidHomieIDError {}
 
 // ---- HomieID ----
 
@@ -163,13 +173,13 @@ impl Hash for HomieID {
 }
 
 impl PartialOrd for HomieID {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for HomieID {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.as_str().cmp(other.as_str())
     }
 }
@@ -194,7 +204,7 @@ impl TryFrom<String> for HomieID {
     }
 }
 
-impl std::str::FromStr for HomieID {
+impl core::str::FromStr for HomieID {
     type Err = InvalidHomieIDError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -235,8 +245,8 @@ impl<'de> Deserialize<'de> for HomieID {
 
 #[cfg(feature = "schemars")]
 impl schemars::JsonSchema for HomieID {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("HomieID")
+    fn schema_name() -> alloc::borrow::Cow<'static, str> {
+        alloc::borrow::Cow::Borrowed("HomieID")
     }
 
     fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
