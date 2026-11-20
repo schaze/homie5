@@ -23,7 +23,7 @@
 //!   [`set_fallback_homie_domain`]. Without it the crate is `no_std` and only needs `alloc`, so it
 //!   also runs on bare-metal targets that provide a global allocator.
 //! - `ext-meta`: the `$meta` overlay extension in `homie5::extensions::meta`.
-//! - `schemars`: `schemars::JsonSchema` implementations for the identifier types. Requires `std`.
+//! - `schemars`: `schemars::JsonSchema` implementations for the identifier types and [`HomieValue`]. Requires `std`.
 //!
 #![no_std]
 

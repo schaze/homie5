@@ -1,6 +1,6 @@
 [package]
 name = "homie5"
-version = "0.13.0"
+version = "0.13.1"
 edition = "2021"
 rust-version = "1.82"
 publish = true
@@ -36,3 +36,4 @@ ctrlc = "3.5"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde_yaml_ng = "0.10"
+jsonschema = { version = "0.60", default-features = false }

@@ -55,7 +55,7 @@ for how to integrate with your MQTT client of choice.
 |--------------|-------------|
 | `std`        | Enabled by default. Without it the crate is `no_std` and only needs `alloc`, see [no_std support](#no-std-support) |
 | `ext-meta`   | Enables the metadata extension (`homie5::extensions::meta`) for device metadata support |
-| `schemars`   | Implements `schemars::JsonSchema` for `HomieID`, `HomieDomain`, `CustomDomain` and `HomieDataType`. Requires `std` |
+| `schemars`   | Implements `schemars::JsonSchema` for `HomieID`, `HomieDomain`, `CustomDomain`, `HomieDataType` and `HomieValue`. Requires `std` |
 
 Enable features in your `Cargo.toml`:
 ```toml

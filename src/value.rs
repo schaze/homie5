@@ -618,6 +618,142 @@ impl<'de> Deserialize<'de> for HomieValue {
     }
 }
 
+// ---- JsonSchema ----
+
+/// A number as accepted by `f64::from_str`, without the non-finite forms (`inf`, `NaN`).
+#[cfg(feature = "schemars")]
+macro_rules! float_pattern {
+    () => {
+        r"[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
+    };
+}
+
+#[cfg(feature = "schemars")]
+impl HomieValue {
+    /// Payload of `Color`: the syntax of [`HomieColorValue::from_str`]; component ranges are
+    /// checked by the parser only.
+    const COLOR_PATTERN: &'static str = concat!(
+        "^(?:(?:rgb|hsv),",
+        float_pattern!(),
+        ",",
+        float_pattern!(),
+        ",",
+        float_pattern!(),
+        "|xyz,",
+        float_pattern!(),
+        ",",
+        float_pattern!(),
+        ")$"
+    );
+
+    /// Payload of `DateTime`: the syntax of [`HomieValue::flexible_datetime_parser`], RFC 3339 or
+    /// an ISO 8601 local time without offset; calendar and clock ranges are checked by the parser
+    /// only.
+    const DATETIME_PATTERN: &'static str = concat!(
+        r"^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:[Zz]|[+-][0-9]{2}:[0-9]{2})$",
+        "|",
+        // chrono's format parser allows whitespace before each numeric field.
+        r"^\s*(?:[+-][0-9]+|[0-9]{1,4})-\s*[0-9]{1,2}-\s*[0-9]{1,2}T\s*[0-9]{1,2}:\s*[0-9]{1,2}(?::\s*[0-9]{1,2}(?:\.[0-9]+)?)?Z?$"
+    );
+
+    /// Payload of `Duration`: the syntax of [`HomieValue::parse_duration`].
+    const DURATION_PATTERN: &'static str = "^PT(?:[0-9]+H(?:[0-9]+M)?(?:[0-9]+S)?|[0-9]+M(?:[0-9]+S)?|[0-9]+S)$";
+}
+
+/// JSON Schema for [`HomieValue`], matching its hand-written `Deserialize`: a single-key map per
+/// variant (`{ Bool: true }`) or the bare string `"Empty"`. The YAML tag form (`!Bool true`)
+/// has no JSON Schema equivalent; validators that read YAML tags as single-key maps accept it.
+///
+/// Checks the parsers make beyond syntax (color component ranges, calendar validity, `i64`
+/// bounds, duration overflow, integral floats like `5.0` for `Integer`) are not expressed.
+#[cfg(feature = "schemars")]
+impl schemars::JsonSchema for HomieValue {
+    fn schema_name() -> alloc::borrow::Cow<'static, str> {
+        alloc::borrow::Cow::Borrowed("HomieValue")
+    }
+
+    fn schema_id() -> alloc::borrow::Cow<'static, str> {
+        alloc::borrow::Cow::Borrowed(concat!(module_path!(), "::HomieValue"))
+    }
+
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        fn variant(name: &str, description: &str, payload: serde_json::Value) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "description": description,
+                "properties": { name: payload },
+                "required": [name],
+                "additionalProperties": false,
+            })
+        }
+
+        schemars::json_schema!({
+            "description": "A Homie property value: a single-key map naming the datatype, for example \
+                `{ Bool: true }` or `{ Integer: 5 }`, or the bare string \"Empty\". YAML tags such as \
+                `!Bool true` are accepted by the parser too.",
+            "oneOf": [
+                {
+                    "type": "string",
+                    "const": "Empty",
+                    "description": "The empty value, shorthand for `{ Empty: null }`.",
+                },
+                variant(
+                    "Empty",
+                    "The empty value, often used for uninitialized states. The payload is ignored; use null.",
+                    serde_json::json!({}),
+                ),
+                variant(
+                    "String",
+                    "A string value, for example \"temperature\".",
+                    serde_json::json!({ "type": "string" }),
+                ),
+                variant(
+                    "Integer",
+                    "A 64-bit signed integer, for example 21 or -5.",
+                    serde_json::json!({ "type": "integer" }),
+                ),
+                variant(
+                    "Float",
+                    "A 64-bit floating point number, for example 21.5 or -10.25.",
+                    serde_json::json!({ "type": "number" }),
+                ),
+                variant(
+                    "Bool",
+                    "A boolean value: true or false.",
+                    serde_json::json!({ "type": "boolean" }),
+                ),
+                variant(
+                    "Enum",
+                    "An enum value; must be one of the property format's values, for example \"low\".",
+                    serde_json::json!({ "type": "string" }),
+                ),
+                variant(
+                    "Color",
+                    "A color: rgb,R,G,B (0-255), hsv,H,S,V (H 0-360, S and V 0-100) or xyz,X,Y (0-1), \
+                     for example \"rgb,100,100,100\", \"hsv,300,50,75\" or \"xyz,0.25,0.34\".",
+                    serde_json::json!({ "type": "string", "pattern": Self::COLOR_PATTERN }),
+                ),
+                variant(
+                    "DateTime",
+                    "An ISO 8601 date and time, for example \"2024-10-08T10:15:30Z\". Times without an \
+                     offset are UTC.",
+                    serde_json::json!({ "type": "string", "pattern": Self::DATETIME_PATTERN }),
+                ),
+                variant(
+                    "Duration",
+                    "An ISO 8601 duration in the form PTxHxMxS, for example \"PT12H5M46S\", \"PT30M\" or \"PT10S\".",
+                    serde_json::json!({ "type": "string", "pattern": Self::DURATION_PATTERN }),
+                ),
+                variant(
+                    "JSON",
+                    "A JSON value, for example { temperature: 21.5, humidity: 60 }.",
+                    serde_json::json!({}),
+                ),
+            ],
+        })
+    }
+}
+
 impl Display for HomieValue {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
